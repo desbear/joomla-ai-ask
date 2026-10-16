@@ -31,7 +31,7 @@ Joomla 4.4 or later (5 and 6 included), PHP 8.1 or later, and an OpenAI API key 
 
 ## Installation
 
-1. Install `pkg_mcpask-x.y.z.zip` in **System → Install → Extensions**.
+1. Download `pkg_mcpask-x.y.z.zip` from the [latest release](https://github.com/desbear/joomla-ai-ask/releases/latest) (under **Assets**) and install it in **System → Install → Extensions**. Do not use GitHub's "Source code" zip: that is the repository, not an installable package.
 2. Open **Components → AI Ask → Options** and enter the API key.
 3. Press **Synchronise the index** on the dashboard.
 4. Publish the module **AI Ask** in a position of your template (or as a floating button).
@@ -86,5 +86,7 @@ AI Ask for Joomla 是給訪客用的搜尋框：透過 AI 依網站自己的內�
 - **小寵物**：浮動按鈕可換成一隻小寵物，依訪客操作與回答播放九種動作，每個動作有全身圖與正方形縮圖。不附預設角色，請在「小寵物」頁建立，詳見 [docs/pets.md](docs/pets.md)。
 - **費用控制**：可依訪客、使用者群組與全站限制提問數，用 Joomla 權限設定誰能提問；找不到相關內容時不呼叫模型；測試弱點的探測內容在送出前就被擋下。
 - **搭配 [MCP Server for Joomla](https://github.com/desbear/joomla-mcp)**（選用）：外掛「MCP - AI Ask」讓連到網站的 AI 助理可以查看提問、評分、來源規則、Agent、轉接紀錄與報告（限超級管理員）。
+
+**下載**：到 [最新版本頁](https://github.com/desbear/joomla-ai-ask/releases/latest)，在 **Assets** 下載 `pkg_mcpask-x.y.z.zip`（不要下載「Source code」，那是原始碼，不能直接安裝）。
 
 **安裝**：安裝 `pkg_mcpask-x.y.z.zip` →「元件 → AI 問答 → 選項」填入 API 金鑰 → 儀表板按「同步索引」→ 發佈「AI 問答」模組 → 新增排程工作「AI 問答 - 同步索引」。還沒設定前，可開啟模組的「示範模式」先看介面。
