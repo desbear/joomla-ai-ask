@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<extension type="plugin" group="mcpask" method="upgrade">
+	<name>plg_mcpask_imagegen</name>
+	<author>GSS</author>
+	<creationDate>2026-10</creationDate>
+	<copyright>(C) 2026 GSS</copyright>
+	<license>GNU General Public License version 2 or later; see LICENSE</license>
+	<version>0.14.0</version>
+	<description>PLG_MCPASK_IMAGEGEN_XML_DESCRIPTION</description>
+	<namespace path="src">Gss\Plugin\Mcpask\Imagegen</namespace>
+	<files>
+		<folder plugin="imagegen">services</folder>
+		<folder>src</folder>
+	</files>
+	<languages folder="language">
+		<language tag="en-GB">en-GB/plg_mcpask_imagegen.ini</language>
+		<language tag="en-GB">en-GB/plg_mcpask_imagegen.sys.ini</language>
+		<language tag="zh-TW">zh-TW/plg_mcpask_imagegen.ini</language>
+		<language tag="zh-TW">zh-TW/plg_mcpask_imagegen.sys.ini</language>
+	</languages>
+	<config>
+		<fields name="params">
+			<fieldset name="basic">
+				<field name="provider" type="list" default="openai" label="PLG_MCPASK_IMAGEGEN_PROVIDER">
+					<option value="openai">OpenAI</option>
+					<option value="openwebui">Open WebUI</option>
+				</field>
+				<field name="base" type="url" filter="url" hint="https://api.openai.com/v1"
+					label="PLG_MCPASK_IMAGEGEN_BASE" description="PLG_MCPASK_IMAGEGEN_BASE_DESC" />
+				<field name="key" type="password" filter="raw" autocomplete="off" maxlength="999"
+					label="PLG_MCPASK_IMAGEGEN_KEY" />
+				<field name="model" type="text" filter="string" hint="gpt-image-1"
+					label="PLG_MCPASK_IMAGEGEN_MODEL" description="PLG_MCPASK_IMAGEGEN_MODEL_DESC" />
+				<field name="quality" type="list" default="medium" showon="provider:openai" label="PLG_MCPASK_IMAGEGEN_QUALITY">
+					<option value="low">low</option>
+					<option value="medium">medium</option>
+					<option value="high">high</option>
+				</field>
+			</fieldset>
+		</fields>
+	</config>
+</extension>

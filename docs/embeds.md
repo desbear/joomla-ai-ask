@@ -1,0 +1,41 @@
+# Embeds
+
+Put AI Ask on another website or web application with one line of script. Set up an embed key under **AI Ask → Embeds**; its page gives the line to copy:
+
+```html
+<script src="https://your-joomla-site/media/mod_mcp_ask/js/embed.js" data-key="pk_…" async></script>
+```
+
+The script puts a frame of your Joomla site in a corner of the page: the size of the button, of the open search box, or of the whole window for the conversation. What is asked and answered stays in the frame; the other website cannot read it.
+
+## Settings of a key
+
+- **Websites allowed**: one origin a line (`https://app.example.com`, `https://*.example.com`; `http://` only for local addresses). The frame is served with a `frame-ancestors` policy listing only these, so browsers refuse it anywhere else.
+- **Look**: the button's side, name and placeholder, colours, a pet, how many sources are shown.
+- **Use**: questions a day for the key, whether agents are offered.
+- **Visitors**: a sign-in button, and tokens signed by the other website's server (see below).
+
+## Where the visitor is
+
+The page's address and title go with each question. The page's own scripts may add a few values:
+
+```js
+McpAsk.setContext({ product: 'Billing', section: 'Invoices' });
+McpAsk.open();
+McpAsk.close();
+```
+
+When the address is a page AI Ask reads from a peer site or website, the answer starts from that page.
+
+## Who the visitor is
+
+What the other website's page says about who the visitor is never counts unless it is signed:
+
+- **Sign-in button**: a small window of your Joomla site, which may go straight to an External Login server (CAS single sign-on, say) or the site's login page, hands the frame a token for the key (8 hours) and closes. For websites without a sign-in of their own.
+- **Tokens signed by the other website's server** (off by default): a JWT signed HS256 with the key's secret, with `aud` the public key, `email`, `name`, `exp` within an hour, given as `data-user` or `McpAsk.setUser(token)`. The e-mail address must belong to an account on the Joomla site.
+
+A known visitor is the request's user for that request only: questions are logged to the account, its limits and access apply, and agents fill in names and e-mail addresses.
+
+---
+
+**繁體中文**：在「AI 問答 → 嵌入」建立嵌入金鑰，把一行程式碼貼到其他網站，角落就會出現問答按鈕（本站的 iframe，只允許設定的網站，瀏覽器會拒絕其他網站）。對方網頁可以用 `McpAsk.setContext()` 帶入所在功能。身分只接受兩種：本站小視窗登入後發的憑證，或對方伺服器用金鑰密鑰簽的 JWT；email 必須是本站已有的帳號。
