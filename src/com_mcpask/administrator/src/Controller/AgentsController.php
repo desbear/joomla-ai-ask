@@ -83,6 +83,15 @@ class AgentsController extends BaseController
 
         $this->app->setUserState('com_mcpask.agent.data', null);
 
+        // Agents to pass visitors on to, but nothing that ever offers them: said, not to be missed
+        $params = (array) ($data['params'] ?? []);
+        $own    = (array) ($data['own'] ?? []);
+
+        if (array_filter((array) ($params['refer_agents'] ?? [])) && empty($params['refer_after'])
+            && ($type !== 'livechat' || ($own['away'] ?? 'message') === 'message')) {
+            $this->app->enqueueMessage(Text::_($type === 'livechat' ? 'COM_MCPASK_AGENT_REFER_UNUSED_LIVECHAT' : 'COM_MCPASK_AGENT_REFER_UNUSED'), 'warning');
+        }
+
         if ($this->getTask() !== 'apply') {
             $this->setRedirect(Route::_('index.php?option=com_mcpask&view=agents', false), Text::_('COM_MCPASK_AGENT_SAVED'));
 

@@ -31,10 +31,10 @@ final class Handoffs
     public const LINK = '#mcp-ask-handoff';
 
     /** How a visitor came to ask for a person */
-    public const SOURCES = ['list', 'offer', 'unhelpful', 'link', 'button'];
+    public const SOURCES = ['list', 'offer', 'unhelpful', 'link', 'button', 'refer'];
 
     /** What may come of it, in order: a later outcome never gives way to an earlier one */
-    public const OUTCOMES = ['requested', 'failed', 'opened', 'message', 'chatting'];
+    public const OUTCOMES = ['requested', 'failed', 'opened', 'referred', 'message', 'chatting'];
 
     private const KEEP_DAYS = 365;
 
@@ -78,7 +78,7 @@ final class Handoffs
      * What happened in the chat window: it opened (and whether someone was there), a chat began,
      * a message was left, or it would not load. Only the visitor it was made for may tell it.
      */
-    public function event(string $key, string $visitor, string $event, string $availability = ''): bool
+    public function event(string $key, string $visitor, string $event, string $availability = '', int $referredTo = 0): bool
     {
         if (!preg_match('/^[0-9a-f]{48}$/', $key) || !\in_array($event, self::OUTCOMES, true) || $event === 'requested') {
             return false;
@@ -107,6 +107,11 @@ final class Handoffs
             $update->availability = $availability;
         }
 
+        // Passed on to another agent instead (0.17.0): which one
+        if ($event === 'referred' && $referredTo > 0) {
+            $update->referred_to = $referredTo;
+        }
+
         $db->updateObject('#__mcpask_handoffs', $update, 'id');
 
         return true;
@@ -123,9 +128,10 @@ final class Handoffs
     {
         $db    = $this->db;
         $query = $db->getQuery(true)
-            ->select('h.id, h.agent_id, a.title AS agent, h.source, h.hours, h.availability, h.outcome, h.question, h.page, h.report, h.language, h.created, h.modified')
+            ->select('h.id, h.agent_id, a.title AS agent, h.source, h.hours, h.availability, h.outcome, h.referred_to, r.title AS referred, h.question, h.page, h.report, h.language, h.created, h.modified')
             ->from($db->quoteName('#__mcpask_handoffs', 'h'))
-            ->join('LEFT', $db->quoteName('#__mcpask_agents', 'a'), 'a.id = h.agent_id');
+            ->join('LEFT', $db->quoteName('#__mcpask_agents', 'a'), 'a.id = h.agent_id')
+            ->join('LEFT', $db->quoteName('#__mcpask_agents', 'r'), 'r.id = h.referred_to');
 
         if (!empty($filter['agent'])) {
             $agent = (int) $filter['agent'];

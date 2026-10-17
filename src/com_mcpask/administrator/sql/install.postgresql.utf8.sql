@@ -147,6 +147,7 @@ CREATE TABLE IF NOT EXISTS "#__mcpask_handoffs" (
   "hours" smallint DEFAULT 0 NOT NULL,
   "availability" varchar(16) DEFAULT '' NOT NULL,
   "outcome" varchar(16) DEFAULT 'requested' NOT NULL,
+  "referred_to" integer DEFAULT 0 NOT NULL,
   "question" varchar(300) DEFAULT '' NOT NULL,
   "page" varchar(500) DEFAULT '' NOT NULL,
   "report" smallint DEFAULT 0 NOT NULL,

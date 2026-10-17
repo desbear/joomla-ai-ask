@@ -2,7 +2,7 @@
 
 A search box for your visitors that answers their questions from your site's own content with AI, and names the pages each answer came from. It can also hand the conversation to helpers that get things done (fill in a form, write an analysis report, pass the visitor on to a person), show up on your other websites with one line of script, and turn its floating button into an animated pet.
 
-> **Status: experimental (0.16.0).** Runs on Joomla 4.4, 5 and 6 with the OpenAI service. Not yet used on a production site.
+> **Status: experimental (0.17.0).** Runs on Joomla 4.4, 5 and 6 with the OpenAI service. Not yet used on a production site.
 
 [繁體中文說明](#繁體中文)
 
@@ -19,7 +19,8 @@ A search box for your visitors that answers their questions from your site's own
 - **Appearance described in words**: describe the look ("calm dark blue") and the AI service proposes the module's colours, shown in a live preview; text that would be hard to read is made readable (WCAG contrast).
 - **Agents**: helpers that take over the conversation to get one thing done, offered by plugins of the `mcpask` group. Listed beside the search box, offered below answers to questions close to their trigger phrases, or offered when the AI judges they fit. See [docs/agents.md](docs/agents.md).
   - **RSForm! Pro** (`plg_mcpask_rsform`, shown only when RSForm! Pro is installed): fills in a form in conversation, a page at a time, and sends it as RSForm does. It may end with an **analysis report**: a result type and scores, sections streamed in, the pages it cites, a private address, and the link e-mailed to the visitor.
-  - **LiveChat** (`plg_mcpask_livechat`): passes visitors on to people in LiveChat, with the conversation so far; a chat within office hours when someone is there, otherwise a message kept as a ticket; every handoff is logged.
+  - **LiveChat** (`plg_mcpask_livechat`): passes visitors on to people in LiveChat, with the conversation so far; a chat within office hours when someone is there, otherwise a message kept as a ticket, or other agents such as a contact form; every handoff is logged.
+  - Agents pass visitors on to each other (**Referral**): when one cannot help just now, or when it is done.
   - Pictures made by AI for reports come from an image plugin, such as `plg_mcpask_imagegen` (OpenAI or Open WebUI); without one, the back end offers no such pictures.
 - **Embeds**: AI Ask on other websites and products with one line of script (a frame of this site, allowed only on the websites listed), with the page the visitor is on, an optional sign-in in a small window, or a token signed by the other website's server. See [docs/embeds.md](docs/embeds.md).
 - **Pets**: the floating button may be a pet whose moments (idle, greeting, picked up, thinking, talking, glad, puzzled, asleep, waking) follow the visitor and the answer, with a whole-body picture and a square thumbnail for each. No pet comes with the extension: make your own on the Pets page. See [docs/pets.md](docs/pets.md).
@@ -67,7 +68,7 @@ GNU General Public License version 2 or later.
 
 AI Ask for Joomla 是給訪客用的搜尋框：透過 AI 依網站自己的內容回答問題，並標示每段回答來自哪些頁面。還可以把對話交給能完成事情的小幫手（填表單、寫分析報告、轉接真人客服），用一行程式碼放到你的其他網站，也可以把浮動按鈕換成會動的小寵物。
 
-> **狀態：實驗性（0.16.0）。** 可在 Joomla 4.4、5、6 搭配 OpenAI 服務執行，尚未用於正式網站。
+> **狀態：實驗性（0.17.0）。** 可在 Joomla 4.4、5、6 搭配 OpenAI 服務執行，尚未用於正式網站。
 
 **功能**
 

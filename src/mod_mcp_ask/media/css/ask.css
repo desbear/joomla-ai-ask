@@ -2215,6 +2215,24 @@ html:active-view-transition-type(mcp-ask-nav) {
     }
   }
 
+  /* Other agents to go on with (0.17.0): on their own, or under a handoff */
+  .mcp-ask-referrals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .mcp-ask-handoff .mcp-ask-referrals {
+    margin-block-start: 12px;
+    padding-block-start: 12px;
+    border-block-start: 1px solid var(--mcp-ask-line);
+  }
+
+  .mcp-ask-card--agents__text {
+    margin: 0 0 10px;
+    color: var(--mcp-ask-text);
+  }
+
   /* A box of the form the visitor only reads: terms to agree to, say */
   .mcp-ask-field__read {
     max-block-size: 10em;
@@ -3235,5 +3253,52 @@ html:active-view-transition-type(mcp-ask-nav) {
 
   .mcp-ask__agents {
     inset-inline: calc(var(--mcp-ask-pet-size) + 8px) auto;
+  }
+}
+
+/* ---------- Whether people answer now, on the buttons that lead to them (0.17.0) ---------- */
+.mcp-ask-chip:has(.mcp-ask-light),
+.mcp-ask-chat__human:has(.mcp-ask-light) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.mcp-ask-light {
+  display: inline-block;
+  flex: none;
+  inline-size: 8px;
+  block-size: 8px;
+  margin-inline-start: 2px;
+  border-radius: 50%;
+  background: var(--mcp-ask-muted);
+  vertical-align: 1px;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.mcp-ask-light--online {
+  background: #16a34a;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #16a34a 22%, transparent);
+}
+
+.mcp-ask-light--offline,
+.mcp-ask-light--closed {
+  background: #dc2626;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #dc2626 18%, transparent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .mcp-ask-light--online {
+    animation: mcp-ask-light 2.4s ease-in-out infinite;
+  }
+}
+
+@keyframes mcp-ask-light {
+  50% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, #16a34a 8%, transparent);
   }
 }

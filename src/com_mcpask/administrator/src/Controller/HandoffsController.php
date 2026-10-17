@@ -49,12 +49,12 @@ class HandoffsController extends BaseController
 
         // A byte order mark, for spreadsheets to read UTF-8
         fwrite($out, "\xEF\xBB\xBF");
-        fputcsv($out, ['id', 'created', 'agent', 'source', 'within_hours', 'availability', 'outcome', 'question', 'page', 'report', 'language'], ',', '"', '\\');
+        fputcsv($out, ['id', 'created', 'agent', 'source', 'within_hours', 'availability', 'outcome', 'referred_to', 'question', 'page', 'report', 'language'], ',', '"', '\\');
 
         foreach ($rows as $row) {
             // A cell that a spreadsheet would read as a formula is written as text
             $cells = array_map(static fn ($cell) => preg_match('/^[=+\-@\t\r]/', (string) $cell) ? "'" . $cell : (string) $cell, [
-                $row->id, $row->created, $row->agent, $row->source, $row->hours, $row->availability, $row->outcome, $row->question, $row->page, $row->report, $row->language,
+                $row->id, $row->created, $row->agent, $row->source, $row->hours, $row->availability, $row->outcome, (string) ($row->referred ?? ''), $row->question, $row->page, $row->report, $row->language,
             ]);
             fputcsv($out, $cells, ',', '"', '\\');
         }

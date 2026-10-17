@@ -54,8 +54,12 @@ class AgentController extends BaseController
             $this->send(['error' => Text::_('COM_MCPASK_ERROR_LIMIT_DAY')]);
         }
 
-        $context = new Context($agent, ['entry' => $this->entry($body)], $this->app->getLanguage()->getTag(), $settings, $db, $visitor);
+        $entry   = $this->entry($body);
+        $context = new Context($agent, ['entry' => $entry], $this->app->getLanguage()->getTag(), $settings, $db, $visitor);
+        $context->chain = $entry['chain'];
         $reply   = $this->run(fn () => Agents::types()[$agent->type]->start($context));
+
+        $this->onward($context, $reply);
         $sessions = new Sessions($db, $this->secret());
         $session  = $sessions->create((int) $agent->id, $visitor, $context->state);
 
@@ -106,7 +110,10 @@ class AgentController extends BaseController
         }
 
         $context = new Context($agent, $open['state'], $this->app->getLanguage()->getTag(), $settings, $db, $visitor);
+        $context->chain = self::chain($body['chain'] ?? []);
         $reply   = $this->run(fn () => Agents::types()[$agent->type]->handle($context, $input));
+
+        $this->onward($context, $reply);
 
         $sessions->save($key, $context->state, $reply->done ? 'done' : 'active');
 
@@ -177,7 +184,8 @@ class AgentController extends BaseController
             \is_string($body['key'] ?? null) ? $body['key'] : '',
             $visitor,
             \is_string($body['event'] ?? null) ? $body['event'] : '',
-            \is_string($body['availability'] ?? null) ? $body['availability'] : ''
+            \is_string($body['availability'] ?? null) ? $body['availability'] : '',
+            (int) ($body['agent'] ?? 0)
         );
 
         $this->send(['ok' => $logged]);
@@ -230,7 +238,42 @@ class AgentController extends BaseController
             'answer'   => $text($entry['answer'] ?? null, 1500),
             'page'     => $here($entry['page'] ?? null, true),
             'report'   => $here($entry['report'] ?? null),
+            'chain'    => self::chain($entry['chain'] ?? []),
         ];
+    }
+
+    /**
+     * The agents a visitor came through before this one, as the page tells them (0.17.0).
+     *
+     * @return  int[]
+     */
+    private static function chain(mixed $chain): array
+    {
+        return \array_slice(array_values(array_unique(array_filter(array_map('intval', \is_array($chain) ? $chain : [])))), 0, 5);
+    }
+
+    /**
+     * An agent that is done offers the agents it passes visitors on to, when it is set to (0.17.0).
+     * Not when it passed the visitor on already: to a person, or to other agents.
+     */
+    private function onward(Context $context, Reply $reply): void
+    {
+        if (!$reply->done || !$context->params()->get('refer_after', 0)) {
+            return;
+        }
+
+        foreach ($reply->cards as $card) {
+            if (\in_array($card['type'] ?? '', ['handoff', 'agents', 'error'], true)) {
+                return;
+            }
+        }
+
+        $text = trim((string) $context->params()->get('refer_text', '')) ?: Text::_('COM_MCPASK_AGENT_REFER_AFTER');
+        $card = Card::agents($text, $context->referrals(), $context->chainOnward());
+
+        if ($card) {
+            $reply->add($card);
+        }
     }
 
     /**

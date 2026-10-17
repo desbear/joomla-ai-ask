@@ -2,6 +2,34 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask for Joomla 0.17.0
+
+- **Agents pass visitors on to other agents.** A new **Referral** tab for every agent: the agents it passes visitors on
+  to, with the conversation so far, and whether to offer them when it is done (a contact form sent: "You can also chat
+  with a person"). An agent already in the conversation is not offered again, and visitors are passed on at most twice
+  in a row, so two agents never send a visitor back and forth. Agents are offered only when the visitor may meet them.
+- **LiveChat: when no one is there.** Outside office hours, or within them when no one is online, LiveChat may offer a
+  message to leave (as before), the agents under Referral instead (a contact form), or both. Outside office hours this
+  is decided at once; within them, LiveChat is asked first, and its window opens only when someone is there. On another
+  website's page (embedded) the window opens there as before, with the agents beside it.
+- **A light on the buttons that lead to people** ("Talk to a person", and the agent's own button): red outside office
+  hours; within them green or red once LiveChat has said whether someone is online, when it is on the page already or
+  has been opened in this visit. LiveChat is never loaded just for the light (it sets cookies of its own).
+- Saving an agent with agents chosen under Referral that would never be offered (LiveChat still set to a message when
+  no one is there, and "Offer them when done" off) says so, and where to change it.
+- **LiveChat: public holidays filled in.** Under the days off, a country, a year and **Add public holidays**: the days
+  off of the whole country are added to the list (what is there stays, notes and all; each day once; in order), to be
+  checked before saving. Taiwan from the office calendar of the Directorate-General of Personnel Administration
+  (data.gov.tw), with days in lieu; China from the State Council's notices (holiday-cn); Malaysia and Thailand from
+  Google's public holiday calendars; the United States, Japan, Korea, Hong Kong, Singapore, Vietnam, the Philippines,
+  Indonesia, the United Kingdom (England), France, Germany, Australia, Canada and any other country by its code from
+  Nager.Date. For Taiwan and China, weekend days worked instead (補行上班, 调休上班) go to the new field below.
+- **LiveChat: also open on.** Days worked although they are not working days of the week (a weekend made up for a
+  holiday), one a line: with hours after the date ("2027-02-20 09:00-12:00", several if need be) open then, without
+  them as on a working day of the week. A day also among the closed days stays closed.
+- Handoffs: a new outcome, **Passed on to another agent**, with the agent the visitor went on with (in the list and
+  the CSV), to see how many visitors outside office hours fill in the form instead.
+
 ## AI Ask for Joomla 0.16.0
 
 - **Indexed pages** (new page under AI Ask): every page the answers come from, from this site, peer sites, listed

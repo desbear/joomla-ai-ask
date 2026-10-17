@@ -45,6 +45,17 @@
 			<field name="offer_button" type="text" maxlength="60" filter="string"
 				label="COM_MCPASK_AGENT_OFFER_BUTTON" />
 		</fieldset>
+		<fieldset name="refer" label="COM_MCPASK_AGENT_REFER" description="COM_MCPASK_AGENT_REFER_DESC" addfieldprefix="Gss\Component\Mcpask\Administrator\Field">
+			<field name="refer_agents" type="mcpaskagents" multiple="true" layout="joomla.form.field.list-fancy-select"
+				label="COM_MCPASK_AGENT_REFER_AGENTS" description="COM_MCPASK_AGENT_REFER_AGENTS_DESC" />
+			<field name="refer_after" type="radio" layout="joomla.form.field.radio.switcher" default="0"
+				label="COM_MCPASK_AGENT_REFER_AFTER_ON" description="COM_MCPASK_AGENT_REFER_AFTER_ON_DESC">
+				<option value="0">JNO</option>
+				<option value="1">JYES</option>
+			</field>
+			<field name="refer_text" type="text" maxlength="300" filter="string" showon="refer_after:1"
+				label="COM_MCPASK_AGENT_REFER_TEXT" hint="COM_MCPASK_AGENT_REFER_AFTER" />
+		</fieldset>
 		<fieldset name="report" label="COM_MCPASK_AGENT_REPORT" description="COM_MCPASK_AGENT_REPORT_DESC">
 			<field name="report" type="radio" layout="joomla.form.field.radio.switcher" default="0"
 				label="COM_MCPASK_REPORT_ON" description="COM_MCPASK_REPORT_ON_DESC">

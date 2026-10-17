@@ -31,9 +31,16 @@ The form is shown in the language of the page, from RSForm's own translations, a
 
 **Analysis report** (optional): once sent, a report written for the visitor from their answers and the site's pages: a result type (as in a personality test), scores, sections each with what it is for and how long, the pages it cites, buttons at the end, a private address kept for some days, and the link e-mailed. You write the types, scores and sections; nothing is filled in for you. Pictures may be the type's own, or made by AI when an image plugin is enabled (see below).
 
+### Passing visitors on (Referral)
+
+Every agent has a **Referral** tab: the agents it passes visitors on to, with the conversation so far. They are offered
+when the agent cannot help just now (LiveChat with no one there, see below), and, when **Offer them when done** is on,
+once the agent is done (after a form is sent, a chat with a person). An agent already in the conversation is not
+offered again, and visitors are passed on at most twice in a row. The handoff log shows where visitors went.
+
 ### LiveChat
 
-Passes the visitor on to people in LiveChat. LiveChat's window is loaded only then (it sets cookies of its own); a page that has LiveChat already keeps it. The people answering see, beside the chat or ticket, what you choose of: the whole conversation before, the last question, the page, the report's link. Within office hours with someone online the visitor chats; otherwise they leave a message. Every handoff is logged under **AI Ask → Handoffs**, with no names or contact details.
+Passes the visitor on to people in LiveChat. LiveChat's window is loaded only then (it sets cookies of its own); a page that has LiveChat already keeps it. The people answering see, beside the chat or ticket, what you choose of: the whole conversation before, the last question, the page, the report's link. Within office hours with someone online the visitor chats; otherwise they leave a message, or, as set under **When no one is there**, are offered the agents under Referral instead (a contact form), or both. Every handoff is logged under **AI Ask → Handoffs**, with no names or contact details.
 
 ## Pictures made by AI
 

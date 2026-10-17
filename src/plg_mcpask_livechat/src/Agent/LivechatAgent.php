@@ -109,7 +109,33 @@ final class LivechatAgent implements AgentInterface
 
         $context->state = [];
 
-        return new Reply([Card::handoff($key, $license, (int) $own->get('group', 0), $hours, $texts, $variables, $customer)], true);
+        // No one there to chat: other agents instead of a message to leave, or beside it (0.17.0).
+        // Outside office hours that is known here; within them, only when LiveChat says so.
+        $mode      = \in_array($own->get('away', 'message'), ['refer', 'both'], true) ? (string) $own->get('away') : 'message';
+        $referrals = $mode !== 'message' ? $context->referrals() : [];
+        $awayText  = trim((string) $own->get('away_text', '')) ?: Text::_('PLG_MCPASK_LIVECHAT_AWAY');
+        $texts['away'] = $awayText;
+
+        if ($referrals && !$hours) {
+            $agents = Card::agents($awayText, $referrals, $context->chainOnward(), $key);
+
+            return $mode === 'refer'
+                ? new Reply([$agents], true)
+                : new Reply([Card::handoff($key, $license, (int) $own->get('group', 0), $hours, $texts, $variables, $customer), $agents], true);
+        }
+
+        $away = $referrals ? ['mode' => $mode, 'agents' => $referrals, 'chain' => $context->chainOnward()] : null;
+
+        return new Reply([Card::handoff($key, $license, (int) $own->get('group', 0), $hours, $texts, $variables, $customer, $away)], true);
+    }
+
+    /**
+     * Whether people answer now, as far as the office hours tell (0.17.0): "open" or "closed".
+     * Whether someone is online only LiveChat's own window can tell.
+     */
+    public function status(object $agent): string
+    {
+        return self::withinHours($agent->own, Factory::getDate('now', 'UTC')) ? 'open' : 'closed';
     }
 
     public function handle(Context $context, array $input): Reply
@@ -141,13 +167,49 @@ final class LivechatAgent implements AgentInterface
         }
 
         $rows = array_values(array_filter(array_map(static fn ($row) => (array) $row, (array) $own->get('hours', []))));
+        $day  = (string) $local->format('N');
+        $time = $local->format('H:i');
+
+        // A day worked although it is not one of the week's (a weekend made up for a holiday): its
+        // own hours when given ("09:00-12:00"), otherwise those of a working day of the week
+        foreach (preg_split('/\R/', (string) $own->get('open_days', '')) ?: [] as $line) {
+            if (!preg_match('/^\s*(\d{4}-\d{2}-\d{2})(.*)$/', $line, $match) || $match[1] !== $today) {
+                continue;
+            }
+
+            preg_match_all('/\b(\d{1,2}:\d{2})\s*[-–~]\s*(\d{1,2}:\d{2})\b/u', $match[2], $ranges, PREG_SET_ORDER);
+
+            if ($ranges) {
+                foreach ($ranges as [, $from, $to]) {
+                    if (self::time($from) !== '' && self::time($to) !== '' && $time >= self::time($from) && $time < self::time($to)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            if (!$rows) {
+                return true;
+            }
+
+            // The hours of the first working day of the week that has any (Monday, usually)
+            foreach (['1', '2', '3', '4', '5'] as $weekday) {
+                foreach ($rows as $row) {
+                    if (\in_array($weekday, array_map('strval', (array) ($row['days'] ?? [])), true)) {
+                        $day = $weekday;
+
+                        break 2;
+                    }
+                }
+            }
+
+            break;
+        }
 
         if (!$rows) {
             return true;
         }
-
-        $day  = (string) $local->format('N');
-        $time = $local->format('H:i');
 
         foreach ($rows as $row) {
             $from = self::time($row['from'] ?? '');

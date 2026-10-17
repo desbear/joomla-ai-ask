@@ -107,6 +107,9 @@ class Dispatcher extends AbstractModuleDispatcher
             'reportEmailed'  => Text::_('MOD_MCP_ASK_REPORT_EMAILED'),
             'reportSources'  => Text::_('MOD_MCP_ASK_REPORT_SOURCES'),
             'handoff'        => Text::_('MOD_MCP_ASK_HANDOFF'),
+            'statusOnline'   => Text::_('MOD_MCP_ASK_STATUS_ONLINE'),
+            'statusOffline'  => Text::_('MOD_MCP_ASK_STATUS_OFFLINE'),
+            'statusClosed'   => Text::_('MOD_MCP_ASK_STATUS_CLOSED'),
             'handoffOffer'   => Text::_('MOD_MCP_ASK_HANDOFF_OFFER'),
             'signIn'         => Text::_('MOD_MCP_ASK_SIGN_IN'),
             'signOut'        => Text::_('MOD_MCP_ASK_SIGN_OUT'),
@@ -153,8 +156,23 @@ class Dispatcher extends AbstractModuleDispatcher
         $pets    = 'Gss\\Component\\Mcpask\\Administrator\\Pet\\Pets';
         $pets    = class_exists($pets) ? new $pets(\Joomla\CMS\Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class)) : null;
 
+        try {
+            $types = $class::types();
+        } catch (\Throwable) {
+            $types = [];
+        }
+
         foreach ($agents as $agent) {
             $item = ['id' => (int) $agent->id, 'label' => trim((string) $agent->params->get('suggest_label', '')) ?: (string) $agent->title];
+
+            // Whether people answer now, for agents that pass visitors on to people (office hours)
+            if (isset($types[$agent->type]) && method_exists($types[$agent->type], 'status')) {
+                try {
+                    $item['status'] = (string) $types[$agent->type]->status($agent);
+                } catch (\Throwable) {
+                    // No status: no light
+                }
+            }
 
             // How each shows itself: its name, and its picture or pet
             $avatar = $pets && method_exists($pets, 'avatar') ? $pets->avatar((string) $agent->params->get('avatar', ''), (string) $agent->params->get('avatar_image', '')) : null;

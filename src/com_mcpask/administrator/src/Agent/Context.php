@@ -12,6 +12,7 @@ namespace Gss\Component\Mcpask\Administrator\Agent;
 
 use Gss\Component\Mcpask\Administrator\Ask\ServiceException;
 use Gss\Component\Mcpask\Administrator\Ask\Settings;
+use Joomla\CMS\Factory;
 use Joomla\Database\DatabaseInterface;
 use Joomla\Registry\Registry;
 
@@ -39,6 +40,31 @@ final class Context
         public readonly DatabaseInterface $db,
         public readonly string $visitor = ''
     ) {
+    }
+
+    /** @var int[]  Agents the visitor came through before this one, passed on from one to the next (0.17.0) */
+    public array $chain = [];
+
+    /**
+     * The agents this one may pass the visitor on to now (its "Referral" settings).
+     *
+     * @return  array<int, array{id: int, label: string}>
+     */
+    public function referrals(): array
+    {
+        $levels = Factory::getApplication()->getIdentity()?->getAuthorisedViewLevels() ?: [1];
+
+        return (new Agents($this->db))->referrals($this->agent, $this->language, $levels, $this->chain);
+    }
+
+    /**
+     * The chain of agents for the agents this one passes the visitor on to: those before it, and it.
+     *
+     * @return  int[]
+     */
+    public function chainOnward(): array
+    {
+        return array_values(array_unique(array_merge($this->chain, [(int) $this->agent->id])));
     }
 
     public function params(): Registry

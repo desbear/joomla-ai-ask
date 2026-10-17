@@ -1145,7 +1145,7 @@
     try {
       const list = JSON.parse(roots.map((root) => root.dataset.agents).find(Boolean) || '[]');
 
-      return Array.isArray(list) ? list.filter((item) => item && Number(item.id) > 0).map((item) => ({ id: Number(item.id), label: String(item.label || '').slice(0, 100) })) : [];
+      return Array.isArray(list) ? list.filter((item) => item && Number(item.id) > 0).map((item) => ({ id: Number(item.id), label: String(item.label || '').slice(0, 100), status: ['open', 'closed'].includes(item.status) ? item.status : '' })) : [];
     } catch (error) {
       return [];
     }
@@ -1282,6 +1282,7 @@
       card.classList.add('mcp-ask-card--closed');
       card.querySelectorAll('input, select, textarea, button').forEach((control) => { control.disabled = true; });
     });
+    log.querySelectorAll('.mcp-ask-referrals button').forEach((control) => { control.disabled = true; });
   };
 
   // Suggestions from a service as the visitor types, as a form's own scripts may give them: the
@@ -1827,7 +1828,7 @@
     try {
       const item = JSON.parse(roots.map((root) => root.dataset.handoff).find(Boolean) || 'null');
 
-      return item && Number(item.id) > 0 ? { id: Number(item.id), label: String(item.label || '').slice(0, 100) } : null;
+      return item && Number(item.id) > 0 ? { id: Number(item.id), label: String(item.label || '').slice(0, 100), status: ['open', 'closed'].includes(item.status) ? item.status : '' } : null;
     } catch (error) {
       return null;
     }
@@ -1836,10 +1837,67 @@
   // What came of it, for the site's log: only the last handoff is told what the window does
   let handoffKey = '';
   const handoffsOpened = new WeakSet();
-  const handoffEvent = (key, event, availability = '') => {
+  const handoffEvent = (key, event, availability = '', agentId = 0) => {
     if (agentHandoffUrl && key) {
-      agentPost(agentHandoffUrl, { key, event, availability }).catch(() => {});
+      agentPost(agentHandoffUrl, { key, event, availability, ...(agentId ? { agent: agentId } : {}) }).catch(() => {});
     }
+  };
+
+  // Whether people answer now, as a light on the buttons that lead to them (0.17.0): outside office
+  // hours red; within them green or red once LiveChat has said whether someone is online (when it
+  // is on the page already, or has been opened in this visit). LiveChat is never loaded for the light.
+  const AVAILABILITY = 'mcp-ask:availability';
+  let availabilityNow = (() => {
+    try {
+      return ['online', 'offline'].includes(sessionStorage.getItem(AVAILABILITY)) ? sessionStorage.getItem(AVAILABILITY) : '';
+    } catch (error) {
+      return '';
+    }
+  })();
+
+  const statusOf = (id) => {
+    const item = (handoffAgent && handoffAgent.id === id ? handoffAgent : null) || agentList.find((other) => other.id === id);
+
+    if (!item || !item.status) {
+      return '';
+    }
+
+    return item.status === 'closed' ? 'closed' : availabilityNow;
+  };
+
+  const paintLight = (light) => {
+    const state = statusOf(Number(light.dataset.agent));
+
+    light.hidden = !state;
+    light.className = 'mcp-ask-light' + (state ? ' mcp-ask-light--' + state : '');
+    light.title = state ? strings['status' + state[0].toUpperCase() + state.slice(1)] || '' : '';
+    light.setAttribute('aria-label', light.title);
+  };
+
+  const light = (id) => {
+    const dot = el('span', 'mcp-ask-light');
+
+    dot.dataset.agent = String(id);
+    dot.setAttribute('role', 'img');
+    paintLight(dot);
+
+    return dot;
+  };
+
+  const heardAvailability = (availability) => {
+    if (!['online', 'offline'].includes(availability) || availability === availabilityNow) {
+      return;
+    }
+
+    availabilityNow = availability;
+
+    try {
+      sessionStorage.setItem(AVAILABILITY, availability);
+    } catch (error) {
+      // Known for this page only
+    }
+
+    document.querySelectorAll('.mcp-ask-light[data-agent]').forEach(paintLight);
   };
 
   // LiveChat's own window, loaded the first time a visitor asks for it (it sets cookies of its own).
@@ -1961,9 +2019,16 @@
   };
 
   // LiveChat on this page: opened, told what to pass on, listened to; what it says about people being there
-  const pageLiveChat = async (card, first) => {
+  const pageLiveChat = async (card, first, openIt = true) => {
     const api = await loadLiveChat(Number(card.license), Number(card.group) || 0);
     const availability = api.availability();
+
+    heardAvailability(availability);
+
+    // Only asked whether someone is there: the window opens only if so
+    if (!openIt && availability !== 'online') {
+      return availability;
+    }
 
     if (first) {
       handoffKey = card.key;
@@ -2019,6 +2084,8 @@
 
       const availability = data.availability === 'online' ? 'online' : 'offline';
 
+      heardAvailability(availability);
+
       if (first) {
         handoffKey = card.key;
         handoffEvent(card.key, 'opened', availability);
@@ -2046,6 +2113,47 @@
     });
   });
 
+  // Other agents to go on with (0.17.0): the conversation so far goes along, and where the visitor
+  // went is logged with the handoff they took the place of
+  const referrals = (offer, handoff = '', availability = '') => {
+    const list = el('div', 'mcp-ask-referrals');
+
+    (offer.agents || []).forEach((item) => {
+      const button = el('button', 'mcp-ask-chip', String(item.label || ''));
+      const face = avatar(Number(item.id), 'mcp-ask-chip__face');
+
+      if (face) {
+        button.prepend(face);
+      }
+
+      button.type = 'button';
+      button.addEventListener('click', () => {
+        list.querySelectorAll('button').forEach((other) => { other.disabled = true; });
+
+        if (handoff) {
+          handoffEvent(handoff, 'referred', availability, Number(item.id));
+        }
+
+        startAgent(Number(item.id), origin, 'refer', null, (offer.chain || []).map(Number));
+      });
+      list.append(button);
+    });
+
+    return list;
+  };
+
+  const agentsCard = (card) => {
+    const box = el('div', 'mcp-ask-card mcp-ask-card--agents');
+
+    if (card.text) {
+      box.append(el('p', 'mcp-ask-card--agents__text', String(card.text)));
+    }
+
+    box.append(referrals(card, card.handoff || '', card.handoff ? 'offline' : ''));
+
+    return box;
+  };
+
   const handoffCard = (card) => {
     const box = el('div', 'mcp-ask-card mcp-ask-handoff');
     const line = el('p', 'mcp-ask-handoff__status');
@@ -2064,18 +2172,54 @@
       again.hidden = state === 'waiting' || state === 'failed';
     };
 
+    const away = card.away && Array.isArray(card.away.agents) && card.away.agents.length ? card.away : null;
+    const offerAgents = () => {
+      if (away && !box.querySelector('.mcp-ask-referrals')) {
+        box.append(referrals(away, card.key, 'offline'));
+      }
+    };
+
     const open = async (first) => {
       paint('waiting');
       mood(box, 'thinking');
 
       try {
+        // Set to offer other agents instead of a message: LiveChat is asked first, and its window
+        // opens only when someone is there (on another website's page it opens there, as before)
+        if (first && away && away.mode === 'refer' && !embed) {
+          const availability = await pageLiveChat(card, true, false);
+
+          if (availability !== 'online' || !card.hours) {
+            card.opened = 'away';
+            paint('away');
+            again.hidden = false;
+            offerAgents();
+            mood(box, 'idle');
+            save();
+
+            return;
+          }
+        }
+
         const availability = await (embed ? hostLiveChat : pageLiveChat)(card, first);
 
         // Someone is there within office hours: a chat; otherwise a message to leave
         card.opened = card.hours && availability === 'online' ? 'online' : 'offline';
         paint(card.opened);
         mood(box, card.opened === 'online' ? 'happy' : 'idle');
+
+        // A message to leave, and other agents beside it
+        if (card.opened === 'offline') {
+          offerAgents();
+        }
+
         save();
+
+        if (card.opened === 'offline' && away) {
+          // The visitor chooses: the conversation stays open beside LiveChat's window
+          return;
+        }
+
         closeChat();
       } catch (error) {
         if (first) {
@@ -2092,8 +2236,12 @@
     again.addEventListener('click', () => open(false));
 
     if (card.opened) {
-      paint(card.opened === 'online' ? 'online' : card.opened === 'failed' ? 'failed' : 'offline');
+      paint(['online', 'failed', 'away'].includes(card.opened) ? card.opened : 'offline');
       again.hidden = false;
+
+      if (['away', 'offline'].includes(card.opened)) {
+        offerAgents();
+      }
     } else if (handoffsOpened.has(card)) {
       paint('waiting');
     } else {
@@ -2111,6 +2259,8 @@
         return reportCard(card);
       case 'handoff':
         return handoffCard(card);
+      case 'agents':
+        return agentsCard(card);
       case 'text': {
         const text = el('div', 'mcp-ask-card mcp-ask-card--text');
         text.innerHTML = markdown(String(card.text || ''), []);
@@ -2304,6 +2454,10 @@
         button.prepend(face);
       }
 
+      if (item.status) {
+        button.append(light(item.id));
+      }
+
       button.type = 'button';
       button.addEventListener('click', () => startAgent(item.id, from(), 'list'));
       target.append(button);
@@ -2321,8 +2475,8 @@
   let agentBusy = false;
 
   // What a person taking over is told: the last question and answer, the page, the last report
-  const entryFor = (id, source) => {
-    if (!handoffAgent || id !== handoffAgent.id) {
+  const entryFor = (id, source, chain = []) => {
+    if (source !== 'refer' && (!handoffAgent || id !== handoffAgent.id)) {
       return { source };
     }
 
@@ -2351,10 +2505,11 @@
       answer: String(last('assistant').text || '').replace(/!\[[^\]]*\]\([^)]*\)/g, '').replace(/\s?\[\d{1,3}\]/g, '').slice(0, 1500),
       page: embed ? hostPage.url : window.location.href,
       report: report ? report.url : '',
+      chain,
     };
   };
 
-  const startAgent = async (id, from, source = 'list', into = null) => {
+  const startAgent = async (id, from, source = 'list', into = null, chain = []) => {
     if (!agentStartUrl || agentBusy || controller) {
       return;
     }
@@ -2371,7 +2526,7 @@
       into.box.classList.add('mcp-ask-offer--waiting');
 
       try {
-        data = await agentPost(agentStartUrl, { agent: id, entry: entryFor(id, source) });
+        data = await agentPost(agentStartUrl, { agent: id, entry: entryFor(id, source, chain) });
       } catch (error) {
         data = { error: strings.error };
       }
@@ -2402,12 +2557,12 @@
     const view = showAgent(message);
 
     try {
-      data = data || await agentPost(agentStartUrl, { agent: id, entry: entryFor(id, source) });
+      data = data || await agentPost(agentStartUrl, { agent: id, entry: entryFor(id, source, chain) });
 
       message.cards = data.error ? [{ type: 'error', text: data.error }] : (data.cards || []);
 
       if (!data.error && data.session) {
-        agent = { key: data.session, id: Number(data.agent.id), title: String(data.agent.title || '') };
+        agent = { key: data.session, id: Number(data.agent.id), title: String(data.agent.title || ''), chain };
         message.agent = { id: agent.id, title: agent.title };
       }
     } catch (error) {
@@ -2468,7 +2623,7 @@
     const view = showAgent(message);
 
     try {
-      const data = await agentPost(agentStepUrl, { session: agent.key, ...input });
+      const data = await agentPost(agentStepUrl, { session: agent.key, chain: agent.chain || [], ...input });
 
       if (data.error) {
         message.cards = [{ type: 'error', text: data.error }];
@@ -2529,6 +2684,22 @@
     if (face) {
       human.prepend(face);
     }
+
+    if (handoffAgent.status) {
+      human.append(light(handoffAgent.id));
+    }
+
+    // LiveChat on the page already (the template's own): it can tell now whether someone is there
+    try {
+      const present = liveChatApi();
+
+      if (present && handoffAgent.status === 'open') {
+        heardAvailability(present.availability());
+      }
+    } catch (error) {
+      // Not ready to tell
+    }
+
     human.addEventListener('click', () => startAgent(handoffAgent.id, origin, 'button'));
 
     document.addEventListener('click', (event) => {

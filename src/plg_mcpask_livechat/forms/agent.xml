@@ -27,8 +27,10 @@
 					<field name="to" type="text" default="18:00" maxlength="5" pattern="[0-2][0-9]:[0-5][0-9]" label="PLG_MCPASK_LIVECHAT_FIELD_TO" hint="18:00" />
 				</form>
 			</field>
-			<field name="closed" type="textarea" rows="4" filter="string"
+			<field name="closed" type="mcpaskholidays" rows="6" filter="string" workdays="open_days" addfieldprefix="Gss\Component\Mcpask\Administrator\Field"
 				label="PLG_MCPASK_LIVECHAT_FIELD_CLOSED" description="PLG_MCPASK_LIVECHAT_FIELD_CLOSED_DESC" hint="2026-12-25 Christmas Day" />
+			<field name="open_days" type="textarea" rows="4" filter="string"
+				label="PLG_MCPASK_LIVECHAT_FIELD_OPEN_DAYS" description="PLG_MCPASK_LIVECHAT_FIELD_OPEN_DAYS_DESC" hint="2027-02-20 補行上班&#10;2027-02-21 09:00-12:00" />
 			<field name="carry" type="checkboxes" default="conversation,page,report" multiple="true"
 				label="PLG_MCPASK_LIVECHAT_FIELD_CARRY" description="PLG_MCPASK_LIVECHAT_FIELD_CARRY_DESC">
 				<option value="conversation">PLG_MCPASK_LIVECHAT_CARRY_CONVERSATION</option>
@@ -39,6 +41,14 @@
 			</field>
 			<field name="online_text" type="textarea" rows="2" filter="string"
 				label="PLG_MCPASK_LIVECHAT_FIELD_ONLINE" description="PLG_MCPASK_LIVECHAT_FIELD_ONLINE_DESC" />
+			<field name="away" type="list" default="message"
+				label="PLG_MCPASK_LIVECHAT_FIELD_AWAY" description="PLG_MCPASK_LIVECHAT_FIELD_AWAY_DESC">
+				<option value="message">PLG_MCPASK_LIVECHAT_AWAY_MESSAGE</option>
+				<option value="refer">PLG_MCPASK_LIVECHAT_AWAY_REFER</option>
+				<option value="both">PLG_MCPASK_LIVECHAT_AWAY_BOTH</option>
+			</field>
+			<field name="away_text" type="textarea" rows="2" filter="string" showon="away!:message"
+				label="PLG_MCPASK_LIVECHAT_FIELD_AWAY_TEXT" description="PLG_MCPASK_LIVECHAT_FIELD_AWAY_TEXT_DESC" />
 			<field name="offline_text" type="textarea" rows="2" filter="string"
 				label="PLG_MCPASK_LIVECHAT_FIELD_OFFLINE" description="PLG_MCPASK_LIVECHAT_FIELD_OFFLINE_DESC" />
 		</fieldset>

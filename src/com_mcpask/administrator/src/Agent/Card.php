@@ -161,7 +161,7 @@ final class Card
      *
      * @since  0.10.0
      */
-    public static function handoff(string $key, int $license, int $group, bool $hours, array $texts, array $variables, array $customer = []): array
+    public static function handoff(string $key, int $license, int $group, bool $hours, array $texts, array $variables, array $customer = [], ?array $away = null): array
     {
         $clean = [];
 
@@ -176,10 +176,35 @@ final class Card
             'license'   => $license,
             'group'     => max(0, $group),
             'hours'     => $hours,
-            'texts'     => array_map(static fn ($text) => self::clip((string) $text, 500), array_intersect_key($texts, array_flip(['waiting', 'online', 'offline', 'failed', 'button']))),
+            'texts'     => array_map(static fn ($text) => self::clip((string) $text, 500), array_intersect_key($texts, array_flip(['waiting', 'online', 'offline', 'failed', 'button', 'away']))),
+            // When no one is there to chat: other agents to offer, instead of a message to leave or beside it (0.17.0)
+            'away'      => $away ? self::agents('', $away['agents'], $away['chain']) + ['mode' => $away['mode'] === 'refer' ? 'refer' : 'both'] : null,
             'variables' => (object) array_filter($clean, static fn ($value) => $value !== ''),
             'customer'  => (object) array_filter(['name' => self::clip((string) ($customer['name'] ?? ''), 100), 'email' => filter_var($customer['email'] ?? '', FILTER_VALIDATE_EMAIL) ?: '']),
         ];
+    }
+
+    /**
+     * Other agents the visitor may go on with, the conversation so far passed along: when this one
+     * cannot help now (no one there to chat), or when it is done.
+     *
+     * @param  array<int, array{id: int, label: string}>  $agents
+     * @param  int[]                                       $chain    Agents the visitor came through, this one last
+     * @param  string                                      $handoff  The handoff this replaces, to log where the visitor went
+     *
+     * @since  0.17.0
+     */
+    public static function agents(string $text, array $agents, array $chain, string $handoff = ''): ?array
+    {
+        $agents = array_values(array_filter(array_map(static fn ($agent) => ['id' => (int) $agent['id'], 'label' => self::clip((string) $agent['label'], 100)], $agents), static fn ($agent) => $agent['id'] > 0));
+
+        return $agents ? array_filter([
+            'type'    => 'agents',
+            'text'    => self::clip($text, 500),
+            'agents'  => \array_slice($agents, 0, 6),
+            'chain'   => array_values(array_map('intval', $chain)),
+            'handoff' => preg_match('/^[0-9a-f]{48}$/', $handoff) ? $handoff : '',
+        ], static fn ($value) => $value !== '' && $value !== []) : null;
     }
 
     public static function done(string $markdown): array

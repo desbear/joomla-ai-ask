@@ -18,7 +18,7 @@ use Joomla\CMS\Router\Route;
 
 $e       = fn ($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $counts  = $this->counts;
-$badges  = ['requested' => 'bg-secondary', 'failed' => 'bg-danger', 'opened' => 'bg-info', 'message' => 'bg-warning text-dark', 'chatting' => 'bg-success'];
+$badges  = ['requested' => 'bg-secondary', 'failed' => 'bg-danger', 'opened' => 'bg-info', 'referred' => 'bg-primary', 'message' => 'bg-warning text-dark', 'chatting' => 'bg-success'];
 $option  = static fn ($value, $label, $current) => '<option value="' . htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8') . '"' . ((string) $value === (string) $current ? ' selected' : '') . '>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</option>';
 ?>
 <form action="<?php echo Route::_('index.php?option=com_mcpask&view=handoffs'); ?>" method="get" name="adminForm" id="adminForm">
@@ -103,7 +103,10 @@ $option  = static fn ($value, $label, $current) => '<option value="' . htmlspeci
 							<?php echo $row->availability !== '' ? Text::_('COM_MCPASK_HANDOFF_' . strtoupper($row->availability)) : '—'; ?>
 							<div class="small text-muted"><?php echo Text::_((int) $row->hours ? 'COM_MCPASK_HANDOFF_IN_HOURS' : 'COM_MCPASK_HANDOFF_OUT_OF_HOURS'); ?></div>
 						</td>
-						<td><span class="badge <?php echo $badges[$row->outcome] ?? 'bg-secondary'; ?>"><?php echo Text::_('COM_MCPASK_HANDOFF_OUTCOME_' . strtoupper($row->outcome)); ?></span></td>
+						<td>
+							<span class="badge <?php echo $badges[$row->outcome] ?? 'bg-secondary'; ?>"><?php echo Text::_('COM_MCPASK_HANDOFF_OUTCOME_' . strtoupper($row->outcome)); ?></span>
+							<?php if ($row->outcome === 'referred' && !empty($row->referred)) : ?><div class="small text-muted"><?php echo Text::sprintf('COM_MCPASK_HANDOFFS_REFERRED_TO', $e($row->referred)); ?></div><?php endif; ?>
+						</td>
 					</tr>
 				<?php endforeach; ?>
 			</tbody>

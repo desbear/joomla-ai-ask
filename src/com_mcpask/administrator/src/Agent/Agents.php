@@ -101,6 +101,50 @@ final class Agents
         }));
     }
 
+    /** Agents passed on one after another at most, so that two agents never send a visitor back and forth. */
+    public const MAX_CHAIN = 2;
+
+    /**
+     * The agents an agent passes visitors on to (its "Referral" settings), as the visitor may meet
+     * them now: published, for the page's language and the visitor's access, and not already part of
+     * this conversation's chain of agents.
+     *
+     * @param   int[]  $levels
+     * @param   int[]  $chain   Agents the visitor came through, the first first
+     *
+     * @return  array<int, array{id: int, label: string}>
+     *
+     * @since   0.17.0
+     */
+    public function referrals(object $agent, string $language, array $levels, array $chain = []): array
+    {
+        $chain = array_values(array_unique(array_map('intval', $chain)));
+
+        if (\count($chain) >= self::MAX_CHAIN) {
+            return [];
+        }
+
+        $wanted = array_values(array_unique(array_filter(array_map('intval', (array) $agent->params->get('refer_agents', [])))));
+        $active = [];
+
+        foreach ($this->active($language, $levels) as $other) {
+            $active[(int) $other->id] = $other;
+        }
+
+        $result = [];
+
+        foreach ($wanted as $id) {
+            if ($id === (int) $agent->id || \in_array($id, $chain, true) || !isset($active[$id])) {
+                continue;
+            }
+
+            $other    = $active[$id];
+            $result[] = ['id' => $id, 'label' => trim((string) $other->params->get('suggest_label', '')) ?: (string) $other->title];
+        }
+
+        return $result;
+    }
+
     /**
      * Keep an agent. Its trigger phrases are embedded again when they changed.
      *

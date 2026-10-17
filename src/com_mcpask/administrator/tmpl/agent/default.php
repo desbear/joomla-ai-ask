@@ -37,7 +37,7 @@ $id = (int) ($this->agent->id ?? 0);
 		<?php echo $this->form->renderFieldset('own'); ?>
 	<?php echo HTMLHelper::_('uitab.endTab'); ?>
 
-	<?php foreach (['talk', 'triggers', 'report', 'scope'] as $set) : ?>
+	<?php foreach (['talk', 'triggers', 'refer', 'report', 'scope'] as $set) : ?>
 		<?php echo HTMLHelper::_('uitab.addTab', 'agentTab', $set, Text::_('COM_MCPASK_AGENT_' . strtoupper($set))); ?>
 			<?php $fieldset = $this->form->getFieldsets('params')[$set] ?? null; ?>
 			<?php if ($fieldset && !empty($fieldset->description)) : ?>
