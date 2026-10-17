@@ -1076,6 +1076,7 @@
 
       if (message.error) {
         body.textContent = message.error;
+        body.append(recover(message));
       } else {
         body.innerHTML = markdown(message.text.slice(0, shown), message.sources);
 
@@ -1841,6 +1842,60 @@
     if (agentHandoffUrl && key) {
       agentPost(agentHandoffUrl, { key, event, availability, ...(agentId ? { agent: agentId } : {}) }).catch(() => {});
     }
+  };
+
+  // An answer that failed (0.18.0): the same question again, or someone who can help instead
+  // (a person, a form), so a hard question is not a dead end
+  const recover = (message) => {
+    const row = el('div', 'mcp-ask-recover');
+    const index = messages.indexOf(message);
+    const question = index > 0 && messages[index - 1].role === 'user' ? String(messages[index - 1].text || '') : '';
+
+    if (question && index === messages.length - 1) {
+      const again = el('button', 'mcp-ask-chip mcp-ask-recover__again', strings.retry);
+
+      again.type = 'button';
+      again.addEventListener('click', () => {
+        if (controller || agentBusy) {
+          return;
+        }
+
+        // The failed turn gives way to the new one, on screen too
+        const node = row.closest('.mcp-ask-msg');
+        const asked = node && node.previousElementSibling && node.previousElementSibling.matches('.mcp-ask-msg--user') ? node.previousElementSibling : null;
+
+        messages.splice(index - 1, 2);
+        asked?.remove();
+        node?.remove();
+        save();
+        sync();
+        ask(question, origin);
+      });
+      row.append(again);
+    }
+
+    if (agentStartUrl) {
+      const helpers = [handoffAgent, ...agentList.filter((item) => !handoffAgent || item.id !== handoffAgent.id)].filter(Boolean).slice(0, 3);
+
+      helpers.forEach((item) => {
+        const button = el('button', 'mcp-ask-chip', item.label);
+        const face = avatar(item.id, 'mcp-ask-chip__face');
+
+        if (face) {
+          button.prepend(face);
+        }
+
+        if (item.status) {
+          button.append(light(item.id));
+        }
+
+        button.type = 'button';
+        button.addEventListener('click', () => startAgent(item.id, origin, handoffAgent && item.id === handoffAgent.id ? 'unhelpful' : 'list'));
+        row.append(button);
+      });
+    }
+
+    return row;
   };
 
   // Whether people answer now, as a light on the buttons that lead to them (0.17.0): outside office
@@ -2930,6 +2985,9 @@
   // starts from its first frame every time without being fetched again. Visitors who ask for less
   // motion see the still picture, or the icon when there is none.
   const ONCE = ['hover', 'happy', 'confused', 'wake'];
+  // A moment that plays once is not cut short by a lesser one (waking by the greeting the same
+  // movement of the pointer brings, say); a greater one takes over
+  const WEIGHT = { hover: 1, happy: 2, confused: 2, wake: 3 };
   const pets = [];
 
   const makeStage = (className, kind = 'full') => {
@@ -2967,6 +3025,7 @@
     let base = 'idle';
     let current = '';
     let timer = 0;
+    let playing = '';
 
     root.append(stages[0].stage);
     extra.forEach((stage) => { stage.stage.hidden = false; });
@@ -3044,10 +3103,16 @@
           return;
         }
 
+        if (timer && (WEIGHT[playing] || 0) > (WEIGHT[name] || 0)) {
+          return;
+        }
+
         window.clearTimeout(timer);
+        playing = name;
         show(name);
         timer = window.setTimeout(() => {
           timer = 0;
+          playing = '';
           current = '';
           show(base);
         }, (Number(data.actions[name].seconds) || 1.5) * 1000);
@@ -3161,28 +3226,64 @@
     ['pointermove', 'pointerdown', 'keydown', 'scroll', 'touchstart'].forEach((type) => document.addEventListener(type, awake, { passive: true }));
     awake();
 
-    // A word beside it on the first visit, until it is closed or the button is used
+    // A word beside it: at the start of each visit a greeting, by name to a signed-in visitor and
+    // a few lines in turn to others; otherwise, on the first visit, its first words. It talks while
+    // the bubble is there, until the bubble is closed or the button is used.
     const BUBBLE = 'mcp-ask:pet-bubble';
-    let seen = false;
+    const GREETED = 'mcp-ask:pet-greeted';
+    const remembered = (store, key) => {
+      try {
+        return store.getItem(key);
+      } catch (error) {
+        return null;
+      }
+    };
+    const remember = (store, key, value) => {
+      try {
+        store.setItem(key, value);
+      } catch (error) {
+        // Said again next time
+      }
+    };
 
-    try {
-      seen = localStorage.getItem(BUBBLE) === data.bubble;
-    } catch (error) {
-      seen = false;
+    let lines = [];
+    let mark = null;
+
+    if (!remembered(sessionStorage, GREETED)) {
+      if (data.name && data.member) {
+        lines = [data.member.replace(/\{name\}/g, data.name)];
+      } else if (!data.name && Array.isArray(data.guest) && data.guest.length) {
+        lines = data.guest;
+      }
+
+      mark = lines.length ? () => remember(sessionStorage, GREETED, '1') : null;
     }
 
-    if (data.bubble && !seen && !embed) {
-      const bubble = el('div', 'mcp-ask-pet__bubble');
-      const text = el('span', '', data.bubble);
-      const close = el('button', 'mcp-ask-pet__bubble-close');
-      const forget = () => {
-        bubble.remove();
+    if (!lines.length && data.bubble && remembered(localStorage, BUBBLE) !== data.bubble) {
+      lines = [data.bubble];
+      mark = () => remember(localStorage, BUBBLE, data.bubble);
+    }
 
-        try {
-          localStorage.setItem(BUBBLE, data.bubble);
-        } catch (error) {
-          // Shown again next time
+    if (lines.length && !embed) {
+      const bubble = el('div', 'mcp-ask-pet__bubble');
+      const text = el('span', '', lines[0]);
+      const close = el('button', 'mcp-ask-pet__bubble-close');
+      let turn = 0;
+      let cycle = 0;
+
+      const hide = () => {
+        window.clearInterval(cycle);
+        bubble.hidden = true;
+
+        if (pet.resting === 'talking') {
+          pet.base('idle');
         }
+      };
+
+      const forget = () => {
+        hide();
+        bubble.remove();
+        mark && mark();
       };
 
       close.type = 'button';
@@ -3190,15 +3291,43 @@
       close.setAttribute('aria-label', strings.close);
       close.addEventListener('click', forget);
       launcher.toggle.addEventListener('click', forget, { once: true });
+      text.setAttribute('aria-live', 'polite');
       bubble.append(text, close);
       bubble.hidden = true;
       root.append(bubble);
+
       window.setTimeout(() => {
-        if (root.dataset.state === 'idle' && !dialog.open) {
-          bubble.hidden = false;
-          pet.once('hover');
-          window.setTimeout(() => { bubble.hidden = true; }, 8000);
+        if (root.dataset.state !== 'idle' || dialog.open) {
+          return;
         }
+
+        bubble.hidden = false;
+        mark && mark();
+        pet.once('hover');
+
+        if (pet.has('talking')) {
+          pet.base('talking');
+        }
+
+        // Each line a while, twice round when there are several; then quiet again
+        const each = 4500;
+        const rounds = lines.length > 1 ? lines.length * 2 : 1;
+
+        cycle = window.setInterval(() => {
+          turn += 1;
+
+          if (turn >= rounds) {
+            hide();
+
+            return;
+          }
+
+          text.classList.add('is-changing');
+          window.setTimeout(() => {
+            text.textContent = lines[turn % lines.length];
+            text.classList.remove('is-changing');
+          }, 220);
+        }, lines.length > 1 ? each : 8000);
       }, 1500);
     }
 
@@ -3643,6 +3772,16 @@
   const say = visitor.querySelector('.mcp-ask-visitor__say');
   const beam = dialog.querySelector('.mcp-ask-chat__beam');
   const ufoImage = roots.map((root) => root.dataset.ufo).find(Boolean);
+  // How the old conversation goes (0.18.0), and a pet that may do the saucer's work: its picture
+  // beside the box to type in, and its size
+  const clearMode = roots.map((root) => root.dataset.clear).find(Boolean) || 'saucer';
+  const ufoPoint = roots.map((root) => root.dataset.ufoPoint).find(Boolean) || '';
+  const ufoSize = Number(roots.map((root) => root.dataset.ufoSize).find(Boolean)) || 0;
+
+  if (ufoSize) {
+    dialog.style.setProperty('--mcp-ask-ufo', `min(${ufoSize}px, 40vw)`);
+    dialog.classList.add('mcp-ask-chat--pet-cleans');
+  }
 
   /** Letters drawn at most; a very long conversation is thinned out rather than slowed down. */
   const MAX_GLYPHS = 2400;
@@ -3663,6 +3802,11 @@
   const place = (state, text) => {
     say.textContent = text;
     dialog.dataset.ufo = state;
+
+    // A pet of its own has a picture for waiting beside the box to type in
+    if (ufoPoint && ufoPoint !== ufoImage) {
+      ufo.src = state === 'point' ? ufoPoint : ufoImage;
+    }
   };
 
   const forget = () => {
@@ -3695,10 +3839,9 @@
     }, () => {});
   };
 
-  // Every letter in view leaves its place and is drawn up into the saucer. The letters are
-  // measured where they stand and painted on a canvas, so each can go its own way; the boxes
-  // they stood in fade out underneath.
-  const lift = () => new Promise((resolve) => {
+  // The letters in view, measured where they stand, to be painted on a canvas so each can go its
+  // own way while the boxes they stood in fade out underneath (0.18.0: several ways to go)
+  const capture = () => {
     const view = log.getBoundingClientRect();
     const walker = document.createTreeWalker(log, NodeFilter.SHOW_TEXT);
     const range = document.createRange();
@@ -3742,15 +3885,70 @@
 
     // Too many to draw smoothly: keep an even sample
     const step = Math.ceil(glyphs.length / MAX_GLYPHS);
-    const letters = glyphs.filter((glyph, index) => index % step === 0).sort((a, b) => (a.font < b.font ? -1 : Number(a.font > b.font)));
+
+    return { view, letters: glyphs.filter((glyph, index) => index % step === 0).sort((a, b) => (a.font < b.font ? -1 : Number(a.font > b.font))) };
+  };
+
+  // The boxes of the conversation leave as the letters do: pulled up, blown aside, or just going
+  const vanishBoxes = (mode) => {
+    const frames = {
+      saucer: [{ opacity: 1, transform: 'none', filter: 'blur(0)' }, { opacity: 0, transform: 'translateY(-28px) scaleY(1.06)', filter: 'blur(6px)' }],
+      wind: [{ opacity: 1, transform: 'none', filter: 'blur(0)' }, { opacity: 0, transform: 'translateX(-60px) skewX(8deg)', filter: 'blur(4px)' }],
+      hole: [{ opacity: 1, transform: 'none', filter: 'blur(0)' }, { opacity: 0, transform: 'scale(0.92)', filter: 'blur(3px)' }],
+      fade: [{ opacity: 1, transform: 'none', filter: 'blur(0)' }, { opacity: 0, transform: 'translateY(-8px)', filter: 'blur(4px)' }],
+    }[mode];
+
+    return Promise.all([...log.children].map((item, index) => item.animate(frames, {
+      duration: mode === 'fade' ? 520 : 380,
+      delay: mode === 'fade' ? index * 45 : 0,
+      easing: 'cubic-bezier(0.4, 0, 0.6, 1)',
+      fill: 'forwards',
+    }).finished.catch(() => {})));
+  };
+
+  // Where each letter is at a moment of its way, by the way the conversation leaves
+  const ways = {
+    // Up into the saucer: slow to leave, fast to arrive, swaying, pulled thin as it rises
+    saucer: (letter, eased, progress, target) => ({
+      x: letter.x + (target.x - letter.x) * eased + Math.sin(progress * Math.PI) * letter.sway,
+      y: letter.y + (target.y - letter.y) * eased,
+      size: 1 - 0.85 * eased,
+      turn: letter.spin * eased,
+      alpha: progress < 0.75 ? 1 : (1 - progress) / 0.25,
+    }),
+    // Blown off to the left in gusts: lifting a little, turning over, thinning out
+    wind: (letter, eased, progress, target) => ({
+      x: letter.x - (letter.x - target.x + 160 + letter.reach) * eased,
+      y: letter.y + Math.sin(progress * Math.PI * 1.5 + letter.phase) * 18 - eased * letter.lift,
+      size: 1 + 0.15 * Math.sin(progress * Math.PI),
+      turn: letter.spin * 3 * eased,
+      alpha: progress < 0.55 ? 1 : (1 - progress) / 0.45,
+    }),
+    // Round and round into the black hole, faster as it nears
+    hole: (letter, eased, progress, target) => {
+      const radius = letter.radius * (1 - eased);
+      const angle = letter.angle + eased * eased * 7;
+
+      return {
+        x: target.x + Math.cos(angle) * radius,
+        y: target.y + Math.sin(angle) * radius * 0.82,
+        size: Math.max(0.05, 1 - eased),
+        turn: angle,
+        alpha: progress < 0.85 ? 1 : (1 - progress) / 0.15,
+      };
+    },
+  };
+
+  const sweep = (mode, target) => new Promise((resolve) => {
+    const { view, letters } = capture();
 
     // The letters on the page give way to the painted ones at once (two copies a hair apart look
-    // blurred); what they stood in fades out
+    // blurred); what they stood in goes as they do
     log.classList.add('mcp-ask-chat__log--lifted');
-    [...log.children].forEach((item) => item.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, fill: 'forwards' }));
+    vanishBoxes(mode);
 
     if (!letters.length) {
-      window.setTimeout(resolve, 300);
+      window.setTimeout(resolve, 380);
 
       return;
     }
@@ -3758,9 +3956,8 @@
     const canvas = el('canvas', 'mcp-ask-chat__dust');
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
     const context = canvas.getContext('2d');
-    const saucer = ufo.getBoundingClientRect();
-    const target = { x: saucer.left + saucer.width / 2, y: saucer.top + saucer.height * 0.72 };
-    const reach = Math.max(...letters.map((letter) => Math.hypot(letter.x - target.x, letter.y - target.y)));
+    const way = ways[mode];
+    const reach = Math.max(1, ...letters.map((letter) => Math.hypot(letter.x - target.x, letter.y - target.y)));
 
     canvas.width = window.innerWidth * ratio;
     canvas.height = window.innerHeight * ratio;
@@ -3771,21 +3968,90 @@
     letters.forEach((letter) => {
       const away = Math.hypot(letter.x - target.x, letter.y - target.y) / reach;
 
-      // The nearest go first, like a thread being pulled; each sways to one side on the way
-      letter.delay = away * 650 + Math.random() * 220;
-      letter.time = 650 + away * 350 + Math.random() * 200;
       letter.sway = (Math.random() - 0.5) * 140;
       letter.spin = (Math.random() - 0.5) * 3;
+      letter.phase = Math.random() * Math.PI * 2;
+      letter.lift = 20 + Math.random() * 80;
+      letter.reach = Math.random() * 240;
+      letter.radius = Math.hypot(letter.x - target.x, letter.y - target.y);
+      letter.angle = Math.atan2(letter.y - target.y, letter.x - target.x);
+
+      if (mode === 'wind') {
+        // The gust comes from the right: the letters there go first, in waves
+        const fromRight = (view.right - letter.x) / Math.max(1, view.width);
+        letter.delay = fromRight * 700 + Math.random() * 260;
+        letter.time = 900 + Math.random() * 400;
+      } else if (mode === 'hole') {
+        letter.delay = away * 500 + Math.random() * 200;
+        letter.time = 900 + away * 500;
+      } else {
+        // The nearest go first, like a thread being pulled
+        letter.delay = away * 650 + Math.random() * 220;
+        letter.time = 650 + away * 350 + Math.random() * 200;
+      }
     });
 
-    const last = Math.max(...letters.map((letter) => letter.delay + letter.time));
+    const last = Math.max(...letters.map((letter) => letter.delay + letter.time)) + (mode === 'hole' ? 450 : 0);
     const began = performance.now();
+
+    // The black hole: it opens where the letters go, swallows them, and closes
+    const drawHole = (elapsed) => {
+      const open = Math.min(1, elapsed / 350) * Math.min(1, Math.max(0, (last - elapsed) / 450));
+      const size = 46 * open;
+
+      if (size <= 0.5) {
+        return;
+      }
+
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
+      context.globalAlpha = 1;
+
+      const glow = context.createRadialGradient(target.x, target.y, size * 0.6, target.x, target.y, size * 2.6);
+      glow.addColorStop(0, 'rgba(120, 90, 255, 0.55)');
+      glow.addColorStop(1, 'rgba(120, 90, 255, 0)');
+      context.fillStyle = glow;
+      context.beginPath();
+      context.ellipse(target.x, target.y, size * 2.6, size * 2.1, 0, 0, Math.PI * 2);
+      context.fill();
+
+      // A ring of light that turns around the dark
+      context.save();
+      context.translate(target.x, target.y);
+      context.rotate(elapsed / 260);
+      context.scale(1, 0.82);
+      const ring = context.createConicGradient ? context.createConicGradient(0, 0, 0) : null;
+
+      if (ring) {
+        ring.addColorStop(0, 'rgba(255, 210, 150, 0.9)');
+        ring.addColorStop(0.5, 'rgba(140, 110, 255, 0.2)');
+        ring.addColorStop(1, 'rgba(255, 210, 150, 0.9)');
+        context.strokeStyle = ring;
+      } else {
+        context.strokeStyle = 'rgba(200, 170, 255, 0.8)';
+      }
+
+      context.lineWidth = Math.max(2, size * 0.22);
+      context.beginPath();
+      context.arc(0, 0, size * 1.08, 0, Math.PI * 2);
+      context.stroke();
+      context.restore();
+
+      context.fillStyle = '#05030c';
+      context.beginPath();
+      context.ellipse(target.x, target.y, size, size * 0.82, 0, 0, Math.PI * 2);
+      context.fill();
+    };
 
     const draw = (now) => {
       const elapsed = now - began;
       let font = '';
 
+      context.setTransform(ratio, 0, 0, ratio, 0, 0);
       context.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+      if (mode === 'hole') {
+        drawHole(elapsed);
+      }
 
       letters.forEach((letter) => {
         const progress = Math.min(Math.max((elapsed - letter.delay) / letter.time, 0), 1);
@@ -3794,22 +4060,36 @@
           return;
         }
 
-        // Slow to leave, fast to arrive
-        const eased = progress * progress * progress;
-        const bend = Math.sin(progress * Math.PI) * letter.sway;
-        const x = letter.x + (target.x - letter.x) * eased + bend;
-        const y = letter.y + (target.y - letter.y) * eased;
-        const size = 1 - 0.85 * eased;
+        const eased = mode === 'wind' ? progress * progress : progress * progress * progress;
+        const at = way(letter, eased, progress, target);
 
         if (letter.font !== font) {
           font = letter.font;
           context.font = font;
         }
 
-        context.globalAlpha = progress < 0.8 ? 1 : (1 - progress) / 0.2;
         context.fillStyle = letter.color;
-        context.setTransform(ratio * size, 0, 0, ratio * size, x * ratio, y * ratio);
-        context.rotate(letter.spin * eased);
+
+        // A trail behind a letter that moves fast: copies where it just was, fainter and fainter
+        if (letter.was && progress > 0) {
+          const dx = at.x - letter.was.x;
+          const dy = at.y - letter.was.y;
+          const speed = Math.hypot(dx, dy);
+
+          if (speed > 4) {
+            for (let copy = 3; copy >= 1; copy--) {
+              context.globalAlpha = at.alpha * 0.16 * (4 - copy) / 3;
+              context.setTransform(ratio * at.size, 0, 0, ratio * at.size, (at.x - dx * copy * 0.8) * ratio, (at.y - dy * copy * 0.8) * ratio);
+              context.rotate(at.turn);
+              context.fillText(letter.character, 0, 0);
+            }
+          }
+        }
+
+        letter.was = { x: at.x, y: at.y };
+        context.globalAlpha = at.alpha;
+        context.setTransform(ratio * at.size, 0, 0, ratio * at.size, at.x * ratio, at.y * ratio);
+        context.rotate(at.turn);
         context.fillText(letter.character, 0, 0);
       });
 
@@ -3827,6 +4107,13 @@
     // A tab that is not being painted must not wait for frames that never come
     window.setTimeout(() => { canvas.remove(); resolve(); }, last + 1500);
   });
+
+  // Up into the saucer (or the pet that cleans)
+  const lift = () => {
+    const saucer = ufo.getBoundingClientRect();
+
+    return sweep('saucer', { x: saucer.left + saucer.width / 2, y: saucer.top + saucer.height * 0.72 });
+  };
 
   const abduct = async () => {
     ufo.src = ufoImage;
@@ -3867,9 +4154,27 @@
       controller.abort();
     }
 
-    if (!ufoImage || reduced.matches || !log.children.length || dialog.hasAttribute('data-ufo')) {
+    if (clearMode === 'none' || reduced.matches || !log.children.length || dialog.hasAttribute('data-ufo')) {
       forget();
       field.focus();
+
+      return;
+    }
+
+    // Without the saucer: blown away, into a black hole, or faded out
+    if (clearMode !== 'saucer' || !ufoImage) {
+      const area = log.getBoundingClientRect();
+      const way = ['wind', 'hole', 'fade'].includes(clearMode) ? clearMode : 'fade';
+      const target = way === 'wind'
+        ? { x: area.left - 40, y: area.top + area.height / 2 }
+        : { x: area.left + area.width / 2, y: area.top + area.height * 0.45 };
+
+      fresh.disabled = true;
+      (way === 'fade' ? vanishBoxes('fade') : sweep(way, target)).catch(() => {}).then(() => {
+        forget();
+        fresh.disabled = false;
+        field.focus();
+      });
 
       return;
     }

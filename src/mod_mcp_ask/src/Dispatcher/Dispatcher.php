@@ -66,6 +66,9 @@ class Dispatcher extends AbstractModuleDispatcher
         $data['pageItem']    = $data['embed'] ? 0 : $this->pageItem();
         $data['sourcesShown'] = max(0, min(50, (int) $params->get('sources_shown', 3)));
         $data['pet']         = $data['mode'] === 'float' && !$demo ? $this->pet((string) $params->get('pet', '')) : null;
+        // How a new conversation clears the old one, and the pet that does it when one is chosen (0.18.0)
+        $data['clear']       = \in_array($params->get('clear_effect', 'saucer'), ['saucer', 'wind', 'hole', 'fade', 'none'], true) ? (string) $params->get('clear_effect', 'saucer') : 'saucer';
+        $data['cleaner']     = $data['clear'] === 'saucer' ? $this->cleaner((string) $params->get('cleaner', '')) : null;
         $data['demoSources'] = $demo ? $this->demoSources() : [];
         $data['accent']      = preg_match('/^#[0-9a-f]{3,8}$/i', (string) $params->get('accent')) ? $params->get('accent') : '';
         $data['strings']     = [
@@ -85,6 +88,7 @@ class Dispatcher extends AbstractModuleDispatcher
             'searching'    => Text::_('MOD_MCP_ASK_SEARCHING'),
             'note'         => Text::_('MOD_MCP_ASK_NOTE'),
             'noAnswer'     => Text::_('MOD_MCP_ASK_NO_ANSWER'),
+            'retry'        => Text::_('MOD_MCP_ASK_RETRY'),
             'error'        => Text::_('MOD_MCP_ASK_ERROR'),
             'unconfigured' => Text::_('MOD_MCP_ASK_UNCONFIGURED'),
             'helpful'      => Text::_('MOD_MCP_ASK_HELPFUL'),
@@ -202,7 +206,36 @@ class Dispatcher extends AbstractModuleDispatcher
         }
 
         try {
-            return (new $pets(\Joomla\CMS\Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class)))->display($choice);
+            $pet = (new $pets(\Joomla\CMS\Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class)))->display($choice);
+        } catch (\Throwable) {
+            return null;
+        }
+
+        // Whom it greets: a signed-in visitor by the name they gave
+        $user = $this->getApplication()->getIdentity();
+
+        if ($pet && $user && !$user->guest) {
+            $pet['name'] = mb_substr((string) $user->name, 0, 40);
+        }
+
+        return $pet;
+    }
+
+    /**
+     * A pet that clears the conversation (0.18.0), or null for the saucer.
+     *
+     * @return  array{clean: string, point: string, size: int}|null
+     */
+    private function cleaner(string $choice): ?array
+    {
+        $pets = 'Gss\\Component\\Mcpask\\Administrator\\Pet\\Pets';
+
+        if ($choice === '' || !class_exists($pets) || !method_exists($pets, 'cleaner')) {
+            return null;
+        }
+
+        try {
+            return (new $pets(\Joomla\CMS\Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class)))->cleaner($choice);
         } catch (\Throwable) {
             return null;
         }

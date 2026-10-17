@@ -48,7 +48,9 @@ $class = 'mcp-ask' . ($mode !== 'icon' ? ' mcp-ask--' . $mode : '') . (!empty($p
     <?php if ($spot) : ?>data-side="<?php echo $spot['side']; ?>" data-y<?php endif; ?>
     <?php if ($accent !== '' || $spot) : ?>style="<?php echo $accent !== '' ? '--mcp-ask-accent: ' . $e($accent) . ';' : ''; ?><?php echo $spot ? ' --mcp-ask-y: ' . round($spot['y'], 4) . ';' : ''; ?>"<?php endif; ?>
     data-site-root="<?php echo $e(rtrim(Uri::root(true), '/')); ?>"
-    data-ufo="<?php echo $e(Uri::root(true) . '/media/mod_mcp_ask/images/ufo.png'); ?>"
+    data-clear="<?php echo $e($clear ?? 'saucer'); ?>"
+    data-ufo="<?php echo $e(!empty($cleaner) ? $cleaner['clean'] : Uri::root(true) . '/media/mod_mcp_ask/images/ufo.png'); ?>"
+    <?php if (!empty($cleaner)) : ?>data-ufo-point="<?php echo $e($cleaner['point']); ?>" data-ufo-size="<?php echo (int) $cleaner['size']; ?>"<?php endif; ?>
     data-strings="<?php echo $json($strings); ?>">
     <form class="mcp-ask__form" role="search">
         <button type="button" class="mcp-ask__toggle" aria-label="<?php echo $e($title); ?>"<?php echo $mode === 'box' ? '' : ' aria-expanded="false"'; ?>>

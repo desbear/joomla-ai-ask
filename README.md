@@ -2,7 +2,7 @@
 
 A search box for your visitors that answers their questions from your site's own content with AI, and names the pages each answer came from. It can also hand the conversation to helpers that get things done (fill in a form, write an analysis report, pass the visitor on to a person), show up on your other websites with one line of script, and turn its floating button into an animated pet.
 
-> **Status: experimental (0.17.0).** Runs on Joomla 4.4, 5 and 6 with the OpenAI service. Not yet used on a production site.
+> **Status: experimental (0.18.0).** Runs on Joomla 4.4, 5 and 6 with the OpenAI service. Not yet used on a production site.
 
 [繁體中文說明](#繁體中文)
 
@@ -68,7 +68,7 @@ GNU General Public License version 2 or later.
 
 AI Ask for Joomla 是給訪客用的搜尋框：透過 AI 依網站自己的內容回答問題，並標示每段回答來自哪些頁面。還可以把對話交給能完成事情的小幫手（填表單、寫分析報告、轉接真人客服），用一行程式碼放到你的其他網站，也可以把浮動按鈕換成會動的小寵物。
 
-> **狀態：實驗性（0.17.0）。** 可在 Joomla 4.4、5、6 搭配 OpenAI 服務執行，尚未用於正式網站。
+> **狀態：實驗性（0.18.0）。** 可在 Joomla 4.4、5、6 搭配 OpenAI 服務執行，尚未用於正式網站。
 
 **功能**
 

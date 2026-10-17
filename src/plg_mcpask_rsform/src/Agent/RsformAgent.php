@@ -61,7 +61,7 @@ final class RsformAgent implements AgentInterface
     {
         $form = $this->load($context);
 
-        $context->state = ['form' => $form->id, 'page' => 0, 'values' => $this->defaults($form), 'phase' => 'fill', 'from' => (string) ($context->state['entry']['page'] ?? '')];
+        $context->state = ['form' => $form->id, 'page' => 0, 'values' => $this->defaults($form, $context), 'phase' => 'fill', 'from' => (string) ($context->state['entry']['page'] ?? '')];
 
         $opening = trim((string) $context->params()->get('opening', ''));
         $reply   = new Reply([Card::text($opening !== '' ? $opening : Text::sprintf('PLG_MCPASK_RSFORM_OPENING', $form->title, \count($form->pages)))]);
@@ -373,19 +373,34 @@ final class RsformAgent implements AgentInterface
     /**
      * @return  array<string, mixed>  The values a form starts with: options chosen at first, hidden values
      */
-    private function defaults(RsformForm $form): array
+    private function defaults(RsformForm $form, Context $context): array
     {
         $values = [];
 
         foreach ($form->pages as $page) {
             foreach ($page as $field) {
-                if (\in_array($field['kind'], ['select', 'radio', 'checkbox'], true) && $field['default'] !== '' && $field['default'] !== []) {
-                    $values[$field['name']] = $field['default'];
+                if (!\in_array($field['kind'], ['info', 'hidden'], true) && $field['default'] !== '' && $field['default'] !== []) {
+                    $values[$field['name']] = $form->accept($field, $field['default']) ?? (\is_array($field['default']) ? $field['default'] : '');
                 }
             }
         }
 
-        return $values;
+        // A signed-in visitor's own details, in the fields the agent names, where the form gives none
+        $user = Factory::getApplication()->getIdentity();
+
+        if ($user && !$user->guest) {
+            $details = ['name' => (string) $user->name, 'email' => (string) $user->email, 'username' => (string) $user->username];
+
+            foreach (preg_split('/\R/u', (string) $context->own()->get('prefill', '')) ?: [] as $line) {
+                [$name, $key] = array_map('trim', explode('=', $line, 2)) + [1 => ''];
+
+                if ($name !== '' && isset($details[$key]) && $details[$key] !== '' && \in_array($values[$name] ?? '', ['', []], true)) {
+                    $values[$name] = $details[$key];
+                }
+            }
+        }
+
+        return array_filter($values, static fn ($value) => $value !== '' && $value !== []);
     }
 
     private function load(Context $context): RsformForm

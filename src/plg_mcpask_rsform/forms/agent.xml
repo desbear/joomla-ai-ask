@@ -21,6 +21,8 @@
 			</field>
 			<field name="skip" type="text" default=""
 				label="PLG_MCPASK_RSFORM_FIELD_SKIP" description="PLG_MCPASK_RSFORM_FIELD_SKIP_DESC" hint="companyinfo, notes" />
+			<field name="prefill" type="textarea" rows="3" filter="string" default=""
+				label="PLG_MCPASK_RSFORM_FIELD_PREFILL" description="PLG_MCPASK_RSFORM_FIELD_PREFILL_DESC" hint="name=name&#10;email=email" />
 			<field name="page_field" type="text" default=""
 				label="PLG_MCPASK_RSFORM_FIELD_PAGE_FIELD" description="PLG_MCPASK_RSFORM_FIELD_PAGE_FIELD_DESC" hint="referral" />
 			<field name="lookups" type="subform" multiple="true" layout="joomla.form.field.subform.repeatable" buttons="add,remove"

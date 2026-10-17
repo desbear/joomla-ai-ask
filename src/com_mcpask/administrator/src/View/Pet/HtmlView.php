@@ -38,6 +38,9 @@ class HtmlView extends BaseHtmlView
     /** @var array<string, int>  Bytes of each picture */
     public array $sizes = [];
 
+    /** "agent" or "cleaner" (0.18.0) */
+    public string $kind = 'agent';
+
     public function display($tpl = null): void
     {
         $app  = Factory::getApplication();
@@ -55,7 +58,13 @@ class HtmlView extends BaseHtmlView
             throw new \RuntimeException(Text::_('JERROR_PAGE_NOT_FOUND'), 404);
         }
 
+        $this->kind = $this->pet ? Pets::kindOf($this->pet) : ($app->getInput()->getCmd('kind') === 'cleaner' ? 'cleaner' : 'agent');
         $this->form = Form::getInstance('com_mcpask.pet', JPATH_ADMINISTRATOR . '/components/com_mcpask/forms/pet.xml', ['control' => 'jform']);
+
+        // A new cleaning pet flies in larger than the button's pet sits
+        if (!$this->pet && $this->kind === 'cleaner') {
+            $this->form->setValue('size', 'params', 160);
+        }
 
         if ($this->pet) {
             $this->form->bind(['title' => $this->pet->title, 'params' => $this->pet->params->toArray()]);
@@ -63,7 +72,7 @@ class HtmlView extends BaseHtmlView
             $this->sizes = Pets::sizes($this->pet->params);
         }
 
-        ToolbarHelper::title(Text::_($this->pet ? 'COM_MCPASK_PET_EDIT' : 'COM_MCPASK_PET_NEW'), 'image');
+        ToolbarHelper::title(Text::_($this->kind === 'cleaner' ? ($this->pet ? 'COM_MCPASK_CLEANER_EDIT' : 'COM_MCPASK_CLEANER_NEW') : ($this->pet ? 'COM_MCPASK_PET_EDIT' : 'COM_MCPASK_PET_NEW')), 'image');
 
         // The page is left by its own buttons only
         $app->getInput()->set('hidemainmenu', true);

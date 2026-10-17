@@ -1041,9 +1041,10 @@ html:has(.mcp-ask-chat[open]) {
     margin: -4px 0 0 -6px;
     padding: 12px 20px;
     border-radius: 22px;
-    border-end-start-radius: 6px;
+    border-end-start-radius: 4px;
     background: var(--mcp-ask-surface);
-    box-shadow: var(--mcp-ask-lift);
+    /* A shadow of the bubble and its tail together, so the two are one shape */
+    filter: drop-shadow(0 10px 18px color-mix(in srgb, var(--mcp-ask-text) 14%, transparent)) drop-shadow(0 2px 4px color-mix(in srgb, var(--mcp-ask-text) 8%, transparent));
     color: var(--mcp-ask-text);
     font-size: clamp(17px, 2.2vw, 22px);
     font-weight: 700;
@@ -1052,16 +1053,17 @@ html:has(.mcp-ask-chat[open]) {
     opacity: 0;
     transform-origin: 0 100%;
 
-    /* The tail, pointing at the dome */
+    /* The tail, pointing at the dome: a curve that grows out of the bubble's corner, overlapping
+       it a little so no seam shows */
     &::before {
       content: "";
       position: absolute;
-      inset-block-end: -5px;
-      inset-inline-start: -7px;
-      inline-size: 18px;
-      block-size: 18px;
+      inset-block-end: 0;
+      inset-inline-start: -12px;
+      inline-size: 24px;
+      block-size: 20px;
       background: inherit;
-      clip-path: polygon(100% 0, 100% 100%, 0 100%);
+      clip-path: path("M24 0 L24 20 L0 20 C8 17 13 11 14 0 Z");
     }
   }
 }
@@ -1102,9 +1104,11 @@ html:has(.mcp-ask-chat[open]) {
       transform-origin: 20% 0;
 
       &::before {
-        inset-block: -5px auto;
-        inset-inline-start: 14px;
-        clip-path: polygon(0 100%, 100% 100%, 50% 0);
+        inset-block: -12px auto;
+        inset-inline-start: 18px;
+        inline-size: 22px;
+        block-size: 14px;
+        clip-path: path("M0 14 C6 12 9 7 11 0 C13 7 16 12 22 14 Z");
       }
     }
   }
@@ -2844,6 +2848,16 @@ html:active-view-transition-type(mcp-ask-nav) {
   }
 }
 
+/* The next line of a greeting comes in as the last goes out */
+.mcp-ask-pet__bubble > span {
+  transition: opacity 0.2s ease, translate 0.2s ease;
+
+  &.is-changing {
+    opacity: 0;
+    translate: 0 4px;
+  }
+}
+
 .mcp-ask--pet[data-side="left"] .mcp-ask-pet__bubble {
   inset-inline: 0 auto;
   border-radius: 14px 14px 14px 4px;
@@ -3301,4 +3315,26 @@ html:active-view-transition-type(mcp-ask-nav) {
   50% {
     box-shadow: 0 0 0 5px color-mix(in srgb, #16a34a 8%, transparent);
   }
+}
+
+/* ---------- An answer that failed: ask again, or someone who can help (0.18.0) ---------- */
+.mcp-ask-recover {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block-start: 12px;
+
+  &:empty {
+    display: none;
+  }
+}
+
+.mcp-ask-msg--error .mcp-ask-recover .mcp-ask-chip {
+  color: var(--mcp-ask-text);
+}
+
+.mcp-ask-recover__again {
+  border-color: var(--mcp-ask-accent);
+  color: var(--mcp-ask-accent);
+  font-weight: 600;
 }

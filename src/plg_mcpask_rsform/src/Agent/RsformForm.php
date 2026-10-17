@@ -158,10 +158,10 @@ final class RsformForm
                 $field['kind'] = 'email';
             }
 
-            if ($kind === 'hidden') {
-                $value            = (string) ($p['DEFAULTVALUE'] ?? '');
-                // A default worked out by RSForm ({global:...} and the like) is left to RSForm
-                $field['default'] = str_contains($value, '{') ? '' : $value;
+            // What the field starts with, as on the form's page: its code run, and RSForm's global
+            // placeholders ({global:fullname}, {global:useremail} and the like) for this visitor
+            if (\in_array($field['kind'], ['hidden', 'text', 'email', 'textarea', 'date'], true)) {
+                $field['default'] = self::startsWith((string) ($p['DEFAULTVALUE'] ?? ''));
             }
 
             if (\in_array($kind, ['select', 'radio', 'checkbox'], true)) {
@@ -456,6 +456,42 @@ final class RsformForm
         } catch (\Throwable) {
             return true;
         }
+    }
+
+    /**
+     * A default value as RSForm's page shows it: its code run, the global placeholders put in. A
+     * placeholder of other fields ({name:value}) has no value yet, and is left empty.
+     */
+    private static function startsWith(string $value): string
+    {
+        if ($value === '') {
+            return '';
+        }
+
+        if (str_contains($value, '<code>') && self::available()) {
+            require_once JPATH_ADMINISTRATOR . '/components/com_rsform/helpers/rsform.php';
+
+            $value = (string) \RSFormProHelper::isCode($value);
+        }
+
+        if (str_contains($value, '{')) {
+            $app   = Factory::getApplication();
+            $user  = $app->getIdentity();
+            $value = strtr($value, [
+                '{global:username}'  => (string) ($user->username ?? ''),
+                '{global:userid}'    => (string) (int) ($user->id ?? 0),
+                '{global:useremail}' => (string) ($user->email ?? ''),
+                '{global:fullname}'  => (string) ($user->name ?? ''),
+                '{global:userip}'    => (string) $app->getInput()->server->getString('REMOTE_ADDR', ''),
+                '{global:sitename}'  => (string) $app->get('sitename'),
+                '{global:siteurl}'   => \Joomla\CMS\Uri\Uri::root(),
+                '{global:mailfrom}'  => (string) $app->get('mailfrom'),
+                '{global:fromname}'  => (string) $app->get('fromname'),
+            ]);
+            $value = (string) preg_replace('/\{[a-z0-9_]+:[a-z0-9_]+\}/i', '', $value);
+        }
+
+        return trim($value);
     }
 
     /**

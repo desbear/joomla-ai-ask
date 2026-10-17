@@ -60,8 +60,10 @@ class PetsController extends BaseController
             $this->back($id);
         }
 
-        // What it had, with this form's settings over it
-        $params = array_merge($id && ($pet = $pets->get($id)) ? $pet->params->toArray() : [], (array) ($data['params'] ?? []));
+        // What it had, with this form's settings over it; what it is for stays what it was made for
+        $before = $id ? $pets->get($id) : null;
+        $params = array_merge($before ? $before->params->toArray() : [], (array) ($data['params'] ?? []));
+        $params['kind'] = $before ? Pets::kindOf($before) : ($input->getCmd('kind') === 'cleaner' ? 'cleaner' : 'agent');
         $id     = $pets->save(['id' => $id, 'title' => $data['title'] ?? '', 'params' => $params]);
 
         // How long the moments that play once last
@@ -93,6 +95,12 @@ class PetsController extends BaseController
                 }
 
                 $params[Pets::pictures()[$field]] = Pets::store($id, (string) $field, (string) $file['tmp_name'], (string) $file['name']);
+
+                // A moment that plays once lasts as long as its new picture plays, when the picture says
+                if ((Pets::ACTIONS[$field] ?? 0) > 0 && ($seconds = Pets::duration(JPATH_ROOT . '/' . $params[Pets::pictures()[$field]])) !== null) {
+                    $params[$field . '_seconds'] = round(max(0.3, min(10.0, $seconds)), 2);
+                    $this->app->enqueueMessage(Text::sprintf('COM_MCPASK_PET_SECONDS_READ', Text::_('COM_MCPASK_PET_ACTION_' . strtoupper((string) $field)), $params[$field . '_seconds']), 'info');
+                }
             } catch (\RuntimeException $e) {
                 $this->app->enqueueMessage($e->getMessage(), 'warning');
             }
@@ -100,12 +108,12 @@ class PetsController extends BaseController
 
         $pets->save(['id' => $id, 'title' => $data['title'] ?? '', 'params' => $params]);
 
-        if (!$pets->display((string) $id)) {
-            $this->app->enqueueMessage(Text::_('COM_MCPASK_PET_NEEDS_IDLE'), 'warning');
+        if ($params['kind'] === 'cleaner' ? !$pets->cleaner((string) $id) : !$pets->display((string) $id)) {
+            $this->app->enqueueMessage(Text::_($params['kind'] === 'cleaner' ? 'COM_MCPASK_CLEANER_NEEDS_PICTURE' : 'COM_MCPASK_PET_NEEDS_IDLE'), 'warning');
         }
 
         if ($this->getTask() !== 'apply') {
-            $this->setRedirect(Route::_('index.php?option=com_mcpask&view=pets', false), Text::_('COM_MCPASK_PET_SAVED'));
+            $this->setRedirect(Route::_('index.php?option=com_mcpask&view=pets' . ($params['kind'] === 'cleaner' ? '&kind=cleaner' : ''), false), Text::_('COM_MCPASK_PET_SAVED'));
 
             return;
         }

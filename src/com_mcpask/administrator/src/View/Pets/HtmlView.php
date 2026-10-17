@@ -32,6 +32,12 @@ class HtmlView extends BaseHtmlView
     /** @var array<string, array>  What the button would show of each, by choice */
     public array $shown = [];
 
+    /** "agent" or "cleaner": which pets the page lists (0.18.0) */
+    public string $kind = 'agent';
+
+    /** @var array<string, int>  How many of each kind */
+    public array $counts = [];
+
     public function display($tpl = null): void
     {
         $user = Factory::getApplication()->getIdentity();
@@ -41,14 +47,23 @@ class HtmlView extends BaseHtmlView
         }
 
         $pets       = new Pets(Factory::getContainer()->get(DatabaseInterface::class));
-        $this->pets = $pets->all();
+        $this->kind = Factory::getApplication()->getInput()->getCmd('kind') === 'cleaner' ? 'cleaner' : 'agent';
+        $all        = $pets->all();
+        $this->pets = array_values(array_filter($all, fn ($pet) => Pets::kindOf($pet) === $this->kind));
 
-        foreach (array_map(static fn ($pet) => (string) $pet->id, $this->pets) as $choice) {
-            $this->shown[$choice] = $pets->display($choice) ?? [];
+        foreach (Pets::KINDS as $kind) {
+            $this->counts[$kind] = \count(array_filter($all, static fn ($pet) => Pets::kindOf($pet) === $kind));
+        }
+
+        foreach ($this->pets as $pet) {
+            $choice               = (string) $pet->id;
+            $this->shown[$choice] = $this->kind === 'cleaner'
+                ? (($cleaner = $pets->cleaner($choice)) ? ['thumb' => $cleaner['clean'], 'actions' => array_filter(['clean' => $pet->params->get('clean_image'), 'point' => $pet->params->get('point_image')])] : [])
+                : ($pets->display($choice) ?? []);
         }
 
         ToolbarHelper::title(Text::_('COM_MCPASK_PETS'), 'image');
-        ToolbarHelper::link('index.php?option=com_mcpask&view=pet', Text::_('COM_MCPASK_PET_NEW'), 'new');
+        ToolbarHelper::link('index.php?option=com_mcpask&view=pet&kind=' . $this->kind, Text::_($this->kind === 'cleaner' ? 'COM_MCPASK_CLEANER_NEW' : 'COM_MCPASK_PET_NEW'), 'new');
         ToolbarHelper::link('index.php?option=com_mcpask', Text::_('COM_MCPASK_SUBMENU_DASHBOARD'), 'home');
 
         parent::display($tpl);

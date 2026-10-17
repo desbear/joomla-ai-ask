@@ -44,6 +44,16 @@ final class Pets
         'wake'     => 1,
     ];
 
+    /**
+     * The moments of a pet that clears the conversation for a new one (0.18.0): while it takes the
+     * old one away and asks what is next, and once it waits beside the box to type in. Without a
+     * picture of its own a moment shows the first one.
+     */
+    public const CLEANER_ACTIONS = ['clean' => 0, 'point' => 0];
+
+    /** Kinds of pets: those of the button and the agents, and those that clear the conversation */
+    public const KINDS = ['agent', 'cleaner'];
+
     public const EXTENSIONS = ['png', 'apng', 'avif', 'webp', 'gif'];
 
     /** Still pictures (the still one and the square thumbnail) may be JPEG too */
@@ -75,6 +85,10 @@ final class Pets
             $fields[$name . '_thumb'] = $name . '_thumb';
         }
 
+        foreach (array_keys(self::CLEANER_ACTIONS) as $name) {
+            $fields[$name] = $name . '_image';
+        }
+
         return $fields;
     }
 
@@ -89,11 +103,45 @@ final class Pets
     /**
      * @return  object[]  With params as Registry
      */
-    public function all(): array
+    public function all(string $kind = ''): array
     {
-        return array_map([self::class, 'prepare'], $this->db->setQuery(
+        $pets = array_map([self::class, 'prepare'], $this->db->setQuery(
             $this->db->getQuery(true)->select('*')->from($this->db->quoteName('#__mcpask_pets'))->order('title')
         )->loadObjectList());
+
+        return $kind === '' ? $pets : array_values(array_filter($pets, static fn ($pet) => self::kindOf($pet) === $kind));
+    }
+
+    /**
+     * What a pet is for: "agent" (the button and the agents) or "cleaner" (0.18.0).
+     */
+    public static function kindOf(object $pet): string
+    {
+        return $pet->params->get('kind', 'agent') === 'cleaner' ? 'cleaner' : 'agent';
+    }
+
+    /**
+     * A pet that clears the conversation, as the page needs it: its pictures, and its size. Null
+     * when there is no such pet or it has no picture.
+     *
+     * @return  array{clean: string, point: string, size: int}|null
+     */
+    public function cleaner(string $choice): ?array
+    {
+        $pet = ctype_digit($choice) ? $this->get((int) $choice) : null;
+
+        if (!$pet || self::kindOf($pet) !== 'cleaner') {
+            return null;
+        }
+
+        $clean = self::clean((string) $pet->params->get('clean_image', ''));
+        $point = self::clean((string) $pet->params->get('point_image', ''));
+
+        return $clean === '' ? null : [
+            'clean' => self::url($clean),
+            'point' => self::url($point !== '' ? $point : $clean),
+            'size'  => max(80, min(320, (int) $pet->params->get('size', 160))),
+        ];
     }
 
     public function get(int $id): ?object
@@ -208,15 +256,78 @@ final class Pets
     }
 
     /**
+     * How long an animated picture plays once, in seconds, as the file says: APNG and GIF by the
+     * delays of their frames, animated WebP by the durations of its frames. Null when it does not
+     * say (a still picture, AVIF).
+     *
+     * @since  0.18.0
+     */
+    public static function duration(string $file): ?float
+    {
+        $data = @file_get_contents($file, false, null, 0, self::MAX_BYTES);
+
+        if (!\is_string($data) || \strlen($data) < 16) {
+            return null;
+        }
+
+        $total  = 0.0;
+        $frames = 0;
+
+        if (str_starts_with($data, "\x89PNG\r\n\x1a\n")) {
+            // fcTL chunks: delay_num / delay_den seconds each (a den of 0 means 1/100)
+            for ($at = 8; $at + 8 <= \strlen($data);) {
+                $length = unpack('N', substr($data, $at, 4))[1];
+                $type   = substr($data, $at + 4, 4);
+
+                if ($type === 'fcTL' && $length >= 26) {
+                    ['num' => $num, 'den' => $den] = unpack('nnum/nden', substr($data, $at + 8 + 20, 4));
+                    $total += $num / ($den ?: 100);
+                    $frames++;
+                }
+
+                if ($type === 'IEND') {
+                    break;
+                }
+
+                $at += 12 + $length;
+            }
+        } elseif (str_starts_with($data, 'GIF8')) {
+            // Graphic control extensions: delays in hundredths of a second
+            preg_match_all('/\x21\xF9\x04.(..)/s', $data, $matches);
+
+            foreach ($matches[1] as $delay) {
+                $total += unpack('v', $delay)[1] / 100;
+                $frames++;
+            }
+        } elseif (str_starts_with($data, 'RIFF') && substr($data, 8, 4) === 'WEBP') {
+            // ANMF chunks: a 24-bit duration in milliseconds after the frame's place and size
+            for ($at = 12; $at + 8 <= \strlen($data);) {
+                $type   = substr($data, $at, 4);
+                $length = unpack('V', substr($data, $at + 4, 4))[1];
+
+                if ($type === 'ANMF' && $length >= 16) {
+                    $bytes  = substr($data, $at + 8 + 12, 3);
+                    $total += (\ord($bytes[0]) | (\ord($bytes[1]) << 8) | (\ord($bytes[2]) << 16)) / 1000;
+                    $frames++;
+                }
+
+                $at += 8 + $length + ($length % 2);
+            }
+        }
+
+        return $frames > 1 && $total > 0 ? round($total, 2) : null;
+    }
+
+    /**
      * The pets that can be chosen, for lists: those of the library.
      *
      * @return  array<string, string>  By ID
      */
-    public function choices(): array
+    public function choices(string $kind = 'agent'): array
     {
         $choices = [];
 
-        foreach ($this->all() as $pet) {
+        foreach ($this->all($kind) as $pet) {
             $choices[(string) $pet->id] = $pet->title;
         }
 
@@ -261,6 +372,9 @@ final class Pets
             'size'    => max(48, min(200, (int) $params->get('size', 96))),
             'mobile'  => max(40, min(160, (int) $params->get('mobile_size', 72))),
             'bubble'  => mb_substr(trim((string) $params->get('bubble', '')), 0, 60),
+            // Greetings at the start of each visit: by name to signed-in visitors, a few lines in turn to others
+            'member'  => mb_substr(trim((string) $params->get('greet_member', '')), 0, 80),
+            'guest'   => \array_slice(array_values(array_filter(array_map(static fn ($line) => mb_substr(trim($line), 0, 80), preg_split('/\R/u', (string) $params->get('greet_guest', '')) ?: []), 'strlen')), 0, 5),
             'sleep'   => max(0, min(3600, (int) $params->get('sleep_after', 60))),
             'still'   => $still !== '' ? self::url($still) : '',
             'actions' => $actions,

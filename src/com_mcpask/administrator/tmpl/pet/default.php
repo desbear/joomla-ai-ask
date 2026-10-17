@@ -71,18 +71,22 @@ $wa->addInlineScript(<<<'JS'
     JS);
 ?>
 <form action="<?php echo Route::_('index.php?option=com_mcpask'); ?>" method="post" name="adminForm" id="adminForm" class="form-validate" enctype="multipart/form-data">
-	<p class="text-muted"><?php echo Text::_('COM_MCPASK_PET_DESC'); ?></p>
+	<p class="text-muted"><?php echo Text::_($this->kind === 'cleaner' ? 'COM_MCPASK_CLEANER_DESC' : 'COM_MCPASK_PET_DESC'); ?></p>
 
 	<div class="row">
 		<div class="col-lg-7">
 			<?php echo $this->form->renderFieldset('main'); ?>
-			<?php echo $this->form->renderFieldset('look'); ?>
+			<?php if ($this->kind === 'cleaner') : ?>
+				<?php echo $this->form->renderField('size', 'params', null, ['description' => Text::_('COM_MCPASK_CLEANER_SIZE_DESC')]); ?>
+			<?php else : ?>
+				<?php echo $this->form->renderFieldset('look'); ?>
+			<?php endif; ?>
 		</div>
 		<div class="col-lg-5">
 			<div class="card text-center">
 				<div class="card-body">
 					<div style="height:180px;display:grid;place-items:center;background:repeating-conic-gradient(#f3f4f7 0 25%,#fff 0 50%) 0 0/20px 20px;border-radius:12px">
-						<img id="mcpask-pet-try" src="<?php echo $e($this->shown['actions']['idle']['src'] ?? ''); ?>" alt="" width="160" height="160" style="object-fit:contain">
+						<img id="mcpask-pet-try" src="<?php echo $e($this->kind === 'cleaner' ? $url(Pets::clean((string) ($params ? $params->get('clean_image', '') : ''))) : ($this->shown['actions']['idle']['src'] ?? '')); ?>" alt="" width="160" height="160" style="object-fit:contain">
 					</div>
 					<div id="mcpask-pet-try-label" class="small text-muted mt-2" aria-live="polite"></div>
 					<?php if ($plays) : ?>
@@ -107,10 +111,10 @@ $wa->addInlineScript(<<<'JS'
 		$html  = '<div class="d-flex align-items-center gap-2">';
 		$html .= $path !== ''
 			? '<div class="text-center flex-none"><img src="' . $e($url($path)) . '" alt="" width="64" height="64" style="object-fit:contain;border-radius:12px;background:#f3f4f7"><div class="small ' . ($bytes > Pets::ADVISED_BYTES ? 'text-danger' : 'text-muted') . '">' . Number::bytes($bytes) . '</div></div>'
-			: '<div class="text-muted small text-center" style="width:64px">' . Text::_($field === 'idle' || $field === 'static' ? 'COM_MCPASK_PET_NONE_YET' : (str_ends_with($field, 'thumb') ? 'COM_MCPASK_PET_USES_FULL' : 'COM_MCPASK_PET_USES_IDLE')) . '</div>';
+			: '<div class="text-muted small text-center" style="width:64px">' . Text::_(\in_array($field, ['idle', 'static', 'clean'], true) ? 'COM_MCPASK_PET_NONE_YET' : ($field === 'point' ? 'COM_MCPASK_CLEANER_USES_CLEAN' : (str_ends_with($field, 'thumb') ? 'COM_MCPASK_PET_USES_FULL' : 'COM_MCPASK_PET_USES_IDLE'))) . '</div>';
 		$html .= '<div class="flex-grow-1"><input type="file" class="form-control form-control-sm" name="pictures[' . $field . ']" accept="' . ($still ? '.png,.webp,.gif,.avif,.jpg,.jpeg' : '.png,.apng,.avif,.webp,.gif') . '"' . ($id ? '' : ' disabled') . '>';
 
-		if ($path !== '' && $field !== 'idle') {
+		if ($path !== '' && !\in_array($field, ['idle', 'clean'], true)) {
 			$html .= '<label class="small mt-1"><input type="checkbox" name="remove[' . $field . ']" value="1"> ' . Text::_('COM_MCPASK_PET_REMOVE') . '</label>';
 		}
 
@@ -127,16 +131,16 @@ $wa->addInlineScript(<<<'JS'
 			</tr>
 		</thead>
 		<tbody>
-			<?php foreach ([...array_keys(Pets::ACTIONS), 'static'] as $name) : ?>
+			<?php foreach ($this->kind === 'cleaner' ? array_keys(Pets::CLEANER_ACTIONS) : [...array_keys(Pets::ACTIONS), 'static'] as $name) : ?>
 				<?php $once = (Pets::ACTIONS[$name] ?? 0) > 0; ?>
 				<tr>
 					<td style="min-width:12rem">
 						<strong><?php echo Text::_('COM_MCPASK_PET_ACTION_' . strtoupper($name)); ?></strong>
-						<?php if ($name === 'idle') : ?><span class="badge bg-warning text-dark"><?php echo Text::_('JREQUIRED'); ?></span><?php endif; ?>
+						<?php if ($name === 'idle' || $name === 'clean') : ?><span class="badge bg-warning text-dark"><?php echo Text::_('JREQUIRED'); ?></span><?php endif; ?>
 						<div class="small text-muted"><?php echo Text::_('COM_MCPASK_PET_ACTION_' . strtoupper($name) . '_DESC'); ?></div>
 					</td>
 					<td><?php echo $cell($name); ?></td>
-					<td><?php echo $cell($name === 'static' ? 'thumb' : $name . '_thumb'); ?></td>
+					<td><?php echo $this->kind === 'cleaner' ? '<span class="small text-muted">—</span>' : $cell($name === 'static' ? 'thumb' : $name . '_thumb'); ?></td>
 					<td style="width:110px">
 						<?php if ($once) : ?>
 							<input type="number" class="form-control form-control-sm" name="seconds[<?php echo $name; ?>]" min="0.3" max="10" step="0.1" value="<?php echo $e($params ? $params->get($name . '_seconds', Pets::ACTIONS[$name]) : Pets::ACTIONS[$name]); ?>">
@@ -155,5 +159,6 @@ $wa->addInlineScript(<<<'JS'
 
 	<input type="hidden" name="task" value="">
 	<input type="hidden" name="id" value="<?php echo $id; ?>">
+	<input type="hidden" name="kind" value="<?php echo $e($this->kind); ?>">
 	<?php echo HTMLHelper::_('form.token'); ?>
 </form>

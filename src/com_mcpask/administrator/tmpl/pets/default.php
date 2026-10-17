@@ -23,25 +23,35 @@ $e = fn ($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $card = function (string $choice, string $title, string $link, string $footer) use ($e): string {
     $shown   = $this->shown[$choice] ?? [];
     $picture = ($shown['thumb'] ?? '') ?: ($shown['actions']['idle']['src'] ?? '');
+    // A cleaning pet shows its first picture; without one it does not show at all
+    $missing = Text::_($this->kind === 'cleaner' ? 'COM_MCPASK_CLEANER_NEEDS_PICTURE' : 'COM_MCPASK_PET_NEEDS_IDLE');
     $count   = count($shown['actions'] ?? []);
 
     return '<div class="card h-100">'
         . '<div class="card-body text-center">'
-        . ($picture !== '' ? '<img src="' . $e($picture) . '" alt="" width="120" height="120" style="object-fit:contain;aspect-ratio:1">' : '<div class="text-danger small py-5">' . Text::_('COM_MCPASK_PET_NEEDS_IDLE') . '</div>')
+        . ($picture !== '' ? '<img src="' . $e($picture) . '" alt="" width="120" height="120" style="object-fit:contain;aspect-ratio:1">' : '<div class="text-danger small py-5">' . $missing . '</div>')
         . '<h3 class="h6 mt-2 mb-1">' . ($link !== '' ? '<a href="' . $e($link) . '">' . $e($title) . '</a>' : $e($title)) . '</h3>'
-        . '<div class="small text-muted">' . Text::sprintf('COM_MCPASK_PET_ACTIONS_COUNT', $count, count(Pets::ACTIONS)) . '</div>'
+        . '<div class="small text-muted">' . Text::sprintf('COM_MCPASK_PET_ACTIONS_COUNT', $count, count($this->kind === 'cleaner' ? Pets::CLEANER_ACTIONS : Pets::ACTIONS)) . '</div>'
         . '</div>'
         . '<div class="card-footer bg-transparent d-flex flex-wrap gap-2 justify-content-center align-items-center">' . $footer . '</div>'
         . '</div>';
 };
 ?>
 <form action="<?php echo Route::_('index.php?option=com_mcpask&view=pets'); ?>" method="post" name="adminForm" id="adminForm">
-	<p class="text-muted"><?php echo Text::_('COM_MCPASK_PETS_DESC'); ?></p>
+	<ul class="nav nav-tabs mb-3">
+		<?php foreach (Pets::KINDS as $kind) : ?>
+			<li class="nav-item">
+				<a class="nav-link<?php echo $this->kind === $kind ? ' active' : ''; ?>"<?php echo $this->kind === $kind ? ' aria-current="page"' : ''; ?> href="<?php echo $e(Route::_('index.php?option=com_mcpask&view=pets' . ($kind === 'cleaner' ? '&kind=cleaner' : ''), false)); ?>"><?php echo Text::_('COM_MCPASK_PETS_TAB_' . strtoupper($kind)); ?> <span class="badge bg-secondary"><?php echo (int) ($this->counts[$kind] ?? 0); ?></span></a>
+			</li>
+		<?php endforeach; ?>
+	</ul>
+
+	<p class="text-muted"><?php echo Text::_($this->kind === 'cleaner' ? 'COM_MCPASK_CLEANERS_DESC' : 'COM_MCPASK_PETS_DESC'); ?></p>
 
 	<?php if (!$this->pets) : ?>
 		<div class="alert alert-info">
-			<?php echo Text::_('COM_MCPASK_PETS_NONE'); ?>
-			<a class="btn btn-primary btn-sm ms-2" href="<?php echo $e(Route::_('index.php?option=com_mcpask&view=pet', false)); ?>"><span class="icon-plus" aria-hidden="true"></span> <?php echo Text::_('COM_MCPASK_PET_NEW'); ?></a>
+			<?php echo Text::_($this->kind === 'cleaner' ? 'COM_MCPASK_CLEANERS_NONE' : 'COM_MCPASK_PETS_NONE'); ?>
+			<a class="btn btn-primary btn-sm ms-2" href="<?php echo $e(Route::_('index.php?option=com_mcpask&view=pet&kind=' . $this->kind, false)); ?>"><span class="icon-plus" aria-hidden="true"></span> <?php echo Text::_($this->kind === 'cleaner' ? 'COM_MCPASK_CLEANER_NEW' : 'COM_MCPASK_PET_NEW'); ?></a>
 		</div>
 	<?php endif; ?>
 

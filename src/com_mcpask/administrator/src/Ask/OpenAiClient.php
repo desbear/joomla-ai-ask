@@ -302,6 +302,18 @@ final class OpenAiClient
         }
     }
 
+    /** Tokens a reasoning model may think with, besides those of the answer. Only those used are paid for. */
+    private const REASONING_ROOM = 4000;
+
+    /**
+     * Whether a model reasons before it answers: a reasoning effort was set, or it is one of the
+     * families that always do.
+     */
+    public static function reasons(string $model, string $effort): bool
+    {
+        return $effort !== '' || (bool) preg_match('/^(o\d|gpt-5|gpt-oss|deepseek-r|qwq)/i', $model);
+    }
+
     /**
      * One request for an answer, handing over its text as it arrives.
      *
@@ -360,6 +372,10 @@ final class OpenAiClient
         string $toolChoice = 'auto',
         int $timeout = 90
     ): array {
+        // A reasoning model thinks within the same allowance as it writes: room for thinking on top
+        // of the length the answer may have, so a hard question does not leave no answer at all
+        $allowance = $maxTokens + (self::reasons($model, $effort) ? self::REASONING_ROOM : 0);
+
         // Whether any of the answer has been handed over, which decides whether another service may take over
         $emitted = false;
         $onText  = static function (string $text) use (&$emitted, $onText): bool {
@@ -375,7 +391,7 @@ final class OpenAiClient
                 'messages'              => array_merge([['role' => 'system', 'content' => $instructions]], $messages),
                 'stream'                => true,
                 'stream_options'        => ['include_usage' => true],
-                'max_completion_tokens' => $maxTokens,
+                'max_completion_tokens' => $allowance,
             ];
 
             if ($effort !== '') {
@@ -394,7 +410,7 @@ final class OpenAiClient
                 'input'             => $messages,
                 'stream'            => true,
                 'store'             => false,
-                'max_output_tokens' => $maxTokens,
+                'max_output_tokens' => $allowance,
             ];
 
             if ($effort !== '') {

@@ -38,7 +38,8 @@ class McpaskpetField extends ListField
         // Also on the module's and embeds' pages
         Factory::getApplication()->getLanguage()->load('com_mcpask', JPATH_ADMINISTRATOR);
 
-        if ($this->pets()) {
+        // Cleaning pets (0.18.0): without any, the saucer that comes with the extension does the work
+        if ($this->pets() || $this->kind() === 'cleaner') {
             return parent::getInput();
         }
 
@@ -60,6 +61,11 @@ class McpaskpetField extends ListField
         return array_merge(parent::getOptions(), $options);
     }
 
+    private function kind(): string
+    {
+        return (string) ($this->element['kind'] ?? '') === 'cleaner' ? 'cleaner' : 'agent';
+    }
+
     /**
      * @return  array<string, string>
      */
@@ -67,7 +73,7 @@ class McpaskpetField extends ListField
     {
         if ($this->pets === null) {
             try {
-                $this->pets = (new Pets(Factory::getContainer()->get(DatabaseInterface::class)))->choices();
+                $this->pets = (new Pets(Factory::getContainer()->get(DatabaseInterface::class)))->choices($this->kind());
             } catch (\Throwable) {
                 // Nothing to choose until the component is up to date
                 $this->pets = [];

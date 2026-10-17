@@ -2,6 +2,33 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask for Joomla 0.18.0
+
+- **Hard questions no longer end without an answer.** A reasoning model thinks within the same allowance as it writes,
+  so a question that made it think long (a quote for several products, say) could leave nothing written, logged as
+  answered. Reasoning models now get room to think besides the answer's length; a reply that is still empty is asked
+  for once more, without tools and with little thinking; and an answer that never comes is logged as an error.
+- **An answer that failed offers a way on**: ask the same question again (the failed turn gives way to the new one),
+  or go on with a person or an agent (a contact form), the buttons as beside the box to type in.
+- **Pets greet visitors**: at the start of each visit, signed-in visitors by name ("{name}, welcome back!") and others
+  with a few lines in turn (an invitation to sign in or to make an account), the pet talking while it speaks.
+- **Pet moments are not cut short**: a moment that plays once is not replaced by a lesser one while it plays (waking by
+  the greeting the same movement of the pointer brings); and when a moment's picture is uploaded, how long it plays
+  once is read from the file (APNG, GIF, animated WebP) and set as the moment's length.
+- **Cleaning pets.** Pets has two tabs: pets of the button and agents, and cleaning pets, which take the old
+  conversation away when a new one is started instead of the saucer: a picture while cleaning and asking, and one
+  while waiting beside the box to type in (the first without it). Without one, the saucer does it as before.
+- **Ways to clear the conversation**, in the module: taken away by the saucer (or a cleaning pet), the letters now
+  pulled up with a trail and the boxes lifting and blurring away; blown away to the left in gusts; drawn round into a
+  black hole that opens and closes; faded out; or at once.
+- The saucer's speech bubble: its tail grows out of the bubble, shadow and all, instead of standing apart.
+
+- **RSForm! Pro agent: signed-in visitors' details filled in.** Fields start with their default value as on the
+  form's page, RSForm's code run and its global placeholders put in for the visitor (`{global:fullname}`,
+  `{global:useremail}`, `{global:username}` and the like; before, such defaults were left out). For forms without
+  them, **Signed-in visitors' details** on the agent: one per line, field=name, email or username. Visitors may change
+  what was filled in.
+
 ## AI Ask for Joomla 0.17.0
 
 - **Agents pass visitors on to other agents.** A new **Referral** tab for every agent: the agents it passes visitors on

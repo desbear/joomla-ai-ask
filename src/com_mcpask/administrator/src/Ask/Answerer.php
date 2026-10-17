@@ -231,6 +231,35 @@ final class Answerer
             }
         );
 
+        // Nothing written at all (the model thought, or searched, until it ran out): asked once more,
+        // without tools and with little thinking, to answer from what it has
+        if ($filter->raw() === '' && $this->listening) {
+            $again = $client->stream(
+                $this->settings->apiStyle(),
+                $this->settings->chatModel(),
+                $this->instructions(false),
+                array_merge($messages, [['role' => 'user', 'content' => 'Answer now, in the language of the question, from the excerpts above. Be brief; where the excerpts do not say enough, say what is missing and how to find out.']]),
+                $this->settings->maxOutputTokens(),
+                OpenAiClient::reasons($this->settings->chatModel(), $this->settings->reasoningEffort()) ? 'low' : '',
+                function (string $text) use ($filter, $emit): bool {
+                    $shown = $filter->feed($text);
+
+                    return $shown === '' ? $this->listening : $emit('delta', ['text' => $shown]);
+                },
+                [],
+                'auto',
+                60
+            );
+
+            $usage['input']  += $again['input'];
+            $usage['output'] += $again['output'];
+        }
+
+        // Still nothing: not an answer, and logged as what it is
+        if ($filter->raw() === '' && $this->listening) {
+            throw new ServiceException('The AI service wrote no answer (its reasoning may have used all it was allowed).');
+        }
+
         $rest = $filter->finish();
 
         if ($rest !== '') {

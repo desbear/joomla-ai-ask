@@ -5,7 +5,7 @@
 	<creationDate>2026-10</creationDate>
 	<copyright>(C) 2026 GSS</copyright>
 	<license>GNU General Public License version 2 or later; see LICENSE</license>
-	<version>0.17.0</version>
+	<version>0.18.0</version>
 	<description>MOD_MCP_ASK_XML_DESCRIPTION</description>
 	<namespace path="src">Gss\Module\McpAsk</namespace>
 	<files>
@@ -60,6 +60,31 @@
 					label="MOD_MCP_ASK_FIELD_PET_LABEL"
 					description="MOD_MCP_ASK_FIELD_PET_DESC"
 					default=""
+				/>
+				<field
+					name="clear_effect"
+					type="list"
+					label="MOD_MCP_ASK_FIELD_CLEAR_LABEL"
+					description="MOD_MCP_ASK_FIELD_CLEAR_DESC"
+					default="saucer"
+					validate="options"
+					>
+					<option value="saucer">MOD_MCP_ASK_CLEAR_SAUCER</option>
+					<option value="wind">MOD_MCP_ASK_CLEAR_WIND</option>
+					<option value="hole">MOD_MCP_ASK_CLEAR_HOLE</option>
+					<option value="fade">MOD_MCP_ASK_CLEAR_FADE</option>
+					<option value="none">MOD_MCP_ASK_CLEAR_NONE</option>
+				</field>
+				<field
+					name="cleaner"
+					type="mcpaskpet"
+					kind="cleaner"
+					none="MOD_MCP_ASK_CLEANER_SAUCER"
+					addfieldprefix="Gss\Component\Mcpask\Administrator\Field"
+					label="MOD_MCP_ASK_FIELD_CLEANER_LABEL"
+					description="MOD_MCP_ASK_FIELD_CLEANER_DESC"
+					default=""
+					showon="clear_effect:saucer"
 				/>
 				<field
 					name="align"
