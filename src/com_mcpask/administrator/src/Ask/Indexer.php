@@ -32,19 +32,48 @@ final class Indexer
     /** Even an unchanged page is looked at again after this many days. */
     private const RECHECK_DAYS = 30;
 
+    private ?Ignores $ignores = null;
+
+    private ?IndexedPages $pages = null;
+
     public function __construct(private DatabaseInterface $db, private Settings $settings)
     {
     }
 
     /**
+     * The pages not to answer from (0.16.0).
+     */
+    public function ignores(): Ignores
+    {
+        return $this->ignores ??= new Ignores($this->db, $this->settings);
+    }
+
+    /**
+     * The address of a page as visitors reach it, as ignore patterns are compared with.
+     */
+    private function address(Document $document): string
+    {
+        $this->pages ??= new IndexedPages($this->db, $this->settings);
+
+        return $this->pages->address((object) ['source' => $document->source, 'link' => $document->link]);
+    }
+
+    /**
      * Index a page, unless nothing that matters has changed since the last time.
      *
-     * @return  string  "indexed", "unchanged" or "empty" (a page without text is not kept)
+     * @return  string  "indexed", "unchanged", "empty" (a page without text is not kept) or "ignored" (taken out)
      *
      * @throws  ServiceException  When the embeddings could not be made; the page is marked "pending"
      */
     public function index(Document $document): string
     {
+        // A page the administrator chose not to answer from is not kept, however it came
+        if ($this->ignores()->isIgnored($document->source, $document->itemId, $this->address($document))) {
+            $this->remove($document->source, $document->itemId);
+
+            return 'ignored';
+        }
+
         // Images are kept only of the site's own pages, never of other websites
         $own    = !str_starts_with($document->source, WebSync::PREFIX) && !str_starts_with($document->source, PeerSync::PREFIX);
         $chunks = Chunker::chunks($document->html, $this->settings->chunkTokens(), $own ? ['folder' => JPATH_ROOT, 'url' => $this->siteUrl()] : null);
@@ -255,10 +284,19 @@ final class Indexer
      */
     public function sync(SourceInterface $source, int $afterId, int $limit): array
     {
-        $result = ['last' => $afterId, 'done' => false, 'indexed' => 0, 'unchanged' => 0, 'empty' => 0, 'failed' => 0, 'error' => ''];
+        $result = ['last' => $afterId, 'done' => false, 'indexed' => 0, 'unchanged' => 0, 'empty' => 0, 'ignored' => 0, 'failed' => 0, 'error' => ''];
         $ids    = $source->ids($afterId, $limit);
 
         foreach ($ids as $id) {
+            // Ignored by itself: not even read
+            if ($this->ignores()->hasItem($source->name(), (int) $id)) {
+                $this->remove($source->name(), (int) $id);
+                $result['ignored']++;
+                $result['last'] = $id;
+
+                continue;
+            }
+
             try {
                 $document = $source->load($id);
                 $result[$document ? $this->index($document) : 'empty']++;
@@ -288,7 +326,7 @@ final class Indexer
     public function refresh(SourceInterface $source, int $seconds): array
     {
         $deadline = microtime(true) + $seconds;
-        $result   = ['indexed' => 0, 'unchanged' => 0, 'empty' => 0, 'fresh' => 0, 'error' => ''];
+        $result   = ['indexed' => 0, 'unchanged' => 0, 'empty' => 0, 'ignored' => 0, 'fresh' => 0, 'error' => ''];
         $db       = $this->db;
         $name     = $source->name();
 
@@ -311,6 +349,13 @@ final class Indexer
         foreach ($queue as $id) {
             if (microtime(true) > $deadline) {
                 break;
+            }
+
+            if ($this->ignores()->hasItem($name, (int) $id)) {
+                $this->remove($name, (int) $id);
+                $result['ignored']++;
+
+                continue;
             }
 
             try {
@@ -423,7 +468,10 @@ final class Indexer
             }
         }
 
-        return $removed;
+        // And what is ignored now, from wherever it came
+        $this->pages ??= new IndexedPages($db, $this->settings);
+
+        return $removed + $this->ignores()->purge(fn ($row) => $this->pages->address($row));
     }
 
     public function clear(): void

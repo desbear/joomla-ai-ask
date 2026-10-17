@@ -36,6 +36,14 @@ final class Settings
         return new self(ComponentHelper::getParams('com_mcpask'));
     }
 
+    /**
+     * An option as it is stored, for pages that edit it.
+     */
+    public function raw(string $name): string
+    {
+        return (string) $this->params->get($name, '');
+    }
+
     public function enabled(): bool
     {
         return (bool) $this->params->get('enabled', 1);
@@ -525,6 +533,13 @@ final class Settings
             ];
         }
 
+        // Pages added one by one: read as websites are, one per host (0.16.0)
+        try {
+            $sites += ManualPages::sites(\Joomla\CMS\Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class));
+        } catch (\Throwable) {
+            // No database to ask: the listed websites only
+        }
+
         return $sites;
     }
 
@@ -632,6 +647,17 @@ final class Settings
             $this->embeddingModel(), $this->embeddingDimensions(), $this->chunkTokens(),
             (int) $this->includeFields(), implode(',', $this->fieldNames()),
         ]);
+    }
+
+    /**
+     * Addresses of pages not to answer from, as patterns with * for anything; lines starting with
+     * # are notes.
+     *
+     * @return  string[]
+     */
+    public function ignorePatterns(): array
+    {
+        return array_values(array_filter($this->lines('ignore_urls'), static fn ($line) => !str_starts_with($line, '#')));
     }
 
     /**

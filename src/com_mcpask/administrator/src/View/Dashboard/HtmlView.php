@@ -108,6 +108,7 @@ class HtmlView extends BaseHtmlView
         $this->checks    = $this->checks($db, $settings);
 
         ToolbarHelper::title(Text::_('COM_MCPASK'), 'comments');
+        ToolbarHelper::link('index.php?option=com_mcpask&view=pages', Text::_('COM_MCPASK_PAGES'), 'list');
         ToolbarHelper::link('index.php?option=com_mcpask&view=quality', Text::_('COM_MCPASK_QUALITY'), 'thumbs-up');
 
         if ($user->authorise('core.admin', 'com_mcpask') || $user->authorise('core.options', 'com_mcpask')) {

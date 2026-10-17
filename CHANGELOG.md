@@ -2,6 +2,31 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask for Joomla 0.16.0
+
+- **Indexed pages** (new page under AI Ask): every page the answers come from, from this site, peer sites, listed
+  websites and pages added by address, with its address, passages and when it was read. Search by title, address or
+  item ID; filter by where pages come from, by status, or to pages with little text (at most one passage), which are
+  worth a look. Open a page to see exactly the passages the AI service is given of it; read a page again now.
+- **Pages added by their address**, one per line, with an optional selector of the part to read. Each is read on its
+  own (its links are not followed) and read again every day; robots.txt does not apply to pages the administrator
+  names. An address of this site that is indexed already (by its address, its menu item's path or its alias) is not
+  added twice; the message says what it is indexed as.
+- **Ignoring pages instead of deleting them.** A page that would be indexed but should not be answered from is
+  ignored: taken out of the index at once and never read again (nor embedded), however it is found, until restored.
+  Single pages are kept by what they are, so a new address does not bring them back, with who ignored them, when and
+  why. **Addresses not to answer from**: patterns with `*`, one per line, for any page of this site, peer sites, listed
+  websites or added pages; saving them takes what they match out of the index.
+- **RSForm! Pro agent: a form sent from the conversation is processed as on the form's own page.** Before, only the
+  submission, its events and its e-mails were done; now also the form's own scripts ("on form process" and "after form
+  process"), its mappings and its **Post to another location** (the silent post other systems receive submissions
+  through, with its headers). A form whose script turns the answers down is not sent. A captcha and other fields the
+  conversation does without do not keep a form from being sent; a post that sends the visitor's browser elsewhere (not
+  silent) cannot be made from a conversation and is left out.
+- The bar of the agent in charge ("Talking with …") no longer lies over the start of the conversation.
+- MCP Server for Joomla tools: `list_indexed_pages` (with the pages that have little text), `show_indexed_page` (its
+  passages), `add_pages`, `ignore_pages`, `list_ignored_pages`, `restore_ignored_page`.
+
 ## AI Ask for Joomla 0.15.0
 
 - **FLEXIcontent items read from their page.** For types whose items keep their text in the type's template rather

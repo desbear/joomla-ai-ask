@@ -12,6 +12,7 @@ namespace Gss\Plugin\Mcp\Mcpask\Extension;
 
 use Gss\Plugin\Mcp\Mcpask\Tool\AgentTools;
 use Gss\Plugin\Mcp\Mcpask\Tool\AskTools;
+use Gss\Plugin\Mcp\Mcpask\Tool\PageTools;
 use Gss\Plugin\Mcp\Mcpask\Tool\RuleTools;
 use Joomla\CMS\Plugin\CMSPlugin;
 use Joomla\Event\EventInterface;
@@ -48,6 +49,13 @@ final class Mcpask extends CMSPlugin implements SubscriberInterface
         // Source rules came with AI Ask 0.6.0
         if (RuleTools::isAvailable()) {
             foreach (RuleTools::tools() as $tool) {
+                $registry->add($tool);
+            }
+        }
+
+        // The list of indexed pages, added pages and ignored pages came with AI Ask 0.16.0
+        if (PageTools::isAvailable()) {
+            foreach (PageTools::tools() as $tool) {
                 $registry->add($tool);
             }
         }

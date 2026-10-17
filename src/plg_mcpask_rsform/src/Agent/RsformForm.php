@@ -11,6 +11,7 @@
 namespace Gss\Plugin\Mcpask\Rsform\Agent;
 
 use Joomla\CMS\Factory;
+use Joomla\CMS\Log\Log;
 use Joomla\Database\DatabaseInterface;
 
 \defined('_JEXEC') or die;
@@ -127,6 +128,7 @@ final class RsformForm
             }
 
             $field = [
+                'cid'      => (int) $component->ComponentId,
                 'name'     => (string) ($p['NAME'] ?? ''),
                 'label'    => self::plain((string) ($p['CAPTION'] ?? '')),
                 'kind'     => $kind,
@@ -336,10 +338,43 @@ final class RsformForm
             }
         }
 
+        $form = \RSFormProHelper::getForm($this->id);
+
+        // The form's own words in the page's language, as RSForm reads them
+        foreach ((array) \RSFormProHelper::getTranslations('forms', $this->id, $language) as $name => $text) {
+            if (isset($form->{$name})) {
+                $form->{$name} = $text;
+            }
+        }
+
+        // What the form checks on its own when it is sent: its plugins, and its own script
+        $invalid = [];
+        $this->trigger('onRsformFrontendBeforeFormValidation', [['invalid' => &$invalid, 'formId' => $this->id, 'post' => &$post]]);
+
+        $post    = $this->script((string) $form->ScriptProcess, $form, $post, $invalid);
+
+        // Only fields of the conversation count: a captcha or a button the conversation does
+        // without is never answered, and must not keep the form from being sent
+        $shown   = [];
+
+        foreach ($this->pages as $page) {
+            foreach ($page as $field) {
+                $shown[] = $field['cid'];
+            }
+        }
+
+        $invalid = array_values(array_intersect(array_map('intval', $invalid), $shown));
+
+        if ($invalid) {
+            throw new \RuntimeException('The form turned the answers down (' . \count($invalid) . ' fields).');
+        }
+
+        $this->trigger('onRsformFrontendBeforeFormProcess', [['post' => &$post]]);
+
         $submission = (object) [
             'FormId'         => $this->id,
             'DateSubmitted'  => Factory::getDate()->toSql(),
-            'UserIp'         => $ip,
+            'UserIp'         => $form->KeepIP ? $ip : '0.0.0.0',
             'Username'       => $username,
             'UserId'         => $userId,
             'Lang'           => $language,
@@ -367,6 +402,28 @@ final class RsformForm
         $this->trigger('onRsformFrontendAfterStoreSubmissions', [['SubmissionId' => $id, 'formId' => $this->id]]);
 
         [$replace, $with] = \RSFormProHelper::sendSubmissionEmails($id);
+
+        // A form that keeps no submissions has it removed once everything has been sent
+        if (!$form->Keepdata) {
+            require_once JPATH_ADMINISTRATOR . '/components/com_rsform/helpers/submissions.php';
+            register_shutdown_function(['RSFormProSubmissionsHelper', 'deleteSubmissions'], $id);
+        }
+
+        // Then, as RSForm does after storing: the form's script, its mappings to other tables, and
+        // its "Post to another location" (where other systems receive the submission)
+        $this->script((string) $form->ScriptProcess2, $form, $post, $invalid, $id, (array) $replace, (array) $with);
+
+        $mappings = \RSFormProHelper::getMappings($this->id);
+        $this->trigger('onRsformBeforeMappings', ['SubmissionId' => $id, 'formId' => $this->id, 'mappings' => &$mappings]);
+        $this->safely(static fn () => \RSFormProHelper::doMappings($mappings, ['replace' => $replace, 'with' => $with]));
+
+        $silentPost = \RSFormProHelper::getSilentPost($this->id);
+        $this->trigger('onRsformBeforeSilentPost', ['SubmissionId' => $id, 'formId' => $this->id, 'silentPost' => &$silentPost]);
+
+        // Only a post the server makes itself: one that sends the visitor's browser elsewhere cannot be made from a conversation
+        if ($silentPost && !empty($silentPost->enabled) && !empty($silentPost->silent)) {
+            $this->safely(static fn () => \RSFormProHelper::doSilentPost($silentPost, ['replace' => $replace, 'with' => $with, 'post' => $post]));
+        }
 
         $this->trigger('onRsformFrontendAfterFormProcess', [['SubmissionId' => $id, 'formId' => $this->id]]);
 
@@ -442,6 +499,56 @@ final class RsformForm
         }
 
         return $words;
+    }
+
+    /**
+     * Run a script of the form, as RSForm runs it on its own page (with the same names in reach),
+     * and return the values as it left them. A script that fails is noted, and does not stop the
+     * submission, as on the form's page.
+     *
+     * @param  array<int, mixed>  $invalid  Fields the script turns down, as on the form's page
+     */
+    private function script(string $code, object $form, array $post, array &$invalid, int $SubmissionId = 0, array $replace = [], array $with = []): array
+    {
+        if (trim($code) === '') {
+            return $post;
+        }
+
+        $formId    = $this->id;
+        $mainframe = Factory::getApplication();
+        $db        = $this->db;
+        $isAjax    = false;
+        $saved     = $_POST['form'] ?? null;
+
+        $_POST['form'] = $post;
+
+        try {
+            eval($code);
+        } catch (\Throwable $e) {
+            Log::add('AI Ask: the script of RSForm form ' . $formId . ' failed: ' . $e->getMessage(), Log::WARNING, 'mcpask');
+        }
+
+        $post = \is_array($_POST['form'] ?? null) ? $_POST['form'] : $post;
+
+        if ($saved === null) {
+            unset($_POST['form']);
+        } else {
+            $_POST['form'] = $saved;
+        }
+
+        return $post;
+    }
+
+    /**
+     * A step after the submission is stored: one that fails does not lose the submission.
+     */
+    private function safely(callable $step): void
+    {
+        try {
+            $step();
+        } catch (\Throwable $e) {
+            Log::add('AI Ask: RSForm form ' . $this->id . ': ' . $e->getMessage(), Log::WARNING, 'mcpask');
+        }
     }
 
     /**

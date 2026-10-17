@@ -45,7 +45,8 @@ $e     = fn ($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 					</p>
 					<dl class="row mb-3">
 						<dt class="col-sm-5"><?php echo Text::_('COM_MCPASK_INDEX_PAGES'); ?></dt>
-						<dd class="col-sm-7"><?php echo (int) $this->stats['documents']; ?> / <?php echo $this->pages; ?></dd>
+						<dd class="col-sm-7"><?php echo (int) $this->stats['documents']; ?> / <?php echo $this->pages; ?>
+							<a class="ms-2 small" href="<?php echo Route::_('index.php?option=com_mcpask&view=pages&kind=own'); ?>"><?php echo Text::_('COM_MCPASK_PAGES_SEE_ALL'); ?></a></dd>
 						<dt class="col-sm-5"><?php echo Text::_('COM_MCPASK_INDEX_PASSAGES'); ?></dt>
 						<dd class="col-sm-7"><?php echo (int) $this->stats['chunks']; ?></dd>
 						<dt class="col-sm-5"><?php echo Text::_('COM_MCPASK_INDEX_PENDING'); ?></dt>

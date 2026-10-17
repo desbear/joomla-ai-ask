@@ -5,7 +5,7 @@
 	<creationDate>2026-10</creationDate>
 	<copyright>(C) 2026 GSS</copyright>
 	<license>GNU General Public License version 2 or later; see LICENSE</license>
-	<version>0.15.0</version>
+	<version>0.16.0</version>
 	<description>COM_MCPASK_XML_DESCRIPTION</description>
 	<namespace path="src">Gss\Component\Mcpask</namespace>
 
@@ -47,6 +47,7 @@
 		<menu img="class:comments">COM_MCPASK</menu>
 		<submenu>
 			<menu link="option=com_mcpask&amp;view=dashboard">COM_MCPASK_SUBMENU_DASHBOARD</menu>
+			<menu link="option=com_mcpask&amp;view=pages">COM_MCPASK_SUBMENU_PAGES</menu>
 			<menu link="option=com_mcpask&amp;view=quality">COM_MCPASK_SUBMENU_QUALITY</menu>
 			<menu link="option=com_mcpask&amp;view=agents">COM_MCPASK_SUBMENU_AGENTS</menu>
 			<menu link="option=com_mcpask&amp;view=handoffs">COM_MCPASK_SUBMENU_HANDOFFS</menu>

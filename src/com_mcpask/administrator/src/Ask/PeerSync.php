@@ -131,6 +131,10 @@ final class PeerSync
         $fetch = [];
 
         foreach ($remote['pages'] as $itemId => $hash) {
+            if ($indexer->ignores()->hasItem($source, (int) $itemId)) {
+                continue;
+            }
+
             if (($stored[$itemId] ?? null) !== sha1($hash . $mark)) {
                 $fetch[] = $itemId;
             }
@@ -171,6 +175,13 @@ final class PeerSync
 
         // A site may only send visitors to itself
         if ($title === '' || !preg_match('#^https?://#i', $url) || strtolower((string) parse_url($url, PHP_URL_HOST)) !== $host) {
+            return false;
+        }
+
+        // Ignored here: not kept, and nothing is embedded for it
+        if ($indexer->ignores()->isIgnored($source, $itemId, $url)) {
+            $indexer->remove($source, $itemId);
+
             return false;
         }
 

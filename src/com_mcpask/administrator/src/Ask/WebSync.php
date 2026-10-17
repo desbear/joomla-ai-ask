@@ -250,17 +250,22 @@ final class WebSync
         $source  = self::PREFIX . $site['id'];
         $crawl   = $state->get(self::PREFIX . $site['id'] . ':crawl');
 
-        // A crawl that is under way goes on where it stopped, at the address it started from
-        if (!empty($crawl['queue']) && !empty($crawl['url'])) {
+        // Pages added one by one: their own list, read again every day
+        if (!empty($site['manual'])) {
+            $client     = new WebClient($site['url'], $site['internal']);
+            $entries    = [];
+            $this->mode = 'manual';
+
+            foreach ($site['manual'] as $page) {
+                $entries[self::itemId($page['url'])] = ['url' => $page['url'], 'title' => '', 'date' => '', 'html' => '', 'selector' => $page['selector'], 'manual' => true];
+            }
+        } elseif (!empty($crawl['queue']) && !empty($crawl['url'])) {
+            // A crawl that is under way goes on where it stopped, at the address it started from
             $site['url'] = $crawl['url'];
 
             return $this->crawl(new WebClient($site['url'], $site['internal']), $indexer, $site, $deadline);
-        }
-
-        // A list read lately is used again, so a large sitemap is not read on every run
-        $cache = $state->get(self::PREFIX . $site['id'] . ':entries');
-
-        if (($cache['fetched'] ?? '') > Factory::getDate('-' . self::LIST_HOURS . ' hours')->toSql() && isset($cache['url'], $cache['entries'])) {
+        } elseif (($cache = $state->get(self::PREFIX . $site['id'] . ':entries')) && ($cache['fetched'] ?? '') > Factory::getDate('-' . self::LIST_HOURS . ' hours')->toSql() && isset($cache['url'], $cache['entries'])) {
+            // A list read lately is used again, so a large sitemap is not read on every run
             $site['url'] = $cache['url'];
             $client      = new WebClient($site['url'], $site['internal']);
             $entries     = (array) $cache['entries'];
@@ -293,7 +298,7 @@ final class WebSync
             $result['removed']++;
         }
 
-        $stale = Factory::getDate('-' . self::STALE_DAYS . ' days')->toSql();
+        $stale = Factory::getDate('-' . (!empty($site['manual']) ? 1 : self::STALE_DAYS) . ' days')->toSql();
         $due   = array_filter($entries, static function ($entry, $itemId) use ($stored, $stale) {
             $row = $stored[$itemId] ?? null;
 
@@ -308,7 +313,15 @@ final class WebSync
             }
 
             $entry = $due[$itemId];
-            $page  = $this->page($client, $entry, $site['selector']);
+
+            // Ignored: not read at all, and out of the index
+            if ($indexer->ignores()->isIgnored($source, (int) $itemId, $entry['url'])) {
+                $indexer->remove($source, (int) $itemId);
+
+                continue;
+            }
+
+            $page  = $this->page($client, $entry, ($entry['selector'] ?? '') !== '' ? $entry['selector'] : $site['selector']);
 
             if ($page === 'gone') {
                 // Gone, or no longer to be read: it does not stay in the index
@@ -340,6 +353,47 @@ final class WebSync
         }
 
         return $result;
+    }
+
+    /**
+     * Read one page of a listed website or an added page again, now.
+     *
+     * @return  array{outcome: string, why: string}  outcome: indexed, unchanged, empty, ignored, gone or failed
+     *
+     * @since   0.16.0
+     */
+    public function rereadPage(string $source, int $itemId, string $url): array
+    {
+        $site = $this->settings->websites()[substr($source, \strlen(self::PREFIX))] ?? null;
+
+        if (!$site || !preg_match('#^https?://#i', $url)) {
+            return ['outcome' => 'gone', 'why' => ''];
+        }
+
+        $manual   = !empty($site['manual']);
+        $selector = $site['selector'];
+
+        foreach ($site['manual'] ?? [] as $page) {
+            if (self::itemId($page['url']) === $itemId && $page['selector'] !== '') {
+                $selector = $page['selector'];
+            }
+        }
+
+        $indexer       = new Indexer($this->db, $this->settings);
+        $this->skipped = [];
+        $page          = $this->page(new WebClient($url, $site['internal']), ['url' => $url, 'title' => '', 'date' => '', 'html' => '', 'manual' => $manual], $selector);
+
+        if ($page === 'gone') {
+            $indexer->remove($source, $itemId);
+
+            return ['outcome' => 'gone', 'why' => (string) array_key_last($this->skipped)];
+        }
+
+        if ($page === null) {
+            return ['outcome' => 'failed', 'why' => (string) array_key_last($this->skipped)];
+        }
+
+        return ['outcome' => $indexer->index(new Document($source, $itemId, mb_substr($page['title'] ?: $url, 0, 255), $url, '*', 1, $page['html'])), 'why' => ''];
     }
 
     /**
@@ -498,7 +552,8 @@ final class WebSync
      */
     private function page(WebClient $client, array $entry, string $selector): array|string|null
     {
-        if (!$client->allowed($entry['url'])) {
+        // A page the administrator added is read as asked, whatever robots.txt says of crawlers
+        if (empty($entry['manual']) && !$client->allowed($entry['url'])) {
             $this->skip('robots.txt');
 
             return 'gone';
@@ -508,7 +563,7 @@ final class WebSync
             return ['title' => $entry['title'], 'html' => $entry['html']];
         }
 
-        $response = $client->get($entry['url']);
+        $response = $client->get($entry['url'], !empty($entry['manual']));
 
         if (\in_array($response['status'], [404, 410], true) || ($response['status'] === 200 && !\in_array($response['type'], ['text/html', 'application/xhtml+xml', ''], true))) {
             $this->skip($response['status'] === 200 ? $response['type'] : 'HTTP ' . $response['status']);

@@ -666,8 +666,17 @@ html:has(.mcp-ask-chat[open]) {
 
     position: relative;
     display: grid;
-    grid-template-rows: auto minmax(0, 1fr) auto auto;
+    /* Head, the bar of the agent in charge, the conversation, helpers to try, the composer, the
+       note: each in its own row, so a bar that comes and goes never takes the conversation's */
+    grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
     block-size: 100%;
+
+    > .mcp-ask-chat__head { grid-row: 1; }
+    > .mcp-ask-chat__agent { grid-row: 2; }
+    > .mcp-ask-chat__log { grid-row: 3; }
+    > .mcp-ask-chat__try { grid-row: 4; }
+    > .mcp-ask-chat__composer { grid-row: 5; }
+    > .mcp-ask-chat__note { grid-row: 6; }
   }
 
   .mcp-ask-chat__head,

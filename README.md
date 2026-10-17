@@ -2,7 +2,7 @@
 
 A search box for your visitors that answers their questions from your site's own content with AI, and names the pages each answer came from. It can also hand the conversation to helpers that get things done (fill in a form, write an analysis report, pass the visitor on to a person), show up on your other websites with one line of script, and turn its floating button into an animated pet.
 
-> **Status: experimental (0.15.0).** Runs on Joomla 4.4, 5 and 6 with the OpenAI service. Not yet used on a production site.
+> **Status: experimental (0.16.0).** Runs on Joomla 4.4, 5 and 6 with the OpenAI service. Not yet used on a production site.
 
 [繁體中文說明](#繁體中文)
 
@@ -14,6 +14,7 @@ A search box for your visitors that answers their questions from your site's own
 - **Several sites, one answer**: a site can read the index of other sites that run this extension and hold each other's export key, and answer from their public content as well. Embeddings are reused when both sites make them the same way, so reading another site costs nothing at the AI service.
 - **Websites by feed, sitemap or crawl**: list other websites by their RSS or Atom feed, their sitemap, or just their home page; their pages are read (keeping to robots.txt), indexed and answered from, each source marked by its site.
 - **Screenshots, tables and callouts in answers**: pages are indexed as light Markdown with the site's own images kept where they stand; an answer may show a step's screenshot, a table, or a tip or warning box. An image is shown only when it is a file of this site found in the pages the answer was written from.
+- **Indexed pages**: every page the answers come from, with the passages the AI service is given of each; pages added by their address (one per line, each read on its own and again every day); pages ignored, singly or by address patterns, so that they are not answered from and do not come back.
 - **Answer quality**: visitors rate answers with an optional reason; an Answer quality page lists the questions rated badly or not answered, and source rules point such questions to the pages that answer them.
 - **Appearance described in words**: describe the look ("calm dark blue") and the AI service proposes the module's colours, shown in a live preview; text that would be hard to read is made readable (WCAG contrast).
 - **Agents**: helpers that take over the conversation to get one thing done, offered by plugins of the `mcpask` group. Listed beside the search box, offered below answers to questions close to their trigger phrases, or offered when the AI judges they fit. See [docs/agents.md](docs/agents.md).
@@ -23,7 +24,7 @@ A search box for your visitors that answers their questions from your site's own
 - **Embeds**: AI Ask on other websites and products with one line of script (a frame of this site, allowed only on the websites listed), with the page the visitor is on, an optional sign-in in a small window, or a token signed by the other website's server. See [docs/embeds.md](docs/embeds.md).
 - **Pets**: the floating button may be a pet whose moments (idle, greeting, picked up, thinking, talking, glad, puzzled, asleep, waking) follow the visitor and the answer, with a whole-body picture and a square thumbnail for each. No pet comes with the extension: make your own on the Pets page. See [docs/pets.md](docs/pets.md).
 - **Cost control**: limits per visitor (per minute, per day), per user group and for the whole site; Joomla permissions for who may ask and who is not limited; a maximum answer length; no model call when nothing relevant is found; probes (markup, scripts, commands) are turned away before anything is sent to the AI service.
-- **With [MCP Server for Joomla](https://github.com/desbear/joomla-mcp)** (optional): the plugin `MCP - AI Ask` gives AI assistants connected to your site tools to review the questions visitors asked, how answers were rated, source rules, agents, handoffs and reports. Super-User-only.
+- **With [MCP Server for Joomla](https://github.com/desbear/joomla-mcp)** (optional): the plugin `MCP - AI Ask` gives AI assistants connected to your site tools to review the questions visitors asked, how answers were rated, source rules, the indexed pages (and to add or ignore pages), agents, handoffs and reports. Super-User-only.
 
 ## Requirements
 
@@ -66,7 +67,7 @@ GNU General Public License version 2 or later.
 
 AI Ask for Joomla 是給訪客用的搜尋框：透過 AI 依網站自己的內容回答問題，並標示每段回答來自哪些頁面。還可以把對話交給能完成事情的小幫手（填表單、寫分析報告、轉接真人客服），用一行程式碼放到你的其他網站，也可以把浮動按鈕換成會動的小寵物。
 
-> **狀態：實驗性（0.15.0）。** 可在 Joomla 4.4、5、6 搭配 OpenAI 服務執行，尚未用於正式網站。
+> **狀態：實驗性（0.16.0）。** 可在 Joomla 4.4、5、6 搭配 OpenAI 服務執行，尚未用於正式網站。
 
 **功能**
 
@@ -76,6 +77,7 @@ AI Ask for Joomla 是給訪客用的搜尋框：透過 AI 依網站自己的內�
 - **多站共用**：可讀取其他裝有本擴充、並互相持有匯出金鑰的網站索引；兩站向量做法相同時直接沿用，不產生 AI 費用。
 - **外部網站**：用 RSS／Atom、Sitemap 或只填首頁（自動爬取，遵守 robots.txt）讀取其他網站並用來回答。
 - **回答可帶截圖、表格與提示框**：圖片只有在它是本站的檔案、而且出自這次引用的頁面時才會顯示。
+- **已索引頁面**：列出回答取材的每一頁，可看到每頁實際交給 AI 的段落；可用網址手動加入頁面（一行一個，只讀那一頁、每天重讀）；不該用來回答的頁面可單筆或用網址規則「忽略」，不會再被加回來。
 - **回答品質**：訪客可評分並填原因；「回答品質」頁列出評價差或答不出來的問題，可用「指定來源規則」導向正確頁面。
 - **用一句話設定外觀**：描述想要的風格，AI 提出配色並即時預覽，自動確保文字對比易讀。
 - **Agents**：接手對話、完成一件事的小幫手，由 `mcpask` 群組的外掛提供，詳見 [docs/agents.md](docs/agents.md)。
