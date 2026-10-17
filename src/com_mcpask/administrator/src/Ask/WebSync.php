@@ -254,7 +254,7 @@ final class WebSync
         if (!empty($crawl['queue']) && !empty($crawl['url'])) {
             $site['url'] = $crawl['url'];
 
-            return $this->crawl(new WebClient($site['url']), $indexer, $site, $deadline);
+            return $this->crawl(new WebClient($site['url'], $site['internal']), $indexer, $site, $deadline);
         }
 
         // A list read lately is used again, so a large sitemap is not read on every run
@@ -262,14 +262,14 @@ final class WebSync
 
         if (($cache['fetched'] ?? '') > Factory::getDate('-' . self::LIST_HOURS . ' hours')->toSql() && isset($cache['url'], $cache['entries'])) {
             $site['url'] = $cache['url'];
-            $client      = new WebClient($site['url']);
+            $client      = new WebClient($site['url'], $site['internal']);
             $entries     = (array) $cache['entries'];
             $this->mode  = (string) ($cache['mode'] ?? 'sitemap');
         } else {
             // A site given by an address that moves elsewhere (edu.example.com to www.example.com) is
             // read where it moved to
-            $site['url'] = WebClient::landing($site['url']);
-            $client      = new WebClient($site['url']);
+            $site['url'] = WebClient::landing($site['url'], $site['internal']);
+            $client      = new WebClient($site['url'], $site['internal']);
             $entries     = $this->entries($client, $site);
 
             if ($entries === null) {
@@ -343,6 +343,34 @@ final class WebSync
     }
 
     /**
+     * Why the address of a site could not be read, as the administrator can act on it.
+     */
+    public static function failure(string $name, array $response): string
+    {
+        if ($response['status'] !== 0) {
+            return Text::sprintf('COM_MCPASK_WEBSITE_ERROR_LIST', $name, $response['status']);
+        }
+
+        return Text::sprintf('COM_MCPASK_WEBSITE_ERROR_REACH', $name, self::reason($response));
+    }
+
+    /**
+     * Why an address could not be read at all: robots.txt, a name not found, an internal address,
+     * no connection and the like.
+     */
+    public static function reason(array $response): string
+    {
+        if ($response['status'] !== 0) {
+            return 'HTTP ' . (int) $response['status'];
+        }
+
+        [$why, $detail] = explode(':', (string) ($response['why'] ?? ''), 2) + [1 => ''];
+        $known          = ['robots', 'elsewhere', 'redirects', 'address', 'port', 'dns', 'private', 'connect', 'size'];
+
+        return Text::sprintf('COM_MCPASK_WEBSITE_WHY_' . strtoupper(\in_array($why, $known, true) ? $why : 'connect'), trim($detail) ?: '—');
+    }
+
+    /**
      * The pages a source lists, by the ID they are filed under. A feed gives its items with
      * their text; a sitemap only addresses, and a sitemap index points to more sitemaps.
      *
@@ -350,10 +378,11 @@ final class WebSync
      */
     private function entries(WebClient $client, array $site): ?array
     {
-        $response = $client->get($site['url']);
+        // The address the administrator gave: read even where robots.txt keeps crawlers out
+        $response = $client->get($site['url'], true);
 
         if ($response['status'] !== 200) {
-            throw new ServiceException(Text::sprintf('COM_MCPASK_WEBSITE_ERROR_LIST', $site['name'], $response['status']));
+            throw new ServiceException(self::failure($site['name'], $response));
         }
 
         $xml = $this->xml($response['body']);
@@ -395,7 +424,7 @@ final class WebSync
                     break;
                 }
 
-                $part = $client->get($map['loc']);
+                $part = $client->get($map['loc'], true);
                 $xml2 = $part['status'] === 200 ? $this->xml($part['body']) : null;
 
                 foreach ($xml2 ? $this->children($xml2, 'url') : [] as $url) {
@@ -528,7 +557,7 @@ final class WebSync
                 return null;
             }
 
-            $response = $client->get($url);
+            $response = $client->get($url, true);
             $xml      = $response['status'] === 200 ? $this->xml($response['body']) : null;
 
             if ($xml && \in_array(strtolower($xml->getName()), ['urlset', 'sitemapindex'], true) && \count($xml->children()) > 0) {

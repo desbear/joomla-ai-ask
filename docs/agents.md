@@ -23,6 +23,12 @@ What an agent keeps between turns stays on the server, encrypted, bound to the v
 
 Fills in a form in conversation, a page at a time (cut at the form's page breaks). Visitors fill in the card or answer in their own words: the AI puts into the fields only values they take, and says what is missing. A summary is shown before anything is sent; the form is then stored as RSForm stores a submission, with its e-mails.
 
+The form is shown in the language of the page, from RSForm's own translations, and RSForm's checks of each field (its validation rules, a site's custom ones included, and its maximum length) apply. A box the form only shows to read (terms with `readonly`) is shown as text and sent as it is. What a form's own scripts do on its page is not run in the conversation; for the usual cases there are settings instead:
+
+- **Fields left out**: names of fields not to show, such as text the form's page hides with CSS.
+- **Field for the page**: a (hidden) field sent with the address of the page the visitor started from.
+- **Look-ups**: a field that suggests values from a JSON service as the visitor types, and fills in other fields from the one chosen (a company found by name, filling in its registration number). The visitor's browser asks the service, so it must allow the website (CORS).
+
 **Analysis report** (optional): once sent, a report written for the visitor from their answers and the site's pages: a result type (as in a personality test), scores, sections each with what it is for and how long, the pages it cites, buttons at the end, a private address kept for some days, and the link e-mailed. You write the types, scores and sections; nothing is filled in for you. Pictures may be the type's own, or made by AI when an image plugin is enabled (see below).
 
 ### LiveChat

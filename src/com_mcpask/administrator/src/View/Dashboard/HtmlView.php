@@ -15,6 +15,7 @@ use Gss\Component\Mcpask\Administrator\Ask\PeerSync;
 use Gss\Component\Mcpask\Administrator\Ask\State;
 use Gss\Component\Mcpask\Administrator\Ask\WebSync;
 use Gss\Component\Mcpask\Administrator\Ask\Settings;
+use Gss\Component\Mcpask\Administrator\Ask\Source\FlexicontentSource;
 use Gss\Component\Mcpask\Administrator\Ask\Source\Sources;
 use Gss\Component\Mcpask\Administrator\Ask\UsageLog;
 use Joomla\CMS\Factory;
@@ -68,6 +69,9 @@ class HtmlView extends BaseHtmlView
     /** @var array{sites: array, running: bool, busy: bool, wanted: bool}  What dashboard.js starts from */
     public array $websiteStatus = [];
 
+    /** @var array<int, array{title: string, why: string, at: string}>  Items read from their page whose page could not be read */
+    public array $unread = [];
+
     /** "ON", "OFF", or "SHORT" when a key was entered that is too short to count */
     public string $exports = 'OFF';
 
@@ -92,6 +96,8 @@ class HtmlView extends BaseHtmlView
         $this->canClear  = $user->authorise('core.admin', 'com_mcpask') || $user->authorise('core.options', 'com_mcpask');
         $this->peers     = (new PeerSync($db, $settings))->status();
         $this->websites  = (new WebSync($db, $settings))->status();
+        // FLEXIcontent items read from their page whose page could not be read lately
+        $this->unread    = $settings->flexiPages() ? (new State($db))->get(FlexicontentSource::UNREAD) : [];
         $this->websiteStatus = [
             'sites'   => array_values($this->websites),
             'busy'    => false,

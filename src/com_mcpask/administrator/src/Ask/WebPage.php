@@ -35,9 +35,13 @@ final class WebPage
     /** Classes and IDs of what is not the text even within it: sharing, comments, related links, notices. */
     private const EXTRAS = '/(^|[\s_-])(breadcrumbs?|cookie|consent|share|sharing|social|related|comments?|pagination|pager|advert|ads|popup|modal|subscribe|newsletter|toolbar|skip|print|tags)([\s_-]|$)/i';
 
+    /** The same within parts the selector names, where a pop-up or modal may be what was asked for. */
+    private const EXTRAS_NAMED = '/(^|[\s_-])(breadcrumbs?|cookie|consent|share|sharing|social|related|comments?|pagination|pager|advert|ads|subscribe|newsletter|toolbar|skip|print|tags)([\s_-]|$)/i';
+
     /**
-     * @param   string  $selector  Where the text is, as a simple CSS selector (#id, .class,
-     *                             tag, tag.class, tag#id, and these separated by spaces); empty to guess
+     * @param   string  $selector  Where the text is, as simple CSS selectors (#id, .class,
+     *                             tag, tag.class, tag#id, and these separated by spaces), several
+     *                             separated by commas; empty to guess
      * @param   string  $charset   As the server said, if it did
      *
      * @return  array{title: string, html: string}
@@ -84,13 +88,46 @@ final class WebPage
             }
         }
 
+        // The parts the selector names, found before anything is taken away: one may be what is
+        // otherwise never text (a dialog that holds a price list, say)
+        $parts = [];
+
+        foreach ($selector !== '' ? explode(',', $selector) : [] as $one) {
+            $path = self::xpath(trim($one));
+
+            foreach ($path !== '' ? ($xpath->query($path) ?: []) : [] as $node) {
+                $parts[] = $node;
+            }
+        }
+
         self::remove($xpath, '//' . implode(' | //', self::NOISE));
 
-        $body = null;
+        if ($parts) {
+            $html = '';
 
-        if ($selector !== '' && ($path = self::xpath($selector)) !== '') {
-            $body = $xpath->query($path)?->item(0);
+            foreach ($parts as $index => $part) {
+                // A part inside another one that was named is there already
+                foreach ($parts as $other => $outer) {
+                    if ($other !== $index && $outer !== $part && self::inside($part, $outer)) {
+                        continue 2;
+                    }
+                }
+
+                self::remove($xpath, './/' . implode(' | .//', self::NOISE), $part);
+                self::strip($xpath, './/*[@class or @id]', self::EXTRAS_NAMED, $part);
+                self::remove($xpath, './/nav | .//aside', $part);
+
+                foreach ($part->childNodes as $child) {
+                    $html .= $document->saveHTML($child);
+                }
+
+                $html .= "\n";
+            }
+
+            return ['title' => $title, 'html' => trim($html)];
         }
+
+        $body = null;
 
         if (!$body) {
             // The longest article, else the main part
@@ -173,6 +210,17 @@ final class WebPage
             'noindex'   => (bool) preg_match('/\b(noindex|none)\b/', $robots),
             'nofollow'  => (bool) preg_match('/\b(nofollow|none)\b/', $robots),
         ];
+    }
+
+    private static function inside(\DOMNode $node, \DOMNode $outer): bool
+    {
+        for ($up = $node->parentNode; $up; $up = $up->parentNode) {
+            if ($up === $outer) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static function remove(\DOMXPath $xpath, string $path, ?\DOMNode $within = null): void

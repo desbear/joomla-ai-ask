@@ -56,6 +56,19 @@ $e     = fn ($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 					<?php if ($this->stats['message'] !== '') : ?>
 						<div class="alert alert-warning"><?php echo $e($this->stats['message']); ?></div>
 					<?php endif; ?>
+					<?php foreach (['warning' => false, 'info' => true] as $look => $stored) : ?>
+						<?php $items = array_filter($this->unread, static fn ($item) => (bool) ($item['stored'] ?? false) === $stored); ?>
+						<?php if ($items) : ?>
+							<div class="alert alert-<?php echo $look; ?>">
+								<p class="mb-1"><?php echo Text::plural($stored ? 'COM_MCPASK_PAGES_STORED' : 'COM_MCPASK_PAGES_UNREAD', \count($items)); ?></p>
+								<ul class="mb-0">
+									<?php foreach (\array_slice($items, 0, 5, true) as $id => $item) : ?>
+										<li><?php echo $e($item['title'] ?? ('#' . $id)); ?> (#<?php echo (int) $id; ?>): <?php echo $e($item['why'] ?? ''); ?></li>
+									<?php endforeach; ?>
+								</ul>
+							</div>
+						<?php endif; ?>
+					<?php endforeach; ?>
 					<?php if ($this->canManage) : ?>
 						<div class="d-flex flex-wrap gap-2">
 							<button type="button" class="btn btn-primary" data-mcpask="sync">

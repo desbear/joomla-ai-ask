@@ -1284,6 +1284,119 @@
     });
   };
 
+  // Suggestions from a service as the visitor types, as a form's own scripts may give them: the
+  // one chosen goes into the field, and its other keys into other fields of the card
+  const lookup = (control, settings, form) => {
+    const list = el('ul', 'mcp-ask-lookup');
+    let timer = 0;
+    let asked = 0;
+    let found = [];
+    let active = -1;
+
+    const box = el('div', 'mcp-ask-lookup-box');
+
+    list.hidden = true;
+    list.setAttribute('role', 'listbox');
+    control.setAttribute('autocomplete', 'off');
+    control.replaceWith(box);
+    box.append(control, list);
+
+    const close = () => {
+      list.hidden = true;
+      list.replaceChildren();
+      found = [];
+      active = -1;
+    };
+
+    const choose = (item) => {
+      control.value = String(item[settings.value] ?? '');
+      Object.entries(settings.fill || {}).forEach(([name, key]) => {
+        const target = form.elements.namedItem(name);
+
+        if (target && 'value' in target && item[key] != null) {
+          target.value = String(item[key]);
+        }
+      });
+      close();
+    };
+
+    const mark = (index) => {
+      active = index;
+      [...list.children].forEach((option, at) => option.setAttribute('aria-selected', String(at === index)));
+    };
+
+    control.addEventListener('input', () => {
+      clearTimeout(timer);
+
+      const query = control.value.trim();
+
+      if (query.length < 2) {
+        asked++;
+        close();
+
+        return;
+      }
+
+      timer = setTimeout(async () => {
+        const mine = ++asked;
+
+        try {
+          const response = await fetch(settings.url.replace('{query}', encodeURIComponent(query)), { credentials: 'omit' });
+          const data = response.ok ? await response.json() : [];
+
+          if (mine !== asked) {
+            return;
+          }
+
+          close();
+          found = (Array.isArray(data) ? data : []).filter((item) => item && typeof item === 'object' && item[settings.value] != null).slice(0, 8);
+          found.forEach((item, index) => {
+            const option = el('li', 'mcp-ask-lookup__item', String(item[settings.value]));
+
+            option.setAttribute('role', 'option');
+
+            if (settings.note && item[settings.note] != null) {
+              option.append(el('small', '', String(item[settings.note])));
+            }
+
+            // Before the field loses focus
+            option.addEventListener('mousedown', (event) => {
+              event.preventDefault();
+              choose(item);
+            });
+            option.addEventListener('mousemove', () => mark(index));
+            list.append(option);
+          });
+          list.hidden = !found.length;
+        } catch {
+          // The service not there, or not allowing this website: the field is filled in by hand
+          if (mine === asked) {
+            close();
+          }
+        }
+      }, 400);
+    });
+
+    control.addEventListener('keydown', (event) => {
+      if (list.hidden) {
+        return;
+      }
+
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        mark((active + (event.key === 'ArrowDown' ? 1 : found.length - 1)) % found.length);
+      } else if (event.key === 'Enter' && active >= 0) {
+        event.preventDefault();
+        choose(found[active]);
+      } else if (event.key === 'Escape') {
+        event.stopPropagation();
+        close();
+      }
+    });
+
+    control.addEventListener('blur', () => setTimeout(close, 150));
+  };
+
   const fieldsCard = (card) => {
     const form = el('form', 'mcp-ask-card mcp-ask-card--fields');
 
@@ -1307,7 +1420,15 @@
       const id = `mcp-ask-f${Date.now().toString(36)}${index}`;
 
       if (item.kind === 'info') {
-        form.append(el('p', 'mcp-ask-field__info', item.label || ''));
+        // Text to read: a note of the form, or a box of it the visitor only reads (terms, say)
+        if (item.help) {
+          const block = el('div', 'mcp-ask-field');
+
+          block.append(el('p', 'mcp-ask-field__label', item.label || ''), el('div', 'mcp-ask-field__read', item.help));
+          form.append(block);
+        } else {
+          form.append(el('p', 'mcp-ask-field__info', item.label || ''));
+        }
 
         return;
       }
@@ -1375,7 +1496,20 @@
 
         control.value = values[0];
         control.required = Boolean(item.required);
+
+        if (item.placeholder) {
+          control.placeholder = item.placeholder;
+        }
+
+        if (item.max > 0) {
+          control.maxLength = item.max;
+        }
+
         wrap.append(control);
+
+        if (item.lookup && item.kind !== 'textarea') {
+          lookup(control, item.lookup, form);
+        }
       }
 
       if (item.help) {

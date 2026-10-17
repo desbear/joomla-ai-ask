@@ -2,6 +2,45 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask for Joomla 0.15.0
+
+- **FLEXIcontent items read from their page.** For types whose items keep their text in the type's template rather
+  than in the item (a price list laid out from a few fields, say), **Options → Content → FLEXIcontent types read from
+  their page** reads the items of those types as visitors see them, from the item's page on the site in the item's
+  language, with an optional selector of the part to read. Such pages are read again every day; an embedding is made
+  again only when what they show changed. A page that cannot be read just now keeps what was indexed; an item whose page
+  leads to another website, is gone or holds no text where the selector points is indexed from its text and fields, as
+  other types are. The dashboard lists both kinds with the reason.
+- **The site's own pages are read even when the server cannot reach its own public address** (a firewall or NAT that
+  does not let a server reach itself that way, "Could not connect to server"): they are then read through the web
+  server on the same machine: an address the administrator gives (**Options → Content → This site's address on the
+  server**), the address the request came in on, the loopback address; over https with the site's own name and
+  certificate, or over plain http with `X-Forwarded-Proto: https` for a server behind a proxy that ends https. The way
+  found is remembered; when none works, the message lists what each way answered.
+- **Listed websites: a feed or sitemap is read even where robots.txt keeps crawlers out.** Sites often disallow
+  their sitemap's address (JSitemap's `/component/jmap/sitemap/xml?format=xml` falls under the common
+  `Disallow: */component/` and `Disallow: /*?format=*`), and the list was then never read ("HTTP 0"). robots.txt is
+  about crawling pages: the list the administrator gave, the parts of a sitemap index and the sitemaps robots.txt
+  names are read; each page they list is still checked.
+- **A listed website that cannot be read says why**, instead of "HTTP 0": robots.txt, a name this server cannot
+  find, a name that leads into the internal network (with its address), a connection refused or timed out (with
+  curl's words), too many redirects. The message no longer speaks of a feed or sitemap when a home page was given.
+- **Listed websites may be marked "Internal network"**: read even when, from this server, their name leads to an
+  internal address (a website of the same company through its own DNS); refused by default, as before.
+- Selectors of the part of a page to read (here and for listed websites) may name several parts separated by commas;
+  a named part is read even when it is a dialog.
+- **RSForm! Pro agent**
+  - The form is shown in the page's language from RSForm's translations; before, a form written in English stayed in
+    English on Chinese pages.
+  - RSForm's checks of each field apply in the conversation (its validation rules, a site's custom ones, the maximum
+    length); placeholders are shown.
+  - Read-only boxes (terms to agree to) are shown as text to read and sent as they are; markup in option labels is
+    shown as text.
+  - New settings: fields left out, a field for the page the visitor started from, and look-ups that suggest values
+    from a JSON service as the visitor types and fill in other fields from the one chosen.
+- Checkboxes and radio buttons in agents' cards were invisible on templates that reset `appearance`, leaving an empty
+  space before each option.
+
 ## AI Ask for Joomla 0.14.0
 
 - **A project of its own, under a new name**: AI Ask for Joomla ("AI 問答"), apart from MCP Server for Joomla. Element

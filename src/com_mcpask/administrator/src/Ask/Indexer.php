@@ -340,7 +340,8 @@ final class Indexer
     private function changed(SourceInterface $source, array $ids, array $known): array
     {
         $state     = new State($this->db);
-        $signature = $this->settings->indexSignature() . '|' . $this->fieldsSignature() . '|passages:' . Chunker::FORMAT;
+        $signature = $this->settings->indexSignature() . '|' . $this->fieldsSignature() . '|passages:' . Chunker::FORMAT
+            . '|pages:' . json_encode($this->settings->flexiPages());
         $since     = $state->get('index:signature');
 
         // Pages looked at under other settings are all looked at again

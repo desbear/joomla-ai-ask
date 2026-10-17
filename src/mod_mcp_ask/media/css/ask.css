@@ -2191,6 +2191,9 @@ html:active-view-transition-type(mcp-ask-nav) {
     cursor: pointer;
 
     input {
+      /* Back from the resets (this one's and many templates'), which leave an empty space */
+      appearance: auto;
+      flex: none;
       inline-size: 16px;
       block-size: 16px;
       margin: 0;
@@ -2199,6 +2202,70 @@ html:active-view-transition-type(mcp-ask-nav) {
 
     &:has(input:checked) {
       border-color: var(--mcp-ask-accent);
+      background: color-mix(in srgb, var(--mcp-ask-accent) 10%, var(--mcp-ask-surface));
+    }
+  }
+
+  /* A box of the form the visitor only reads: terms to agree to, say */
+  .mcp-ask-field__read {
+    max-block-size: 10em;
+    overflow: auto;
+    padding: 10px 12px;
+    border: 1px solid var(--mcp-ask-line);
+    border-radius: 10px;
+    background: var(--mcp-ask-field);
+    color: var(--mcp-ask-muted);
+    font-size: 14px;
+    white-space: pre-line;
+  }
+
+  /* Suggestions from a look-up, under the field */
+  .mcp-ask-lookup-box {
+    position: relative;
+
+    > .mcp-ask-field__control {
+      inline-size: 100%;
+    }
+  }
+
+  .mcp-ask-lookup {
+    position: absolute;
+    z-index: 3;
+    inset-block-start: 100%;
+    inset-inline: 0;
+    margin: 4px 0 0;
+    padding: 4px;
+    max-block-size: 260px;
+    overflow: auto;
+    border: 1px solid var(--mcp-ask-line);
+    border-radius: 10px;
+    background: var(--mcp-ask-surface);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 12%);
+    list-style: none;
+
+    &[hidden] {
+      display: none;
+    }
+  }
+
+  .mcp-ask-lookup__item {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    color: var(--mcp-ask-text);
+    font-size: 15px;
+    cursor: pointer;
+
+    small {
+      color: var(--mcp-ask-muted);
+      font-size: 12px;
+    }
+
+    &[aria-selected="true"],
+    &:hover {
       background: color-mix(in srgb, var(--mcp-ask-accent) 10%, var(--mcp-ask-surface));
     }
   }

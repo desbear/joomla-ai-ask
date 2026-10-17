@@ -68,6 +68,19 @@
 		<field name="fields_only" type="mcpaskfields" multiple="true" layout="joomla.form.field.list-fancy-select" showon="include_fields:1"
 			label="COM_MCPASK_CONFIG_FIELDS_ONLY" description="COM_MCPASK_CONFIG_FIELDS_ONLY_DESC"
 			hint="COM_MCPASK_CONFIG_FIELDS_ONLY_HINT" />
+		<field name="flexi_pages" type="subform" multiple="true" layout="joomla.form.field.subform.repeatable-table" buttons="add,remove"
+			label="COM_MCPASK_CONFIG_FLEXI_PAGES" description="COM_MCPASK_CONFIG_FLEXI_PAGES_DESC">
+			<form>
+				<field name="type" type="mcpaskflexitypes" required="true" addfieldprefix="Gss\Component\Mcpask\Administrator\Field"
+					label="COM_MCPASK_CONFIG_FLEXI_PAGES_TYPE">
+					<option value="">JSELECT</option>
+				</field>
+				<field name="selector" type="text" filter="string" maxlength="200"
+					label="COM_MCPASK_CONFIG_FLEXI_PAGES_SELECTOR" description="COM_MCPASK_CONFIG_FLEXI_PAGES_SELECTOR_DESC" hint="main" />
+			</form>
+		</field>
+		<field name="own_address" type="text" filter="string" maxlength="200" hint="http://127.0.0.1:80"
+			label="COM_MCPASK_CONFIG_OWN_ADDRESS" description="COM_MCPASK_CONFIG_OWN_ADDRESS_DESC" />
 		<field name="include_easyblog" type="radio" layout="joomla.form.field.radio.switcher" default="1"
 			label="COM_MCPASK_CONFIG_EASYBLOG" description="COM_MCPASK_CONFIG_EASYBLOG_DESC">
 			<option value="0">JNO</option>

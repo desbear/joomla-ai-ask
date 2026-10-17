@@ -53,7 +53,10 @@ final class Card
                 'options'  => array_map(static fn ($option) => ['value' => (string) $option['value'], 'label' => self::clip((string) $option['label'], 300)], $field['options'] ?? []),
                 'value'    => $field['value'] ?? null,
                 'error'    => self::clip((string) ($field['error'] ?? ''), 300),
-                'help'     => self::clip((string) ($field['help'] ?? ''), 2000),
+                'help'     => self::clip((string) ($field['help'] ?? ''), 4000),
+                'placeholder' => self::clip((string) ($field['placeholder'] ?? ''), 200),
+                'max'      => max(0, (int) ($field['max'] ?? 0)) ?: null,
+                'lookup'   => self::lookup($field['lookup'] ?? null),
             ], static fn ($value) => $value !== null && $value !== '' && $value !== []) + ['kind' => $kind, 'name' => (string) $field['name']];
         }
 
@@ -65,6 +68,30 @@ final class Card
             'submit' => self::clip($submit, 100),
             'page'   => $page,
         ], static fn ($value) => $value !== null && $value !== '');
+    }
+
+    /**
+     * Where a field looks up suggestions as the visitor types: an address with {query}, the key
+     * that goes into the field, a key shown beside it, and other fields filled in (field => key).
+     */
+    private static function lookup(mixed $lookup): ?array
+    {
+        if (!\is_array($lookup) || !preg_match('#^https?://[^\s]+$#i', (string) ($lookup['url'] ?? '')) || !str_contains((string) $lookup['url'], '{query}') || (string) ($lookup['value'] ?? '') === '') {
+            return null;
+        }
+
+        $fill = [];
+
+        foreach ((array) ($lookup['fill'] ?? []) as $name => $key) {
+            $fill[self::clip((string) $name, 100)] = self::clip((string) $key, 100);
+        }
+
+        return [
+            'url'   => self::clip((string) $lookup['url'], 1000),
+            'value' => self::clip((string) $lookup['value'], 100),
+            'note'  => self::clip((string) ($lookup['note'] ?? ''), 100),
+            'fill'  => (object) $fill,
+        ];
     }
 
     /**

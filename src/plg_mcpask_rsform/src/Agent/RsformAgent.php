@@ -61,7 +61,7 @@ final class RsformAgent implements AgentInterface
     {
         $form = $this->load($context);
 
-        $context->state = ['form' => $form->id, 'page' => 0, 'values' => $this->defaults($form), 'phase' => 'fill'];
+        $context->state = ['form' => $form->id, 'page' => 0, 'values' => $this->defaults($form), 'phase' => 'fill', 'from' => (string) ($context->state['entry']['page'] ?? '')];
 
         $opening = trim((string) $context->params()->get('opening', ''));
         $reply   = new Reply([Card::text($opening !== '' ? $opening : Text::sprintf('PLG_MCPASK_RSFORM_OPENING', $form->title, \count($form->pages)))]);
@@ -161,6 +161,7 @@ final class RsformAgent implements AgentInterface
         $values = $context->state['values'];
         $total  = \count($form->pages);
         $fields = [];
+        $lookups = $this->lookups($context);
 
         foreach ($form->pages[$index] as $field) {
             if ($field['kind'] === 'hidden') {
@@ -176,6 +177,9 @@ final class RsformAgent implements AgentInterface
                 'value'    => $values[$field['name']] ?? null,
                 'error'    => $errors[$field['name']] ?? '',
                 'help'     => $field['help'],
+                'placeholder' => $field['placeholder'],
+                'max'      => $field['max'],
+                'lookup'   => $lookups[$field['name']] ?? null,
             ];
         }
 
@@ -232,6 +236,13 @@ final class RsformAgent implements AgentInterface
         $user     = $app->getIdentity();
         $settings = $context->settings;
         $values   = $context->state['values'];
+        $pageField = trim((string) $context->own()->get('page_field', ''));
+
+        // The page the visitor started from, where the form keeps it
+        if ($pageField !== '' && ($context->state['from'] ?? '') !== '') {
+            $values[$pageField] = (string) $context->state['from'];
+        }
+
         $result   = $form->submit($values, $settings->visitorIp(), (int) $user->id, (string) $user->username, $context->language);
         $done     = trim((string) $context->params()->get('done_text', ''));
         $reply    = new Reply([Card::done($done !== '' ? $done : ($result['thanks'] !== '' ? $result['thanks'] : Text::_('PLG_MCPASK_RSFORM_THANKS')))], true);
@@ -382,10 +393,47 @@ final class RsformAgent implements AgentInterface
         $id   = (int) ($context->state['form'] ?? $context->own()->get('form_id', 0));
         $form = new RsformForm(Factory::getContainer()->get(DatabaseInterface::class), $id);
 
-        if (!$form->load()) {
+        if (!$form->load($context->language)) {
             throw new \RuntimeException('The form of this agent is not there or not published.');
         }
 
+        $form->leaveOut(array_filter(array_map('trim', explode(',', (string) $context->own()->get('skip', '')))));
+
         return $form;
+    }
+
+    /**
+     * The look-ups of the fields, by field name: where to ask, which keys to show, what to fill in.
+     *
+     * @return  array<string, array{url: string, value: string, note: string, fill: array<string, string>}>
+     */
+    private function lookups(Context $context): array
+    {
+        $lookups = [];
+
+        foreach ((array) $context->own()->get('lookups', []) as $row) {
+            $row   = (array) $row;
+            $field = trim((string) ($row['field'] ?? ''));
+            $url   = trim((string) ($row['url'] ?? ''));
+            $value = trim((string) ($row['value'] ?? ''));
+
+            if ($field === '' || $value === '' || !preg_match('#^https?://#i', $url) || !str_contains($url, '{query}')) {
+                continue;
+            }
+
+            $fill = [];
+
+            foreach (preg_split('/\R/u', (string) ($row['fill'] ?? '')) ?: [] as $line) {
+                [$name, $key] = array_map('trim', explode('=', $line, 2)) + [1 => ''];
+
+                if ($name !== '' && $key !== '') {
+                    $fill[$name] = $key;
+                }
+            }
+
+            $lookups[$field] = ['url' => $url, 'value' => $value, 'note' => trim((string) ($row['note'] ?? '')), 'fill' => $fill];
+        }
+
+        return $lookups;
     }
 }

@@ -10,8 +10,16 @@
 
 namespace Gss\Component\Mcpask\Administrator\Ask\Source;
 
+use Gss\Component\Mcpask\Administrator\Ask\Document;
+use Gss\Component\Mcpask\Administrator\Ask\State;
+use Gss\Component\Mcpask\Administrator\Ask\WebClient;
+use Gss\Component\Mcpask\Administrator\Ask\WebPage;
 use Joomla\CMS\Component\ComponentHelper;
+use Gss\Component\Mcpask\Administrator\Ask\WebSync;
+use Joomla\CMS\Factory;
+use Joomla\CMS\Language\Text;
 use Joomla\CMS\Router\Route;
+use Joomla\CMS\Uri\Uri;
 use Joomla\Database\ParameterType;
 use Joomla\Database\QueryInterface;
 
@@ -58,6 +66,172 @@ final class FlexicontentSource extends ContentSource
         } catch (\Throwable) {
             return parent::url($link);
         }
+    }
+
+    /**
+     * An item; of the types read from their page, as its page shows it.
+     */
+    public function load(int $id): ?Document
+    {
+        $document = parent::load($id);
+        $pages    = $this->settings->flexiPages();
+
+        if (!$document || !$pages || !isset($pages[$type = $this->typeOf($id)])) {
+            return $document;
+        }
+
+        $page = $this->page($document, $pages[$type]);
+
+        // The page could not be read just now: null keeps what was indexed, to be tried again later
+        if ($page === null) {
+            return null;
+        }
+
+        // A page that is not this item's to read (it leads to another website, or holds no text
+        // where it should): the item as it is stored, as for other types
+        if ($page === '') {
+            return $document;
+        }
+
+        return new Document($document->source, $document->itemId, $document->title, $document->link, $document->language, $document->access, $page);
+    }
+
+    /**
+     * Items of the types read from their page are read again every day: what a page shows can
+     * change with its template, without the item changing.
+     */
+    public function modified(array $ids): array
+    {
+        $modified = parent::modified($ids);
+        $pages    = $this->settings->flexiPages();
+
+        if (!$pages || !$modified) {
+            return $modified;
+        }
+
+        $db    = $this->db;
+        $query = $db->getQuery(true)
+            ->select('item_id')
+            ->from($db->quoteName('#__flexicontent_items_ext'))
+            ->whereIn('item_id', array_map('intval', array_keys($modified)))
+            ->whereIn('type_id', array_keys($pages));
+        $today = Factory::getDate('today')->toSql();
+
+        foreach ($db->setQuery($query)->loadColumn() as $id) {
+            $modified[(int) $id] = max($modified[(int) $id], $today);
+        }
+
+        return $modified;
+    }
+
+    private function typeOf(int $id): int
+    {
+        $db = $this->db;
+
+        return (int) $db->setQuery($db->getQuery(true)->select('type_id')->from($db->quoteName('#__flexicontent_items_ext'))->where('item_id = ' . $id))->loadResult();
+    }
+
+    /**
+     * The part of an item's page that holds it, as visitors who are not signed in see it, in the
+     * item's language. Null when the page could not be read just now; empty when it will not be
+     * (it leads to another website, is not HTML, or has no text where the selector points).
+     */
+    private function page(Document $document, string $selector): ?string
+    {
+        $root = $this->root();
+
+        if ($root === '') {
+            return null;
+        }
+
+        parse_str((string) parse_url($document->link, PHP_URL_QUERY), $query);
+
+        $language = $document->language !== '*' ? $document->language : (string) ComponentHelper::getParams('com_languages')->get('site', '');
+        // Joomla turns this address into the item's own, in its language, wherever it is asked from
+        $url      = $root . 'index.php?' . http_build_query(array_filter([
+            'option' => 'com_flexicontent',
+            'view'   => 'item',
+            'id'     => (int) $document->itemId,
+            'cid'    => (int) ($query['cid'] ?? 0) ?: null,
+            'lang'   => $language ?: null,
+        ]));
+
+        try {
+            $response = (new WebClient($root, true))->get($url);
+        } catch (\Throwable $e) {
+            $response = ['status' => 0, 'type' => '', 'body' => '', 'charset' => '', 'why' => 'connect:' . $e->getMessage()];
+        }
+
+        if ($response['status'] === 200 && !\in_array($response['type'], ['text/html', 'application/xhtml+xml', ''], true)) {
+            $this->unread($document, Text::sprintf('COM_MCPASK_PAGES_NOT_HTML', $response['type']), true);
+
+            return '';
+        }
+
+        if ($response['status'] !== 200) {
+            $lasting = \in_array($response['status'], [404, 410], true) || str_starts_with((string) ($response['why'] ?? ''), 'elsewhere');
+
+            $this->unread($document, WebSync::reason($response), $lasting);
+
+            return $lasting ? '' : null;
+        }
+
+        $page = WebPage::read($response['body'], $selector, $response['charset']);
+
+        if (trim(strip_tags($page['html'])) === '') {
+            $this->unread($document, Text::sprintf('COM_MCPASK_PAGES_NO_TEXT', $selector !== '' ? $selector : '—'), true);
+
+            return '';
+        }
+
+        $this->unread($document, '');
+
+        return $page['html'];
+    }
+
+    /** Items kept in the list of those whose page could not be read. */
+    public const UNREAD = 'pages:unread';
+
+    private const UNREAD_KEPT = 20;
+
+    /**
+     * Note that an item's page could not be read, and why, for the dashboard; or, with no reason,
+     * that it was read after all. Stored: the item was indexed from its text and fields instead.
+     */
+    private function unread(Document $document, string $why, bool $stored = false): void
+    {
+        $state  = new State($this->db);
+        $unread = $state->get(self::UNREAD);
+        $had    = isset($unread[$document->itemId]);
+
+        unset($unread[$document->itemId]);
+
+        if ($why !== '') {
+            $unread = [$document->itemId => ['title' => $document->title, 'why' => $why, 'stored' => $stored, 'at' => Factory::getDate()->toSql()]] + $unread;
+        } elseif (!$had) {
+            return;
+        }
+
+        $state->set(self::UNREAD, \array_slice($unread, 0, self::UNREAD_KEPT, true));
+    }
+
+    /**
+     * The site's address. A request knows it; a scheduled task run from the command line uses the
+     * one the last request remembered.
+     */
+    private function root(): string
+    {
+        if (!str_starts_with(PHP_SAPI, 'cli')) {
+            try {
+                return rtrim(Uri::root(), '/') . '/';
+            } catch (\Throwable) {
+                // Fall back on what was remembered
+            }
+        }
+
+        $url = (string) ((new State($this->db))->get('site:url')['url'] ?? '');
+
+        return $url !== '' ? rtrim($url, '/') . '/' : '';
     }
 
     public function textFields(): array

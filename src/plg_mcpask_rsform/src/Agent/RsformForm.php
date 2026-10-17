@@ -38,6 +38,9 @@ final class RsformForm
         'pageBreak'     => 'page',
     ];
 
+    /** RSForm checks that need more than the value: other fields, earlier submissions. */
+    private const OTHER_RULES = ['sameas', 'uniquefield', 'uniquefielduser', 'multiplerules', 'password'];
+
     public string $title = '';
 
     /** @var string  The thank-you message, with RSForm's placeholders */
@@ -64,17 +67,22 @@ final class RsformForm
         return $db->setQuery($db->getQuery(true)->select('FormId, FormTitle')->from($db->quoteName('#__rsform_forms'))->where('Published = 1')->order('FormTitle'))->loadAssocList('FormId', 'FormTitle');
     }
 
-    public function load(): bool
+    /**
+     * @param   string  $language  The language of the page (zh-TW): a form written in another
+     *                             language is read with its RSForm translation into this one
+     */
+    public function load(string $language = ''): bool
     {
         $db   = $this->db;
-        $form = $db->setQuery($db->getQuery(true)->select('FormId, FormTitle, Thankyou')->from($db->quoteName('#__rsform_forms'))->where('FormId = ' . $this->id)->where('Published = 1'))->loadObject();
+        $form = $db->setQuery($db->getQuery(true)->select('FormId, FormTitle, Thankyou, Lang')->from($db->quoteName('#__rsform_forms'))->where('FormId = ' . $this->id)->where('Published = 1'))->loadObject();
 
         if (!$form) {
             return false;
         }
 
-        $this->title    = (string) $form->FormTitle;
-        $this->thankYou = (string) $form->Thankyou;
+        $words          = $this->translations($language, (string) $form->Lang);
+        $this->title    = (string) ($words['forms']['FormTitle'] ?? $form->FormTitle);
+        $this->thankYou = (string) ($words['forms']['Thankyou'] ?? $form->Thankyou);
 
         $components = $db->setQuery(
             $db->getQuery(true)
@@ -106,6 +114,18 @@ final class RsformForm
                 $db->getQuery(true)->select('PropertyName, PropertyValue')->from($db->quoteName('#__rsform_properties'))->where('ComponentId = ' . (int) $component->ComponentId)
             )->loadAssocList('PropertyName', 'PropertyValue');
 
+            // The words of the page's language, where the form has them
+            foreach ($words['properties'][(int) $component->ComponentId] ?? [] as $name => $value) {
+                $p[$name] = $value;
+            }
+
+            $readonly = strtoupper((string) ($p['READONLY'] ?? 'NO')) === 'YES' || preg_match('/\breadonly\b/i', (string) ($p['ADDITIONALATTRIBUTES'] ?? ''));
+
+            // A box the visitor only reads (terms to agree to, say): shown as text, sent as it is
+            if ($readonly && \in_array($kind, ['text', 'textarea'], true)) {
+                $kind = 'info';
+            }
+
             $field = [
                 'name'     => (string) ($p['NAME'] ?? ''),
                 'label'    => self::plain((string) ($p['CAPTION'] ?? '')),
@@ -116,9 +136,18 @@ final class RsformForm
                 'format'   => (string) ($p['DATEFORMAT'] ?? 'Y-m-d'),
                 'default'  => '',
                 'options'  => [],
+                'placeholder' => self::plain((string) ($p['PLACEHOLDER'] ?? '')),
+                'max'      => max(0, (int) ($p['MAXSIZE'] ?? 0)),
+                'rule'     => strtolower((string) ($p['VALIDATIONRULE'] ?? '')),
+                'extra'    => (string) ($p['VALIDATIONEXTRA'] ?? ''),
+                'fixed'    => null,
             ];
 
-            if ($kind === 'info') {
+            if ($kind === 'info' && $readonly) {
+                // The box's caption over its text, and its text sent in with the form
+                $field['fixed'] = (string) ($p['DEFAULTVALUE'] ?? '');
+                $field['help']  = self::plain($field['fixed']);
+            } elseif ($kind === 'info') {
                 $field['label'] = self::plain((string) ($p['TEXT'] ?? ''));
                 $field['name']  = $field['name'] ?: 'info' . $component->ComponentId;
             }
@@ -146,6 +175,26 @@ final class RsformForm
         $this->pages   = array_values(array_filter($this->pages, static fn ($fields) => array_filter($fields, static fn ($field) => !\in_array($field['kind'], ['info', 'hidden'], true))));
 
         return $this->pages !== [];
+    }
+
+    /**
+     * Leave fields out of the conversation by name: they are neither shown nor sent.
+     *
+     * @param  string[]  $names
+     */
+    public function leaveOut(array $names): void
+    {
+        if (!$names) {
+            return;
+        }
+
+        foreach ($this->pages as &$page) {
+            $page = array_values(array_filter($page, static fn ($field) => !\in_array($field['name'], $names, true)));
+        }
+
+        unset($page);
+
+        $this->pages = array_values(array_filter($this->pages, static fn ($fields) => array_filter($fields, static fn ($field) => !\in_array($field['kind'], ['info', 'hidden'], true))));
     }
 
     /**
@@ -185,6 +234,14 @@ final class RsformForm
 
         if ($value === '') {
             return '';
+        }
+
+        if (($field['max'] ?? 0) > 0 && mb_strlen($value) > $field['max']) {
+            return null;
+        }
+
+        if (!$this->valid($field, $value)) {
+            return null;
         }
 
         return match ($field['kind']) {
@@ -261,10 +318,14 @@ final class RsformForm
         foreach ($this->pages as $page) {
             foreach ($page as $field) {
                 if ($field['kind'] === 'info') {
+                    if ($field['fixed'] !== null) {
+                        $post[$field['name']] = $field['fixed'];
+                    }
+
                     continue;
                 }
 
-                $value = $field['kind'] === 'hidden' ? $field['default'] : ($values[$field['name']] ?? '');
+                $value = $field['kind'] === 'hidden' ? ($values[$field['name']] ?? $field['default']) : ($values[$field['name']] ?? '');
 
                 // Dates as the form writes them
                 if ($field['kind'] === 'date' && \is_string($value) && $value !== '' && ($time = strtotime($value))) {
@@ -313,6 +374,77 @@ final class RsformForm
     }
 
     /**
+     * Whether a value passes the field's RSForm check, by RSForm's own checks (a site's custom
+     * ones included). Checks that compare with other fields or earlier submissions are left to
+     * RSForm's page.
+     */
+    private function valid(array $field, string $value): bool
+    {
+        $rule = $field['rule'] ?? '';
+
+        if ($rule === '' || $rule === 'none' || \in_array($rule, self::OTHER_RULES, true) || !self::available()) {
+            return true;
+        }
+
+        try {
+            require_once JPATH_ADMINISTRATOR . '/components/com_rsform/helpers/rsform.php';
+
+            $class = \RSFormProHelper::getValidationClass();
+
+            if (!\is_callable([$class, $rule])) {
+                return true;
+            }
+
+            return (bool) \call_user_func([$class, $rule], $value, $field['extra'] ?? '', ['NAME' => $field['name'], 'VALIDATIONEXTRA' => $field['extra'] ?? '']);
+        } catch (\Throwable) {
+            return true;
+        }
+    }
+
+    /**
+     * The form's RSForm translation into a language, when the form was written in another one.
+     *
+     * @return  array{forms: array<string, string>, properties: array<int, array<string, string>>}
+     */
+    private function translations(string $language, string $written): array
+    {
+        $words = ['forms' => [], 'properties' => []];
+
+        if ($language === '' || strcasecmp($language, $written) === 0) {
+            return $words;
+        }
+
+        $db = $this->db;
+
+        try {
+            $rows = $db->setQuery(
+                $db->getQuery(true)
+                    ->select('reference, reference_id, value')
+                    ->from($db->quoteName('#__rsform_translations'))
+                    ->where('form_id = ' . $this->id)
+                    ->where('lang_code = ' . $db->quote($language))
+            )->loadObjectList();
+        } catch (\Throwable) {
+            return $words;
+        }
+
+        foreach ($rows as $row) {
+            // An empty translation is a word not translated, except where the original is empty too
+            if ((string) $row->value === '') {
+                continue;
+            }
+
+            if ($row->reference === 'forms') {
+                $words['forms'][(string) $row->reference_id] = (string) $row->value;
+            } elseif ($row->reference === 'properties' && preg_match('/^(\d+)\.([A-Z_]+)$/', (string) $row->reference_id, $match)) {
+                $words['properties'][(int) $match[1]][$match[2]] = (string) $row->value;
+            }
+        }
+
+        return $words;
+    }
+
+    /**
      * An RSForm event, as RSForm raises it (its plugins take their arguments by reference).
      */
     private function trigger(string $name, array $arguments): void
@@ -349,7 +481,9 @@ final class RsformForm
                 continue;
             }
 
-            $options[] = ['value' => $value, 'label' => $label !== '' ? $label : $value];
+            // Labels may carry markup (a link to the terms, say): the conversation shows their text
+            $label     = self::plain($label);
+            $options[] = ['value' => $value, 'label' => $label !== '' ? $label : self::plain($value)];
 
             if ($checked) {
                 $chosen[] = $value;

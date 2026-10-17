@@ -106,6 +106,28 @@ final class Settings
     }
 
     /**
+     * FLEXIcontent types whose items are read from their page, with where on the page their text
+     * is (a CSS selector; empty to guess).
+     *
+     * @return  array<int, string>  Selector by type ID
+     */
+    public function flexiPages(): array
+    {
+        $pages = [];
+
+        foreach ((array) $this->params->get('flexi_pages', []) as $row) {
+            $row  = (array) $row;
+            $type = (int) ($row['type'] ?? 0);
+
+            if ($type > 0) {
+                $pages[$type] = trim((string) ($row['selector'] ?? ''));
+            }
+        }
+
+        return $pages;
+    }
+
+    /**
      * @return  string[]  Lower-case names of the only custom fields to read; empty for all that visitors may see
      */
     public function fieldNames(): array
@@ -498,6 +520,8 @@ final class Settings
                 'limit'    => max(1, min(2000, (int) ($row['limit'] ?? 200) ?: 200)),
                 // How many links away from the given page a crawl goes, when there is no feed or sitemap
                 'depth'    => max(1, min(6, (int) ($row['depth'] ?? 3) ?: 3)),
+                // Its name leads into the server's own network, and the administrator means it
+                'internal' => (bool) ($row['internal'] ?? 0),
             ];
         }
 

@@ -2,7 +2,7 @@
 
 A search box for your visitors that answers their questions from your site's own content with AI, and names the pages each answer came from. It can also hand the conversation to helpers that get things done (fill in a form, write an analysis report, pass the visitor on to a person), show up on your other websites with one line of script, and turn its floating button into an animated pet.
 
-> **Status: experimental (0.14.0).** Runs on Joomla 4.4, 5 and 6 with the OpenAI service. Not yet used on a production site.
+> **Status: experimental (0.15.0).** Runs on Joomla 4.4, 5 and 6 with the OpenAI service. Not yet used on a production site.
 
 [繁體中文說明](#繁體中文)
 
@@ -10,7 +10,7 @@ A search box for your visitors that answers their questions from your site's own
 
 - **Module "AI Ask"** (`mod_mcp_ask`): an icon, a search box, or a button floating in a corner of the window, that turns into a full-screen conversation with the answer streamed in, numbered references and source cards. Choosing a source puts the conversation away and moves to that page; the conversation can be reopened there.
 - **Component "AI Ask"** (`com_mcpask`): cuts published content into passages, stores an embedding for each in the site's own database, finds the passages closest to a question and streams the answer written from them. Dashboard with setup checks, index status, a "synchronise" button and the questions visitors asked.
-- **Content**: Joomla articles; FLEXIcontent items when FLEXIcontent is installed (with text custom fields); EasyBlog posts when EasyBlog is installed. Only what a visitor who is not signed in may read is indexed, and that is checked again before a passage is quoted.
+- **Content**: Joomla articles; FLEXIcontent items when FLEXIcontent is installed (with text custom fields, or, for types whose text is in their template, read from their page); EasyBlog posts when EasyBlog is installed. Only what a visitor who is not signed in may read is indexed, and that is checked again before a passage is quoted.
 - **Several sites, one answer**: a site can read the index of other sites that run this extension and hold each other's export key, and answer from their public content as well. Embeddings are reused when both sites make them the same way, so reading another site costs nothing at the AI service.
 - **Websites by feed, sitemap or crawl**: list other websites by their RSS or Atom feed, their sitemap, or just their home page; their pages are read (keeping to robots.txt), indexed and answered from, each source marked by its site.
 - **Screenshots, tables and callouts in answers**: pages are indexed as light Markdown with the site's own images kept where they stand; an answer may show a step's screenshot, a table, or a tip or warning box. An image is shown only when it is a file of this site found in the pages the answer was written from.
@@ -66,13 +66,13 @@ GNU General Public License version 2 or later.
 
 AI Ask for Joomla 是給訪客用的搜尋框：透過 AI 依網站自己的內容回答問題，並標示每段回答來自哪些頁面。還可以把對話交給能完成事情的小幫手（填表單、寫分析報告、轉接真人客服），用一行程式碼放到你的其他網站，也可以把浮動按鈕換成會動的小寵物。
 
-> **狀態：實驗性（0.14.0）。** 可在 Joomla 4.4、5、6 搭配 OpenAI 服務執行，尚未用於正式網站。
+> **狀態：實驗性（0.15.0）。** 可在 Joomla 4.4、5、6 搭配 OpenAI 服務執行，尚未用於正式網站。
 
 **功能**
 
 - **模組「AI 問答」**：圖示、搜尋框，或固定在視窗角落的浮動按鈕，送出後展開成全螢幕對話，回答逐字出現並附來源編號與來源卡片。
 - **元件「AI 問答」**：把已發佈的內容切成段落並存成向量（存在網站自己的資料庫），找出與問題最接近的段落，串流輸出依這些段落寫成的回答；儀表板有設定檢查、索引狀態、同步按鈕與提問紀錄。
-- **內容來源**：Joomla 文章；裝了 FLEXIcontent 時讀 FLEXIcontent 項目（含文字自訂欄位）；裝了 EasyBlog 時也納入部落格文章。只索引未登入訪客可讀的內容，引用前會再檢查一次。
+- **內容來源**：Joomla 文章；裝了 FLEXIcontent 時讀 FLEXIcontent 項目（含文字自訂欄位；內容由類型模板呈現的類型，可改為讀取頁面實際顯示的內容）；裝了 EasyBlog 時也納入部落格文章。只索引未登入訪客可讀的內容，引用前會再檢查一次。
 - **多站共用**：可讀取其他裝有本擴充、並互相持有匯出金鑰的網站索引；兩站向量做法相同時直接沿用，不產生 AI 費用。
 - **外部網站**：用 RSS／Atom、Sitemap 或只填首頁（自動爬取，遵守 robots.txt）讀取其他網站並用來回答。
 - **回答可帶截圖、表格與提示框**：圖片只有在它是本站的檔案、而且出自這次引用的頁面時才會顯示。

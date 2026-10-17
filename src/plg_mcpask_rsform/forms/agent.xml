@@ -19,6 +19,21 @@
 				<option value="0">JNO</option>
 				<option value="1">JYES</option>
 			</field>
+			<field name="skip" type="text" default=""
+				label="PLG_MCPASK_RSFORM_FIELD_SKIP" description="PLG_MCPASK_RSFORM_FIELD_SKIP_DESC" hint="companyinfo, notes" />
+			<field name="page_field" type="text" default=""
+				label="PLG_MCPASK_RSFORM_FIELD_PAGE_FIELD" description="PLG_MCPASK_RSFORM_FIELD_PAGE_FIELD_DESC" hint="referral" />
+			<field name="lookups" type="subform" multiple="true" layout="joomla.form.field.subform.repeatable" buttons="add,remove"
+				label="PLG_MCPASK_RSFORM_FIELD_LOOKUPS" description="PLG_MCPASK_RSFORM_FIELD_LOOKUPS_DESC">
+				<form>
+					<field name="field" type="text" required="true" label="PLG_MCPASK_RSFORM_LOOKUP_FIELD" hint="company" />
+					<field name="url" type="url" required="true" filter="url" validate="url" schemes="https,http"
+						label="PLG_MCPASK_RSFORM_LOOKUP_URL" description="PLG_MCPASK_RSFORM_LOOKUP_URL_DESC" hint="https://api.example.com/search?name={query}" />
+					<field name="value" type="text" required="true" label="PLG_MCPASK_RSFORM_LOOKUP_VALUE" description="PLG_MCPASK_RSFORM_LOOKUP_VALUE_DESC" hint="name" />
+					<field name="note" type="text" label="PLG_MCPASK_RSFORM_LOOKUP_NOTE" description="PLG_MCPASK_RSFORM_LOOKUP_NOTE_DESC" hint="id" />
+					<field name="fill" type="textarea" rows="3" label="PLG_MCPASK_RSFORM_LOOKUP_FILL" description="PLG_MCPASK_RSFORM_LOOKUP_FILL_DESC" hint="taxid=id" />
+				</form>
+			</field>
 		</fieldset>
 	</fields>
 </form>
