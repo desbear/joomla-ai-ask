@@ -77,6 +77,7 @@ return new class () implements InstallerScriptInterface {
     {
         if ($type !== 'uninstall') {
             $this->allowAsking();
+            $this->completeSchema((string) $adapter->getManifest()->version);
         }
 
         // Never re-enable what an administrator disabled: only plugins this run added are switched on
@@ -113,6 +114,40 @@ return new class () implements InstallerScriptInterface {
         }
 
         return true;
+    }
+
+    /**
+     * The database statements of this version, run again one by one: a site may have had an
+     * earlier build of the same version, after which Joomla takes them all as done, also those added
+     * since. What is there already (a table, a column) fails on its own and is passed over.
+     */
+    private function completeSchema(string $version): void
+    {
+        try {
+            $db   = Factory::getContainer()->get(DatabaseInterface::class);
+            $type = str_contains(strtolower($db->getServerType()), 'postgres') ? 'postgresql' : 'mysql';
+            $file = JPATH_ADMINISTRATOR . '/components/com_mcpask/sql/updates/' . $type . '/' . basename($version) . '.sql';
+        } catch (\Throwable) {
+            return;
+        }
+
+        if (!preg_match('/^\d+\.\d+\.\d+$/', $version) || !is_file($file)) {
+            return;
+        }
+
+        foreach (preg_split('/;\s*$/m', (string) file_get_contents($file)) ?: [] as $statement) {
+            $statement = trim($statement);
+
+            if ($statement === '') {
+                continue;
+            }
+
+            try {
+                $db->setQuery($statement)->execute();
+            } catch (\Throwable) {
+                // Done already
+            }
+        }
     }
 
     /**

@@ -5,7 +5,7 @@
 	<creationDate>2026-10</creationDate>
 	<copyright>(C) 2026 GSS</copyright>
 	<license>GNU General Public License version 2 or later; see LICENSE</license>
-	<version>0.18.0</version>
+	<version>0.19.0</version>
 	<description>MOD_MCP_ASK_XML_DESCRIPTION</description>
 	<namespace path="src">Gss\Module\McpAsk</namespace>
 	<files>
@@ -150,6 +150,30 @@
 				>
 					<option value="0">JNO</option>
 					<option value="1">JYES</option>
+				</field>
+			</fieldset>
+			<fieldset name="festive" label="MOD_MCP_ASK_FESTIVE_TAB">
+				<field name="festive_note" type="note" class="alert alert-info w-100" description="MOD_MCP_ASK_FESTIVE_NOTE"/>
+				<field
+					name="festive"
+					type="subform"
+					multiple="true"
+					layout="joomla.form.field.subform.repeatable"
+					buttons="add,remove,move"
+					max="60"
+					label="MOD_MCP_ASK_FESTIVE_LABEL"
+				>
+					<form>
+						<field name="title" type="text" maxlength="60" filter="string" label="MOD_MCP_ASK_FESTIVE_TITLE" hint="MOD_MCP_ASK_FESTIVE_TITLE_HINT"/>
+						<field name="from" type="calendar" format="%Y-%m-%d" showtime="false" translateformat="false" filter="string" required="true" label="MOD_MCP_ASK_FESTIVE_FROM"/>
+						<field name="to" type="calendar" format="%Y-%m-%d" showtime="false" translateformat="false" filter="string" label="MOD_MCP_ASK_FESTIVE_TO" description="MOD_MCP_ASK_FESTIVE_TO_DESC"/>
+						<field name="yearly" type="radio" layout="joomla.form.field.radio.switcher" default="1" label="MOD_MCP_ASK_FESTIVE_YEARLY" description="MOD_MCP_ASK_FESTIVE_YEARLY_DESC">
+							<option value="0">JNO</option>
+							<option value="1">JYES</option>
+						</field>
+						<field name="pet" type="mcpaskpet" none="MOD_MCP_ASK_FESTIVE_KEEP" addfieldprefix="Gss\Component\Mcpask\Administrator\Field" default="" label="MOD_MCP_ASK_FIELD_PET_LABEL"/>
+						<field name="cleaner" type="mcpaskpet" kind="cleaner" none="MOD_MCP_ASK_FESTIVE_KEEP" addfieldprefix="Gss\Component\Mcpask\Administrator\Field" default="" label="MOD_MCP_ASK_FIELD_CLEANER_LABEL"/>
+					</form>
 				</field>
 			</fieldset>
 			<fieldset name="advanced">

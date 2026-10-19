@@ -12,3 +12,4 @@ DROP TABLE IF EXISTS `#__mcpask_embeds`;
 DROP TABLE IF EXISTS `#__mcpask_pets`;
 DROP TABLE IF EXISTS `#__mcpask_urls`;
 DROP TABLE IF EXISTS `#__mcpask_ignores`;
+DROP TABLE IF EXISTS `#__mcpask_texts`;

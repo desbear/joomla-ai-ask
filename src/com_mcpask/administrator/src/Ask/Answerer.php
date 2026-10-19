@@ -569,10 +569,13 @@ final class Answerer
                 $this->pages[$this->numbers[$document]]    = $passage;
             }
 
-            $site       = Sources::siteName($this->settings, $passage->source);
+            $site          = Sources::siteName($this->settings, $passage->source);
+            // A document the visitor can download is called one, so the answer can point to it
+            $file          = $this->retriever->file($passage);
             $this->given[] = $passage->title . "\n" . $passage->heading . "\n" . $passage->text;
             $excerpts[]    = '[' . $this->numbers[$document] . '] ' . $passage->title
                 . ($site !== '' ? ' (from the related site "' . $site . '")' : '')
+                . ($file !== null ? ' (a ' . strtoupper($file['type']) . ' document the visitor can download)' : '')
                 . ($passage->heading !== '' ? ' — ' . $passage->heading : '') . "\n" . $passage->text;
         }
 
@@ -580,7 +583,7 @@ final class Answerer
     }
 
     /**
-     * @return  array<int, array{title: string, url: string, section: string, site: string}>  In the order of their numbers
+     * @return  array<int, array{title: string, url: string, section: string, site: string, file: ?array}>  In the order of their numbers
      */
     private function sources(): array
     {
@@ -591,6 +594,8 @@ final class Answerer
                 'section' => $page->heading,
                 // Pages of this site are named after it too, as those of other sites are
                 'site'    => Sources::siteName($this->settings, $page->source) ?: $this->siteName,
+                // A document is shown as a file to open or download
+                'file'    => $this->retriever->file($page),
             ];
         }, $this->pages));
     }

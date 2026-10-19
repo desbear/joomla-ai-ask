@@ -76,6 +76,17 @@ final class Retriever
     }
 
     /**
+     * The file behind a stored page, when it is a file of this site (a document of a download
+     * manager): to open at the passage's page, or download.
+     *
+     * @return  array{type: string, size: int, open: string, download: string, page: int}|null
+     */
+    public function file(object $page): ?array
+    {
+        return Sources::isElsewhere($page->source) ? null : Sources::file($this->own, $page);
+    }
+
+    /**
      * Whether a stored page may be answered from now: a page of this site while a guest may read
      * it; a page from elsewhere while that site is still one that is read (a peer or website that
      * was removed stops counting at once, not only once its pages are cleared away).

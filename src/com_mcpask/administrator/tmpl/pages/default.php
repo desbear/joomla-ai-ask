@@ -36,9 +36,9 @@ $keep   = static function () use ($filter, $e): string {
 
     return $html . '<input type="hidden" name="limitstart" value="' . (int) Factory::getApplication()->getInput()->getInt('limitstart', 0) . '">';
 };
-$sourceLabel = static function (object $row) use ($e): string {
+$sourceLabel = function (object $row) use ($e): string {
     return match ($row->kind) {
-        'own'    => Text::_('COM_MCPASK_PAGES_SOURCE_' . strtoupper((string) $row->source)),
+        'own'    => $e($this->labels[(string) $row->source] ?? $row->source),
         'manual' => Text::sprintf('COM_MCPASK_PAGES_SOURCE_MANUAL', $e($row->site)),
         default  => $e($row->site !== '' ? $row->site : $row->source),
     };
@@ -48,6 +48,13 @@ $tabs = [
     'manual'  => Text::_('COM_MCPASK_PAGES_TAB_MANUAL') . ' <span class="badge bg-secondary">' . (int) $this->counts['manual'] . '</span>',
     'ignored' => Text::_('COM_MCPASK_PAGES_TAB_IGNORED'),
 ];
+
+// Documents: shown when a source of files (such as Dropfiles) is installed
+if ($this->hasFiles) {
+    $tabs = \array_slice($tabs, 0, 1, true) + ['files' => Text::_('COM_MCPASK_FILES_TAB')] + \array_slice($tabs, 1, null, true);
+}
+
+$fileSize = static fn (int $bytes): string => $bytes >= 1048576 ? round($bytes / 1048576, 1) . ' MB' : max(1, round($bytes / 1024)) . ' KB';
 
 Factory::getApplication()->getDocument()->getWebAssetManager()->addInlineScript(<<<'JS'
 document.addEventListener('toggle', async (event) => {
@@ -125,6 +132,11 @@ Factory::getApplication()->getDocument()->getWebAssetManager()->addInlineStyle('
 			<?php foreach ($this->counts as $kind => $count) : ?>
 				<?php if ($count) : ?>
 					<?php echo $option($kind, Text::_('COM_MCPASK_PAGES_KIND_' . strtoupper($kind)) . ' (' . $count . ')', $filter['kind']); ?>
+					<?php if ($kind === 'own' && \count($this->ownCounts) > 1) : ?>
+						<?php foreach ($this->ownCounts as $name => $mine) : ?>
+							<?php echo $option('own:' . $name, '— ' . ($this->labels[$name] ?? $name) . ' (' . $mine . ')', $filter['kind']); ?>
+						<?php endforeach; ?>
+					<?php endif; ?>
 				<?php endif; ?>
 			<?php endforeach; ?>
 		</select>
@@ -200,6 +212,110 @@ Factory::getApplication()->getDocument()->getWebAssetManager()->addInlineStyle('
 		</table>
 		<?php echo $this->pagination->getListFooter(); ?>
 	<?php endif; ?>
+
+<?php elseif ($this->tab === 'files') : ?>
+	<p class="text-muted"><?php echo Text::_('COM_MCPASK_FILES_DESC'); ?></p>
+	<?php foreach ($this->files as $name => $group) : ?>
+		<?php
+		$read    = \count(array_filter($group['files'], static fn ($file) => $file['doc'] && (int) $file['doc']->chunks > 0));
+		$skipped = \count(array_filter($group['files'], static fn ($file) => $file['reason'] !== ''));
+		?>
+		<h2 class="h5"><?php echo $e($group['label']); ?></h2>
+		<p class="small">
+			<span class="badge bg-success"><?php echo Text::sprintf('COM_MCPASK_FILES_COUNT_READ', $read); ?></span>
+			<span class="badge bg-warning text-dark"><?php echo Text::sprintf('COM_MCPASK_FILES_COUNT_WAITING', \count($group['files']) - $read - $skipped); ?></span>
+			<span class="badge bg-secondary"><?php echo Text::sprintf('COM_MCPASK_FILES_COUNT_SKIPPED', $skipped); ?></span>
+		</p>
+		<?php if ($group['error'] !== '') : ?>
+			<div class="alert alert-danger"><?php echo $e($group['error']); ?></div>
+		<?php elseif (!$group['files']) : ?>
+			<div class="alert alert-info"><?php echo Text::_('COM_MCPASK_FILES_NONE'); ?></div>
+		<?php else : ?>
+			<table class="table align-middle mb-5">
+				<thead>
+					<tr>
+						<th><?php echo Text::_('COM_MCPASK_FILES_FILE'); ?></th>
+						<th><?php echo Text::_('COM_MCPASK_FILES_STATE'); ?></th>
+						<th class="text-end"><?php echo Text::_('COM_MCPASK_INDEX_PASSAGES'); ?></th>
+						<?php if ($this->canEdit) : ?><th><span class="visually-hidden"><?php echo Text::_('JACTIONS'); ?></span></th><?php endif; ?>
+					</tr>
+				</thead>
+				<tbody>
+					<?php foreach ($group['files'] as $file) : ?>
+						<?php
+						$doc   = $file['doc'];
+						$state = match (true) {
+							$file['reason'] !== ''                     => ['secondary', Text::_('COM_MCPASK_FILES_REASON_' . strtoupper($file['reason']))],
+							$doc && $doc->status !== 'ok'              => ['warning', Text::_('COM_MCPASK_PAGES_STATUS_PENDING')],
+							$doc && (int) $doc->chunks > 0             => ['success', Text::_('COM_MCPASK_FILES_STATE_READ')],
+							default                                    => ['warning', Text::_('COM_MCPASK_FILES_STATE_WAITING')],
+						};
+						?>
+						<tr>
+							<td>
+								<div class="fw-semibold"><?php echo $e($file['title']); ?></div>
+								<div class="small text-muted">
+									<span class="badge bg-light text-dark text-uppercase"><?php echo $e($file['type']); ?></span>
+									<?php echo $fileSize($file['size']); ?>
+									<?php if ($file['folder'] !== '') : ?>· <?php echo $e($file['folder']); ?><?php endif; ?>
+									· #<?php echo (int) $file['id']; ?>
+									<?php if ($file['given']) : ?><span class="badge bg-info text-dark"><?php echo Text::_('COM_MCPASK_FILES_HAS_TEXT'); ?></span><?php endif; ?>
+								</div>
+								<?php if ($doc && (int) $doc->chunks) : ?>
+									<details data-passages="<?php echo $e(Route::_('index.php?option=com_mcpask&task=pages.passages&format=raw&id=' . (int) $doc->id . '&' . Session::getFormToken() . '=1', false)); ?>">
+										<summary class="small"><?php echo Text::_('COM_MCPASK_PAGES_SHOW_PASSAGES'); ?></summary>
+										<ol class="mcpask-passages mt-2"><li class="text-muted"><?php echo Text::_('COM_MCPASK_PAGES_LOADING'); ?></li></ol>
+									</details>
+								<?php endif; ?>
+								<?php if ($this->canEdit && $file['reason'] !== 'private' && $file['reason'] !== 'remote') : ?>
+									<?php $given = $file['given'] ? $this->suppliedText($name, (int) $file['id']) : null; ?>
+									<details<?php echo $file['given'] ? ' open' : ''; ?>>
+										<summary class="small"><?php echo Text::_('COM_MCPASK_FILES_TEXT'); ?></summary>
+										<form action="<?php echo $action; ?>" method="post" class="mt-2">
+											<textarea class="form-control font-monospace mb-2" name="text" rows="6" placeholder="<?php echo $e(Text::_('COM_MCPASK_FILES_TEXT_PLACEHOLDER')); ?>"><?php echo $e($given->text ?? ''); ?></textarea>
+											<div class="d-flex flex-wrap gap-3 align-items-center">
+												<?php foreach (['add', 'replace'] as $mode) : ?>
+													<div class="form-check">
+														<input class="form-check-input" type="radio" name="mode" value="<?php echo $mode; ?>" id="mcpask-mode-<?php echo $e($name . '-' . $file['id'] . '-' . $mode); ?>"<?php echo ($given->mode ?? 'add') === $mode ? ' checked' : ''; ?>>
+														<label class="form-check-label small" for="mcpask-mode-<?php echo $e($name . '-' . $file['id'] . '-' . $mode); ?>"><?php echo Text::_('COM_MCPASK_FILES_MODE_' . strtoupper($mode)); ?></label>
+													</div>
+												<?php endforeach; ?>
+												<input type="hidden" name="task" value="pages.text">
+												<input type="hidden" name="source" value="<?php echo $e($name); ?>">
+												<input type="hidden" name="item" value="<?php echo (int) $file['id']; ?>">
+												<?php echo $token; ?>
+												<button type="submit" class="btn btn-sm btn-primary"><?php echo Text::_('COM_MCPASK_FILES_TEXT_SAVE'); ?></button>
+											</div>
+											<div class="form-text"><?php echo Text::_('COM_MCPASK_FILES_TEXT_DESC'); ?></div>
+										</form>
+									</details>
+								<?php endif; ?>
+							</td>
+							<td>
+								<span class="badge bg-<?php echo $state[0]; ?><?php echo $state[0] === 'warning' ? ' text-dark' : ''; ?>"><?php echo $e($state[1]); ?></span>
+								<?php if ($doc) : ?><div class="small text-muted text-nowrap"><?php echo HTMLHelper::_('date', $doc->checked, Text::_('DATE_FORMAT_LC5')); ?></div><?php endif; ?>
+								<?php if ($doc && $doc->status !== 'ok' && $doc->message !== '') : ?><div class="small text-danger"><?php echo $e($doc->message); ?></div><?php endif; ?>
+							</td>
+							<td class="text-end"><?php echo $doc ? (int) $doc->chunks : '—'; ?></td>
+							<?php if ($this->canEdit) : ?>
+								<td class="text-nowrap">
+									<?php if ($file['reason'] === '') : ?>
+										<form action="<?php echo $action; ?>" method="post" class="d-inline">
+											<input type="hidden" name="task" value="pages.readfile">
+											<input type="hidden" name="source" value="<?php echo $e($name); ?>">
+											<input type="hidden" name="item" value="<?php echo (int) $file['id']; ?>">
+											<?php echo $token; ?>
+											<button type="submit" class="btn btn-sm btn-outline-secondary"><span class="icon-refresh" aria-hidden="true"></span> <?php echo Text::_('COM_MCPASK_FILES_READ_NOW'); ?></button>
+										</form>
+									<?php endif; ?>
+								</td>
+							<?php endif; ?>
+						</tr>
+					<?php endforeach; ?>
+				</tbody>
+			</table>
+		<?php endif; ?>
+	<?php endforeach; ?>
 
 <?php elseif ($this->tab === 'manual') : ?>
 	<?php if ($this->canEdit) : ?>

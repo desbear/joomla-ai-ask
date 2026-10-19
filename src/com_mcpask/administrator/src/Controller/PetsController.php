@@ -134,6 +134,45 @@ class PetsController extends BaseController
         $this->setRedirect(Route::_('index.php?option=com_mcpask&view=pets', false), Text::_('COM_MCPASK_PET_DELETED'));
     }
 
+    /**
+     * Move a pet one place earlier or later (the arrows on its card).
+     */
+    public function move(): void
+    {
+        $this->guard();
+
+        [$id, $step] = array_map('intval', explode(':', $this->app->getInput()->post->getString('move', '0:0'), 2)) + [1 => 0];
+        $pets        = new Pets(Factory::getContainer()->get(DatabaseInterface::class));
+        $pet         = $pets->get($id);
+
+        try {
+            $pets->move($id, $step);
+        } catch (\RuntimeException $e) {
+            $this->app->enqueueMessage($e->getMessage(), 'error');
+        }
+
+        $this->setRedirect(Route::_('index.php?option=com_mcpask&view=pets' . ($pet && Pets::kindOf($pet) === 'cleaner' ? '&kind=cleaner' : ''), false));
+    }
+
+    /**
+     * Keep the order the pets were dragged into, as JSON.
+     */
+    public function reorder(): void
+    {
+        $this->guard();
+
+        try {
+            (new Pets(Factory::getContainer()->get(DatabaseInterface::class)))->reorder((array) $this->app->getInput()->post->get('ids', [], 'array'));
+            $response = new \Joomla\CMS\Response\JsonResponse(['saved' => true]);
+        } catch (\RuntimeException $e) {
+            $response = new \Joomla\CMS\Response\JsonResponse($e);
+        }
+
+        header('Content-Type: application/json; charset=utf-8');
+        echo $response;
+        $this->app->close();
+    }
+
     private function guard(): void
     {
         $user = $this->app->getIdentity();

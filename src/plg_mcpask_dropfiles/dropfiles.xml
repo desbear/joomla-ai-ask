@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<extension type="plugin" group="mcpask" method="upgrade">
+	<name>plg_mcpask_dropfiles</name>
+	<author>GSS</author>
+	<creationDate>2026-10</creationDate>
+	<copyright>(C) 2026 GSS</copyright>
+	<license>GNU General Public License version 2 or later; see LICENSE</license>
+	<version>0.19.0</version>
+	<description>PLG_MCPASK_DROPFILES_XML_DESCRIPTION</description>
+	<namespace path="src">Gss\Plugin\Mcpask\Dropfiles</namespace>
+	<files>
+		<folder plugin="dropfiles">services</folder>
+		<folder>src</folder>
+	</files>
+	<languages folder="language">
+		<language tag="en-GB">en-GB/plg_mcpask_dropfiles.ini</language>
+		<language tag="en-GB">en-GB/plg_mcpask_dropfiles.sys.ini</language>
+		<language tag="zh-TW">zh-TW/plg_mcpask_dropfiles.ini</language>
+		<language tag="zh-TW">zh-TW/plg_mcpask_dropfiles.sys.ini</language>
+	</languages>
+	<config>
+		<fields name="params">
+			<fieldset name="basic">
+				<field name="note" type="note" class="alert alert-info w-100" description="PLG_MCPASK_DROPFILES_NOTE"/>
+				<field
+					name="categories"
+					type="category"
+					extension="com_dropfiles"
+					multiple="true"
+					layout="joomla.form.field.list-fancy-select"
+					label="PLG_MCPASK_DROPFILES_CATEGORIES"
+					description="PLG_MCPASK_DROPFILES_CATEGORIES_DESC"
+				/>
+				<field
+					name="extensions"
+					type="checkboxes"
+					label="PLG_MCPASK_DROPFILES_EXTENSIONS"
+					description="PLG_MCPASK_DROPFILES_EXTENSIONS_DESC"
+					default="pdf,docx,pptx,xlsx,md,txt"
+				>
+					<option value="pdf">PDF</option>
+					<option value="docx">Word (.docx)</option>
+					<option value="pptx">PowerPoint (.pptx)</option>
+					<option value="xlsx">Excel (.xlsx)</option>
+					<option value="md">Markdown (.md)</option>
+					<option value="txt">Text (.txt)</option>
+				</field>
+				<field
+					name="max_size"
+					type="number"
+					label="PLG_MCPASK_DROPFILES_MAX_SIZE"
+					description="PLG_MCPASK_DROPFILES_MAX_SIZE_DESC"
+					default="30"
+					min="1"
+					max="200"
+					filter="integer"
+				/>
+			</fieldset>
+		</fields>
+	</config>
+</extension>

@@ -18,6 +18,7 @@ use Gss\Component\Mcpask\Administrator\Ask\PeerSync;
 use Gss\Component\Mcpask\Administrator\Ask\WebSync;
 use Gss\Component\Mcpask\Administrator\Ask\ServiceException;
 use Gss\Component\Mcpask\Administrator\Ask\Settings;
+use Gss\Component\Mcpask\Administrator\Ask\UsageLog;
 use Gss\Component\Mcpask\Administrator\Ask\State;
 use Gss\Component\Mcpask\Administrator\Ask\Theme;
 use Gss\Component\Mcpask\Administrator\Ask\Source\Sources;
@@ -217,6 +218,20 @@ class IndexController extends BaseController
         } catch (\Throwable $e) {
             $this->send($e);
         }
+    }
+
+    /**
+     * Take questions off the list of those to look at: tests, or nothing to do about.
+     */
+    public function dismiss(): void
+    {
+        $this->guard('core.edit');
+
+        $settings = Settings::load();
+        $ids      = array_map('intval', explode(',', $this->app->getInput()->post->getString('ids', '')));
+        $count    = (new UsageLog(Factory::getContainer()->get(DatabaseInterface::class), $settings, (string) $this->app->get('secret')))->dismiss(\array_slice($ids, 0, 500));
+
+        $this->send(['dismissed' => $count]);
     }
 
     public function ruleDelete(): void

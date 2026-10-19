@@ -28,4 +28,5 @@ sync_plugin task mcpask plg_task_mcpask
 sync_plugin mcpask rsform plg_mcpask_rsform
 sync_plugin mcpask livechat plg_mcpask_livechat
 sync_plugin mcpask imagegen plg_mcpask_imagegen
+sync_plugin mcpask dropfiles plg_mcpask_dropfiles
 sync_plugin mcp mcpask plg_mcp_mcpask

@@ -53,6 +53,21 @@
     });
   });
 
+  // A test, or nothing to do about: off the list
+  root.querySelectorAll('[data-mcpask-dismiss]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+
+      try {
+        await call('dismiss', { ids: button.dataset.mcpaskDismiss });
+        button.closest('li').remove();
+      } catch (error) {
+        button.disabled = false;
+        window.alert(error.message);
+      }
+    });
+  });
+
   if (!form) {
     return;
   }

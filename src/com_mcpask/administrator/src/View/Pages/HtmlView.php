@@ -14,6 +14,9 @@ use Gss\Component\Mcpask\Administrator\Ask\Ignores;
 use Gss\Component\Mcpask\Administrator\Ask\IndexedPages;
 use Gss\Component\Mcpask\Administrator\Ask\ManualPages;
 use Gss\Component\Mcpask\Administrator\Ask\Settings;
+use Gss\Component\Mcpask\Administrator\Ask\Source\FileSourceInterface;
+use Gss\Component\Mcpask\Administrator\Ask\Source\Sources;
+use Gss\Component\Mcpask\Administrator\Ask\SuppliedTexts;
 use Gss\Component\Mcpask\Administrator\Ask\WebSync;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Text;
@@ -60,6 +63,18 @@ class HtmlView extends BaseHtmlView
 
     public bool $canEdit = false;
 
+    /** @var array<string, int>  Pages of each of this site's sources, by name */
+    public array $ownCounts = [];
+
+    /** @var array<string, string>  Names of this site's sources as the administrator knows them */
+    public array $labels = [];
+
+    /** @var array<string, array{label: string, files: array, error: string}>  Sources of files with their files */
+    public array $files = [];
+
+    /** Whether a source of files is installed (its tab is shown) */
+    public bool $hasFiles = false;
+
     public function display($tpl = null): void
     {
         $app  = Factory::getApplication();
@@ -74,11 +89,16 @@ class HtmlView extends BaseHtmlView
         $input         = $app->getInput();
         $pages         = new IndexedPages($db, $settings);
         $this->canEdit = $user->authorise('core.admin', 'com_mcpask') || $user->authorise('core.options', 'com_mcpask');
-        $this->tab     = \in_array($input->getCmd('tab'), ['manual', 'ignored'], true) ? $input->getCmd('tab') : 'pages';
-        $this->counts  = $pages->counts();
-        $this->filter  = [
+        $this->tab       = \in_array($input->getCmd('tab'), ['manual', 'ignored', 'files'], true) ? $input->getCmd('tab') : 'pages';
+        $this->counts    = $pages->counts();
+        $this->ownCounts = $pages->ownCounts();
+        $this->labels    = array_combine(array_keys($this->ownCounts), array_map([$pages, 'label'], array_keys($this->ownCounts)));
+        $this->hasFiles  = (bool) array_filter(Sources::own($db, $settings), static fn ($source) => $source instanceof FileSourceInterface);
+        $kind            = (string) $input->getString('kind', '');
+        $this->filter    = [
             'search' => trim($input->getString('search', '')),
-            'kind'   => \in_array($input->getCmd('kind'), IndexedPages::KINDS, true) ? $input->getCmd('kind') : '',
+            // A kind, or one of this site's sources ("own:dropfiles")
+            'kind'   => \in_array($kind, IndexedPages::KINDS, true) || (str_starts_with($kind, 'own:') && isset($this->ownCounts[substr($kind, 4)])) ? $kind : '',
             'status' => \in_array($input->getCmd('status'), ['ok', 'pending'], true) ? $input->getCmd('status') : '',
             'thin'   => (bool) $input->getInt('thin', 0),
         ];
@@ -97,6 +117,8 @@ class HtmlView extends BaseHtmlView
             if ($this->filter['thin']) {
                 $this->pagination->setAdditionalUrlParam('thin', '1');
             }
+        } elseif ($this->tab === 'files') {
+            $this->files = $pages->files();
         } elseif ($this->tab === 'manual') {
             $this->manual = $this->manual($db);
         } else {
@@ -108,6 +130,14 @@ class HtmlView extends BaseHtmlView
         ToolbarHelper::link('index.php?option=com_mcpask&view=dashboard', Text::_('COM_MCPASK_SUBMENU_DASHBOARD'), 'dashboard');
 
         parent::display($tpl);
+    }
+
+    /**
+     * The text given for a file, for its form.
+     */
+    public function suppliedText(string $source, int $itemId): ?object
+    {
+        return (new SuppliedTexts(Factory::getContainer()->get(DatabaseInterface::class)))->get($source, $itemId);
     }
 
     /**

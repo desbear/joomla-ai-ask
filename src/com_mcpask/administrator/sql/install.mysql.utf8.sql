@@ -188,6 +188,7 @@ CREATE TABLE IF NOT EXISTS `#__mcpask_pets` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `title` varchar(255) NOT NULL DEFAULT '',
   `params` mediumtext NOT NULL,
+  `ordering` int NOT NULL DEFAULT 0,
   `created` datetime NOT NULL,
   `modified` datetime NOT NULL,
   PRIMARY KEY (`id`)
@@ -215,4 +216,14 @@ CREATE TABLE IF NOT EXISTS `#__mcpask_ignores` (
   `created_by` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_item` (`source`, `item_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `#__mcpask_texts` (
+  `source` varchar(32) NOT NULL,
+  `item_id` int unsigned NOT NULL,
+  `text` mediumtext NOT NULL,
+  `mode` varchar(8) NOT NULL DEFAULT 'add',
+  `modified` datetime NOT NULL,
+  `modified_by` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`source`, `item_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci;

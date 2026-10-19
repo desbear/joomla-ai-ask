@@ -106,7 +106,7 @@ final class Pets
     public function all(string $kind = ''): array
     {
         $pets = array_map([self::class, 'prepare'], $this->db->setQuery(
-            $this->db->getQuery(true)->select('*')->from($this->db->quoteName('#__mcpask_pets'))->order('title')
+            $this->db->getQuery(true)->select('*')->from($this->db->quoteName('#__mcpask_pets'))->order($this->hasOrdering() ? 'ordering, title' : 'title')
         )->loadObjectList());
 
         return $kind === '' ? $pets : array_values(array_filter($pets, static fn ($pet) => self::kindOf($pet) === $kind));
@@ -178,9 +178,111 @@ final class Pets
         }
 
         $row->created = $now;
+
+        // A new pet comes last in the lists
+        if ($this->hasOrdering()) {
+            $row->ordering = 1 + (int) $this->db->setQuery($this->db->getQuery(true)->select('MAX(ordering)')->from($this->db->quoteName('#__mcpask_pets')))->loadResult();
+        }
+
         $this->db->insertObject('#__mcpask_pets', $row, 'id');
 
         return (int) $row->id;
+    }
+
+    /**
+     * Put pets in this order (0.19.0): the order of the lists and of the choices.
+     *
+     * @param   int[]  $ids  The pets, first to last
+     *
+     * @throws  \RuntimeException  When the database has no place for an order yet
+     */
+    public function reorder(array $ids): void
+    {
+        if (!$this->hasOrdering()) {
+            throw new \RuntimeException('The order of pets cannot be kept: the database of AI Ask is not up to date. Install the package again.');
+        }
+
+        foreach (array_values(array_unique(array_map('intval', $ids))) as $position => $id) {
+            $this->db->setQuery(
+                $this->db->getQuery(true)
+                    ->update($this->db->quoteName('#__mcpask_pets'))
+                    ->set('ordering = ' . ($position + 1))
+                    ->where('id = ' . $id)
+            )->execute();
+        }
+    }
+
+    /**
+     * Move a pet one place earlier (-1) or later (1) among the pets of its kind.
+     */
+    public function move(int $id, int $step): void
+    {
+        $pet = $this->get($id);
+
+        if (!$pet) {
+            return;
+        }
+
+        $ids  = array_map(static fn ($item) => (int) $item->id, $this->all(self::kindOf($pet)));
+        $from = array_search($id, $ids, true);
+        $to   = $from + ($step < 0 ? -1 : 1);
+
+        if ($from === false || $to < 0 || $to >= \count($ids)) {
+            return;
+        }
+
+        [$ids[$from], $ids[$to]] = [$ids[$to], $ids[$from]];
+        $this->reorder($ids);
+    }
+
+    /**
+     * A picture that stands for a pet in lists: its still thumbnail, else the thumbnail of its
+     * idle moment, else the still or idle picture (a cleaning pet's picture while cleaning).
+     */
+    public static function face(object $pet): string
+    {
+        $params = $pet->params;
+        $fields = self::kindOf($pet) === 'cleaner' ? ['clean_image', 'point_image'] : ['thumb', 'idle_thumb', 'static', 'idle_image'];
+
+        foreach ($fields as $field) {
+            $path = self::clean((string) $params->get($field, ''));
+
+            if ($path !== '' && is_file(JPATH_ROOT . '/' . $path)) {
+                return self::url($path);
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * The pets that can be chosen, with their pictures, for the picker of the settings.
+     *
+     * @return  array<string, array{title: string, face: string}>  By ID
+     */
+    public function faces(string $kind = 'agent'): array
+    {
+        $faces = [];
+
+        foreach ($this->all($kind) as $pet) {
+            $faces[(string) $pet->id] = ['title' => (string) $pet->title, 'face' => self::face($pet)];
+        }
+
+        return $faces;
+    }
+
+    private ?bool $ordered = null;
+
+    /**
+     * Whether the table has the order column (an update that has not run its SQL has not).
+     */
+    private function hasOrdering(): bool
+    {
+        try {
+            return $this->ordered ??= isset($this->db->getTableColumns('#__mcpask_pets')['ordering']);
+        } catch (\Throwable) {
+            return $this->ordered = false;
+        }
     }
 
     public function delete(int $id): void

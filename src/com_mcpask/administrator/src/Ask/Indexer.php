@@ -76,7 +76,9 @@ final class Indexer
 
         // Images are kept only of the site's own pages, never of other websites
         $own    = !str_starts_with($document->source, WebSync::PREFIX) && !str_starts_with($document->source, PeerSync::PREFIX);
-        $chunks = Chunker::chunks($document->html, $this->settings->chunkTokens(), $own ? ['folder' => JPATH_ROOT, 'url' => $this->siteUrl()] : null);
+        // With the text the administrator gave it, if any
+        $html   = (new SuppliedTexts($this->db))->apply($document);
+        $chunks = Chunker::chunks($html, $this->settings->chunkTokens(), $own ? ['folder' => JPATH_ROOT, 'url' => $this->siteUrl()] : null);
         $hash   = sha1(json_encode([
             $document->title, $document->link, $document->language, $document->access,
             $chunks, $this->settings->indexSignature(),

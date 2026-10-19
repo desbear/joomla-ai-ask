@@ -6,7 +6,7 @@
 	<creationDate>2026-10</creationDate>
 	<copyright>(C) 2026 GSS</copyright>
 	<license>GNU General Public License version 2 or later; see LICENSE</license>
-	<version>0.18.0</version>
+	<version>0.19.0</version>
 	<description>PKG_MCPASK_XML_DESCRIPTION</description>
 	<packager>GSS</packager>
 	<scriptfile>script.php</scriptfile>
@@ -22,6 +22,7 @@
 		<file type="plugin" id="livechat" group="mcpask">plg_mcpask_livechat.zip</file>
 		<file type="plugin" id="mcpask" group="mcp">plg_mcp_mcpask.zip</file>
 		<file type="plugin" id="imagegen" group="mcpask">plg_mcpask_imagegen.zip</file>
+		<file type="plugin" id="dropfiles" group="mcpask">plg_mcpask_dropfiles.zip</file>
 	</files>
 	<languages folder="language">
 		<language tag="en-GB">en-GB/pkg_mcpask.sys.ini</language>

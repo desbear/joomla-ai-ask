@@ -103,7 +103,7 @@ $wa->addInlineScript(<<<'JS'
 
 	<?php
 	// One picture's cell: what it is now (with its size), a new one, and taking it away
-	$cell = function (string $field) use ($params, $e, $url, $id): string {
+	$cell = function (string $field) use ($params, $e, $url): string {
 		$param = Pets::pictures()[$field];
 		$path  = $params ? Pets::clean((string) $params->get($param, '')) : '';
 		$bytes = $this->sizes[$param] ?? 0;
@@ -112,7 +112,7 @@ $wa->addInlineScript(<<<'JS'
 		$html .= $path !== ''
 			? '<div class="text-center flex-none"><img src="' . $e($url($path)) . '" alt="" width="64" height="64" style="object-fit:contain;border-radius:12px;background:#f3f4f7"><div class="small ' . ($bytes > Pets::ADVISED_BYTES ? 'text-danger' : 'text-muted') . '">' . Number::bytes($bytes) . '</div></div>'
 			: '<div class="text-muted small text-center" style="width:64px">' . Text::_(\in_array($field, ['idle', 'static', 'clean'], true) ? 'COM_MCPASK_PET_NONE_YET' : ($field === 'point' ? 'COM_MCPASK_CLEANER_USES_CLEAN' : (str_ends_with($field, 'thumb') ? 'COM_MCPASK_PET_USES_FULL' : 'COM_MCPASK_PET_USES_IDLE'))) . '</div>';
-		$html .= '<div class="flex-grow-1"><input type="file" class="form-control form-control-sm" name="pictures[' . $field . ']" accept="' . ($still ? '.png,.webp,.gif,.avif,.jpg,.jpeg' : '.png,.apng,.avif,.webp,.gif') . '"' . ($id ? '' : ' disabled') . '>';
+		$html .= '<div class="flex-grow-1"><input type="file" class="form-control form-control-sm" name="pictures[' . $field . ']" accept="' . ($still ? '.png,.webp,.gif,.avif,.jpg,.jpeg' : '.png,.apng,.avif,.webp,.gif') . '">';
 
 		if ($path !== '' && !\in_array($field, ['idle', 'clean'], true)) {
 			$html .= '<label class="small mt-1"><input type="checkbox" name="remove[' . $field . ']" value="1"> ' . Text::_('COM_MCPASK_PET_REMOVE') . '</label>';
@@ -152,9 +152,6 @@ $wa->addInlineScript(<<<'JS'
 			<?php endforeach; ?>
 		</tbody>
 	</table>
-	<?php if (!$id) : ?>
-		<div class="alert alert-info"><?php echo Text::_('COM_MCPASK_PET_SAVE_FIRST'); ?></div>
-	<?php endif; ?>
 
 
 	<input type="hidden" name="task" value="">

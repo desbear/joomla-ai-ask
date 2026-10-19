@@ -10,8 +10,10 @@
 
 namespace Gss\Component\Mcpask\Administrator\Ask;
 
+use Gss\Component\Mcpask\Administrator\Ask\Source\FileSourceInterface;
 use Gss\Component\Mcpask\Administrator\Ask\Source\SourceInterface;
 use Gss\Component\Mcpask\Administrator\Ask\Source\Sources;
+use Joomla\CMS\Language\Text;
 use Joomla\CMS\Uri\Uri;
 use Joomla\Database\DatabaseInterface;
 use Joomla\Database\ParameterType;
@@ -70,6 +72,12 @@ final class IndexedPages
         $web    = $db->quote(WebSync::PREFIX . '%');
         $peer   = $db->quote(PeerSync::PREFIX . '%');
         $manual = $db->quote(WebSync::PREFIX . ManualPages::SITE . '%');
+
+        match (true) {
+            // One of this site's sources ("own:dropfiles")
+            str_starts_with($filter['kind'], 'own:') => $query->where('source = ' . $db->quote(substr($filter['kind'], 4))),
+            default                                  => null,
+        };
 
         match ($filter['kind']) {
             'own'    => $query->where('source NOT LIKE ' . $web)->where('source NOT LIKE ' . $peer),
@@ -153,6 +161,87 @@ final class IndexedPages
         }
 
         return $counts;
+    }
+
+    /**
+     * How many pages of each of this site's sources, those with pages, by name.
+     *
+     * @return  array<string, int>
+     */
+    public function ownCounts(): array
+    {
+        $counts = [];
+        $rows   = $this->db->setQuery($this->db->getQuery(true)->select('source, COUNT(*) AS n')->from($this->db->quoteName('#__mcpask_documents'))->group('source'))->loadObjectList();
+
+        foreach ($rows as $row) {
+            if (self::kind((string) $row->source) === 'own') {
+                $counts[(string) $row->source] = (int) $row->n;
+            }
+        }
+
+        return $counts;
+    }
+
+    /**
+     * The name of one of this site's sources as the administrator knows it.
+     */
+    public function label(string $source): string
+    {
+        $own = $this->own()[$source] ?? null;
+
+        if ($own instanceof FileSourceInterface) {
+            return $own->label();
+        }
+
+        $key = 'COM_MCPASK_PAGES_SOURCE_' . strtoupper($source);
+
+        return Text::_($key) !== $key ? Text::_($key) : $source;
+    }
+
+    /**
+     * Each source of files with every file it has, and how each stands in the index: read (with
+     * its passages), not read yet or without text, or not read and why; with the text given for it.
+     *
+     * @return  array<string, array{label: string, files: array<int, array>}>  By source name
+     */
+    public function files(): array
+    {
+        $all = [];
+
+        foreach ($this->own() as $name => $source) {
+            if (!$source instanceof FileSourceInterface) {
+                continue;
+            }
+
+            try {
+                $files = $source->catalog();
+            } catch (\Throwable $e) {
+                $all[$name] = ['label' => $source->label(), 'files' => [], 'error' => $e->getMessage()];
+
+                continue;
+            }
+
+            $ids  = array_column($files, 'id');
+            $docs = $ids ? $this->db->setQuery(
+                $this->db->getQuery(true)
+                    ->select('id, item_id, chunks, status, message, checked')
+                    ->from($this->db->quoteName('#__mcpask_documents'))
+                    ->where('source = ' . $this->db->quote($name))
+                    ->whereIn('item_id', $ids)
+            )->loadObjectList('item_id') : [];
+            $given = array_flip((new SuppliedTexts($this->db))->ids($name));
+
+            foreach ($files as &$file) {
+                $file['doc']   = $docs[$file['id']] ?? null;
+                $file['given'] = isset($given[$file['id']]);
+            }
+
+            unset($file);
+
+            $all[$name] = ['label' => $source->label(), 'files' => $files, 'error' => ''];
+        }
+
+        return $all;
     }
 
     public static function kind(string $source): string

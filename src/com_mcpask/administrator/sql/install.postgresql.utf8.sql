@@ -178,6 +178,7 @@ CREATE TABLE IF NOT EXISTS "#__mcpask_pets" (
   "id" serial NOT NULL,
   "title" varchar(255) DEFAULT '' NOT NULL,
   "params" text NOT NULL,
+  "ordering" integer DEFAULT 0 NOT NULL,
   "created" timestamp without time zone NOT NULL,
   "modified" timestamp without time zone NOT NULL,
   PRIMARY KEY ("id")
@@ -205,4 +206,14 @@ CREATE TABLE IF NOT EXISTS "#__mcpask_ignores" (
   "created_by" integer DEFAULT 0 NOT NULL,
   PRIMARY KEY ("id"),
   CONSTRAINT "#__mcpask_ignores_idx_item" UNIQUE ("source", "item_id")
+);
+
+CREATE TABLE IF NOT EXISTS "#__mcpask_texts" (
+  "source" varchar(32) NOT NULL,
+  "item_id" integer NOT NULL,
+  "text" text NOT NULL,
+  "mode" varchar(8) DEFAULT 'add' NOT NULL,
+  "modified" timestamp without time zone NOT NULL,
+  "modified_by" integer DEFAULT 0 NOT NULL,
+  PRIMARY KEY ("source", "item_id")
 );

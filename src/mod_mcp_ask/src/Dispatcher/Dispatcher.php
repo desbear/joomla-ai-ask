@@ -65,10 +65,12 @@ class Dispatcher extends AbstractModuleDispatcher
         $data['allowedHosts'] = $this->allowedHosts();
         $data['pageItem']    = $data['embed'] ? 0 : $this->pageItem();
         $data['sourcesShown'] = max(0, min(50, (int) $params->get('sources_shown', 3)));
-        $data['pet']         = $data['mode'] === 'float' && !$demo ? $this->pet((string) $params->get('pet', '')) : null;
+        // On the days of a festive row, its pet and cleaning pet instead of the usual ones
+        $festive             = $this->festive($params);
+        $data['pet']         = $data['mode'] === 'float' && !$demo ? $this->pet((string) ($festive['pet'] ?? '') ?: (string) $params->get('pet', '')) : null;
         // How a new conversation clears the old one, and the pet that does it when one is chosen (0.18.0)
         $data['clear']       = \in_array($params->get('clear_effect', 'saucer'), ['saucer', 'wind', 'hole', 'fade', 'none'], true) ? (string) $params->get('clear_effect', 'saucer') : 'saucer';
-        $data['cleaner']     = $data['clear'] === 'saucer' ? $this->cleaner((string) $params->get('cleaner', '')) : null;
+        $data['cleaner']     = $data['clear'] === 'saucer' ? $this->cleaner((string) ($festive['cleaner'] ?? '') ?: (string) $params->get('cleaner', '')) : null;
         $data['demoSources'] = $demo ? $this->demoSources() : [];
         $data['accent']      = preg_match('/^#[0-9a-f]{3,8}$/i', (string) $params->get('accent')) ? $params->get('accent') : '';
         $data['strings']     = [
@@ -81,6 +83,8 @@ class Dispatcher extends AbstractModuleDispatcher
             'newChat'      => Text::_('MOD_MCP_ASK_NEW'),
             'resume'       => Text::_('MOD_MCP_ASK_RESUME'),
             'sources'      => Text::_('MOD_MCP_ASK_SOURCES'),
+            'filePage'     => Text::_('MOD_MCP_ASK_FILE_PAGE'),
+            'fileDownload' => Text::_('MOD_MCP_ASK_FILE_DOWNLOAD'),
             'here'         => Text::_('MOD_MCP_ASK_HERE'),
             'more'         => Text::_('MOD_MCP_ASK_MORE'),
             'others'       => Text::_('MOD_MCP_ASK_MORE_OTHERS'),
@@ -105,6 +109,8 @@ class Dispatcher extends AbstractModuleDispatcher
             'agentReply'     => Text::_('MOD_MCP_ASK_AGENT_REPLY'),
             'agentStart'     => Text::_('MOD_MCP_ASK_AGENT_START'),
             'agentTry'       => Text::_('MOD_MCP_ASK_AGENT_TRY'),
+            'agentMore'      => Text::_('MOD_MCP_ASK_AGENT_MORE'),
+            'useSuggestion'  => Text::_('MOD_MCP_ASK_USE_SUGGESTION'),
             'required'       => Text::_('MOD_MCP_ASK_REQUIRED'),
             'reportWriting'  => Text::_('MOD_MCP_ASK_REPORT_WRITING'),
             'reportOpen'     => Text::_('MOD_MCP_ASK_REPORT_OPEN'),
@@ -192,6 +198,43 @@ class Dispatcher extends AbstractModuleDispatcher
         }
 
         return [\array_slice($listed, 0, 4), $handoff, $looks];
+    }
+
+    /**
+     * The first festive row (0.19.0) whose days today is one of, in the site's time zone: its pet
+     * and cleaning pet; null on other days.
+     *
+     * @return  array{pet: string, cleaner: string}|null
+     */
+    private function festive(Registry $params): ?array
+    {
+        $today = \Joomla\CMS\Factory::getDate('now', (string) $this->getApplication()->get('offset', 'UTC'));
+        $date  = $today->format('Y-m-d', true);
+        $day   = substr($date, 5);
+
+        foreach ((array) $params->get('festive', []) as $row) {
+            $row  = (array) $row;
+            $from = substr(trim((string) ($row['from'] ?? '')), 0, 10);
+            $to   = substr(trim((string) ($row['to'] ?? '')), 0, 10) ?: $from;
+
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
+                continue;
+            }
+
+            if (!empty($row['yearly'])) {
+                // Month and day only; a period may run over the new year (12-28 to 01-03)
+                [$start, $end] = [substr($from, 5), substr($to, 5)];
+                $hit           = $start <= $end ? $day >= $start && $day <= $end : $day >= $start || $day <= $end;
+            } else {
+                $hit = $date >= $from && $date <= $to;
+            }
+
+            if ($hit) {
+                return ['pet' => (string) ($row['pet'] ?? ''), 'cleaner' => (string) ($row['cleaner'] ?? '')];
+            }
+        }
+
+        return null;
     }
 
     /**

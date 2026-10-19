@@ -5,7 +5,7 @@
 	<creationDate>2026-10</creationDate>
 	<copyright>(C) 2026 GSS</copyright>
 	<license>GNU General Public License version 2 or later; see LICENSE</license>
-	<version>0.18.0</version>
+	<version>0.19.0</version>
 	<description>COM_MCPASK_XML_DESCRIPTION</description>
 	<namespace path="src">Gss\Component\Mcpask</namespace>
 
@@ -64,6 +64,7 @@
 			<folder>sql</folder>
 			<folder>src</folder>
 			<folder>tmpl</folder>
+			<folder>vendor</folder>
 		</files>
 		<languages folder="administrator/language">
 			<language tag="en-GB">en-GB/com_mcpask.ini</language>

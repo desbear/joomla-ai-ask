@@ -1,7 +1,7 @@
 {
   "$schema": "https://developer.joomla.org/schemas/json-schema/web_assets.json",
   "name": "mod_mcp_ask",
-  "version": "0.18.0",
+  "version": "0.19.0",
   "description": "MCP Server for Joomla - Ask module",
   "license": "GPL-2.0-or-later",
   "assets": [
@@ -9,7 +9,7 @@
       "name": "mod_mcp_ask.ask",
       "type": "style",
       "uri": "mod_mcp_ask/ask.css",
-      "version": "0.18.0"
+      "version": "auto"
     },
     {
       "name": "mod_mcp_ask.ask",
@@ -18,7 +18,7 @@
       "attributes": {
         "defer": true
       },
-      "version": "0.18.0"
+      "version": "auto"
     },
     {
       "name": "mod_mcp_ask.demo",
@@ -27,7 +27,7 @@
       "attributes": {
         "defer": true
       },
-      "version": "0.18.0"
+      "version": "auto"
     }
   ]
 }

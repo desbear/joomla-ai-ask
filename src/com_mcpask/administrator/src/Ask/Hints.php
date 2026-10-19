@@ -218,7 +218,10 @@ final class Hints
      * last so many days, the same question once, most asked first. Questions a rule has been made
      * for since are left out.
      *
-     * @return  object[]  question, asked, bad, empty, errors, last, reasons, log_id
+     * Tests are left out: questions marked as steering the answer or carrying markup, ratings
+     * whose reason was a probe, and questions the administrator dismissed.
+     *
+     * @return  object[]  question, asked, bad, empty, errors, last, reasons, log_id, ids
      */
     public function pending(int $days, int $limit = 100): array
     {
@@ -231,6 +234,7 @@ final class Hints
             ->where('created >= :since')
             ->where('question IS NOT NULL')
             ->where('(rating < 0 OR status IN (' . $db->quote('empty') . ', ' . $db->quote('error') . '))')
+            ->where($this->visitors())
             ->order('created DESC')
             ->bind(':since', $since);
         $ruled = [];
@@ -260,7 +264,10 @@ final class Hints
                 'last'     => $row->created,
                 'reasons'  => [],
                 'flags'    => [],
+                'ids'      => [],
             ];
+
+            $item->ids[] = (int) $row->id;
 
             $item->flags = array_values(array_unique([...$item->flags, ...array_filter(explode(',', (string) $row->flags))]));
 
@@ -281,6 +288,25 @@ final class Hints
     }
 
     /**
+     * A condition for the log's questions that are visitors', not tests (see UsageLog::NOT_VISITORS).
+     */
+    private function visitors(): string
+    {
+        $db = $this->db;
+
+        if (!isset($db->getTableColumns('#__mcpask_log')['flags'])) {
+            return '1 = 1';
+        }
+
+        $flags = $db->quoteName('flags');
+
+        return '(' . $flags . ' IS NULL OR (' . implode(' AND ', array_map(
+            static fn ($flag) => $flags . ' NOT LIKE ' . $db->quote('%' . $flag . '%'),
+            UsageLog::NOT_VISITORS
+        )) . '))';
+    }
+
+    /**
      * How answers were rated over the last so many days.
      *
      * @return  array{good: int, bad: int, answered: int}
@@ -294,6 +320,7 @@ final class Hints
             ->select('SUM(CASE WHEN status = ' . $db->quote('ok') . ' THEN 1 ELSE 0 END) AS answered')
             ->from($db->quoteName('#__mcpask_log'))
             ->where('created >= :since')
+            ->where($this->visitors())
             ->bind(':since', $since);
         $row   = $db->setQuery($query)->loadObject();
 

@@ -64,7 +64,7 @@ $total = $this->ratings['good'] + $this->ratings['bad'];
 							<?php foreach ($this->pending as $item) : ?>
 								<li class="list-group-item px-0">
 									<div class="d-flex justify-content-between align-items-start gap-2">
-										<div>
+										<div style="min-width:0;overflow-wrap:anywhere">
 											<div class="fw-bold"><?php echo $e($item->question); ?></div>
 											<div class="small text-muted">
 												<?php echo Text::sprintf('COM_MCPASK_QUALITY_ASKED', (int) $item->asked); ?>
@@ -78,9 +78,14 @@ $total = $this->ratings['good'] + $this->ratings['bad'];
 											<?php endforeach; ?>
 										</div>
 										<?php if ($this->canManage) : ?>
-											<button type="button" class="btn btn-sm btn-outline-primary text-nowrap" data-mcpask-rule-for="<?php echo $e($item->question); ?>">
-												<?php echo Text::_('COM_MCPASK_RULE_FOR'); ?>
-											</button>
+											<div class="d-flex flex-column gap-1 flex-shrink-0">
+												<button type="button" class="btn btn-sm btn-outline-primary text-nowrap" data-mcpask-rule-for="<?php echo $e($item->question); ?>">
+													<?php echo Text::_('COM_MCPASK_RULE_FOR'); ?>
+												</button>
+												<button type="button" class="btn btn-sm btn-outline-secondary text-nowrap" data-mcpask-dismiss="<?php echo $e(implode(',', $item->ids)); ?>" title="<?php echo $e(Text::_('COM_MCPASK_QUALITY_DISMISS_DESC')); ?>">
+													<?php echo Text::_('COM_MCPASK_QUALITY_DISMISS'); ?>
+												</button>
+											</div>
 										<?php endif; ?>
 									</div>
 								</li>

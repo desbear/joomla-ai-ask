@@ -2,6 +2,60 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask for Joomla 0.19.0
+
+- **Documents answered from, with the site's pages.** A new plugin, **AI Ask - Dropfiles documents**
+  (`plg_mcpask_dropfiles`, installed disabled), adds the public files of Dropfiles to the index: PDF, Word (.docx),
+  PowerPoint (.pptx), Excel (.xlsx), Markdown and text, read on the server. Files are indexed and searched together
+  with the articles, never in a separate place: one question may be answered from a page and a PDF at once. Only
+  files a guest may download are read (published, in published public categories, within their dates, kept on this
+  server), checked again before a passage is quoted. Settings: the categories (with those under them; none for all),
+  the kinds of files and the largest size. A changed file is read again; one taken away leaves the index.
+- **Documents are cited as files**: the source card shows the kind, the page the passage is on and the size, opens a
+  PDF at that page (when Dropfiles shows PDFs in the browser) and has a download button. The AI is told which sources
+  are documents the visitor can download.
+- **Reading documents**: PDF page by page, Word with its headings and tables, PowerPoint slide by slide in the order of
+  the deck with titles and speaker notes, Excel sheet by sheet as tables. PDFs are read with PdfParser (LGPL-3.0),
+  bundled, without keeping images, within a memory limit.
+- **Indexed pages, Documents tab**: every file of the chosen categories with how it stands: answered from (with the
+  passages the AI is given), not read yet or without text, or not read and why (not public, in a cloud drive, a kind
+  not read, larger than allowed). **Read now** reads a file at once and says what came of it.
+- **Text given for a file**: paste plain text or Markdown for a file whose text cannot be read (a scan, a file too
+  large) or says too little, added to what is read of it or used instead; the file is cited as before. A file too
+  large or of a kind not read is answered from by that text alone.
+- **Indexed pages filter by source**: articles, FLEXIcontent items, EasyBlog posts or Dropfiles files on their own.
+- **Tests no longer count as visitors left without help.** A rating whose reason is a probe (markup, statements,
+  template expressions, one character over and over) is not counted, only marked in the log; questions marked as
+  steering the answer or carrying markup are left out of the questions to look at and of the share of helpful
+  answers; and **Dismiss** takes any other question off that list. Long unbroken text no longer runs off the page.
+- **Beside a pet, one card**: the box to type in and the helpers to try are one card the pet speaks, with a tail to
+  it, above the pet (below it when the pet sits too high), to its upper left or upper right; it fits a phone's width.
+  On phones the pet takes its phone size again (the size set for wide screens had been kept), shows its half-body
+  thumbnails in a rounded frame, and, open, the card docks across the bottom of what is seen (just above the
+  keyboard while typing: iOS moving the page no longer pushes the box under its bar), the framed pet pressed onto
+  its upper corner on the pet's side.
+- **At most two helpers beside a pet**, the rest in one button of stacked faces that drops a list open; in the
+  conversation the helpers stay on one line, and those that do not fit go into the same button.
+- **Suggested replies** are blocks with a plus, put in the box when chosen; choices in forms are rounded rectangles
+  instead of pills.
+- **Festive pets**: a tab of the module lists days and the pet (and cleaning pet) to show on them instead of the
+  usual ones: every year on the same days (a period may run over the new year) or on those dates only; the first
+  row that matches wins, by the site's time zone.
+- **Pets in an order of your own**: drag a card on the Pets page, or use its arrows; new pets come last. The lists to
+  choose a pet from follow that order.
+- **Choosing a pet by its picture**: the pet and cleaning-pet settings (module, festive rows, agents, embeds) open a
+  list with each pet's thumbnail instead of names only.
+- **A new pet takes its pictures at once**: pictures can be chosen while a pet is being made, and are stored when it
+  is first saved (before, the pet had to be saved with its name first).
+- A cleaning pet clears without the saucer's beam of light under it: its own pictures can carry the light.
+- The module's script and styles are fetched again after every install (Joomla's media version), not only when the
+  version number changes.
+- **Installing completes the database of the version**: its statements are run again after every install, so a
+  site that had an earlier build of the same version gets what was added since (an order for pets, the texts given
+  for files).
+- **For developers**: the event `onMcpaskSources` lets a plugin add sources of its own (`SourceInterface`, or
+  `FileSourceInterface` for files); they join the same index, the same answers and the indexed pages list.
+
 ## AI Ask for Joomla 0.18.0
 
 - **Hard questions no longer end without an answer.** A reasoning model thinks within the same allowance as it writes,

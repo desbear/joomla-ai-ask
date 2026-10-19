@@ -142,6 +142,22 @@ final class UsageLog
         }
 
         $since  = Factory::getDate('-1 day')->toSql();
+
+        // A reason that is a probe: the rating is a scanner's. It is not counted, only marked, and
+        // the one who sent it is told it was taken, as anyone else would be
+        if ((new Guard($this->settings))->refusesFeedback($feedback) !== null) {
+            $this->db->setQuery(
+                $this->db->getQuery(true)
+                    ->update($this->db->quoteName('#__mcpask_log'))
+                    ->set($this->db->quoteName('flags') . ' = ' . $this->addFlag('probe'))
+                    ->where('id = ' . (int) $match[1])
+                    ->where('created >= :since')
+                    ->bind(':since', $since)
+            )->execute();
+
+            return true;
+        }
+
         $text   = mb_substr(trim((string) preg_replace('/\s+/u', ' ', strip_tags($feedback))), 0, 255);
         $query  = $this->db->getQuery(true)
             ->update($this->db->quoteName('#__mcpask_log'))
@@ -155,6 +171,42 @@ final class UsageLog
         $this->db->setQuery($query)->execute();
 
         return $this->db->getAffectedRows() > 0;
+    }
+
+    /**
+     * Mark questions of the log as dismissed: tests, or nothing to do about. They leave the list of
+     * questions to look at and the share of helpful answers.
+     *
+     * @param   int[]  $ids
+     */
+    public function dismiss(array $ids): int
+    {
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+
+        if (!$ids) {
+            return 0;
+        }
+
+        $this->db->setQuery(
+            $this->db->getQuery(true)
+                ->update($this->db->quoteName('#__mcpask_log'))
+                ->set($this->db->quoteName('flags') . ' = ' . $this->addFlag('dismissed'))
+                ->whereIn('id', $ids)
+        )->execute();
+
+        return $this->db->getAffectedRows();
+    }
+
+    /**
+     * SQL for the flags with one more, once.
+     */
+    private function addFlag(string $flag): string
+    {
+        $flags = $this->db->quoteName('flags');
+
+        return 'CASE WHEN ' . $flags . ' LIKE ' . $this->db->quote('%' . $flag . '%') . ' THEN ' . $flags
+            . ' WHEN ' . $flags . ' = ' . $this->db->quote('') . ' OR ' . $flags . ' IS NULL THEN ' . $this->db->quote($flag)
+            . ' ELSE ' . $this->db->getQuery(true)->concatenate([$flags, $this->db->quote(',' . $flag)]) . ' END';
     }
 
     public function prune(): void
@@ -245,7 +297,10 @@ final class UsageLog
      * @return  object[]  The latest questions, newest first, with the name of who asked when that is known
      */
     /** Marks a question can carry in the log. */
-    public const FLAGS = ['injection_suspect', 'html_payload', 'output_filtered'];
+    public const FLAGS = ['injection_suspect', 'html_payload', 'output_filtered', 'probe', 'dismissed'];
+
+    /** Marks of questions that are tests, not visitors': left out of what is looked at and counted. */
+    public const NOT_VISITORS = ['injection_suspect', 'html_payload', 'probe', 'dismissed'];
 
     public function recent(int $limit, string $flag = ''): array
     {

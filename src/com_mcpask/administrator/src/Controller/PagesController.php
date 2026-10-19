@@ -16,6 +16,7 @@ use Gss\Component\Mcpask\Administrator\Ask\Indexer;
 use Gss\Component\Mcpask\Administrator\Ask\ManualPages;
 use Gss\Component\Mcpask\Administrator\Ask\ServiceException;
 use Gss\Component\Mcpask\Administrator\Ask\Settings;
+use Gss\Component\Mcpask\Administrator\Ask\SuppliedTexts;
 use Gss\Component\Mcpask\Administrator\Ask\Source\Sources;
 use Gss\Component\Mcpask\Administrator\Ask\WebSync;
 use Joomla\CMS\Component\ComponentHelper;
@@ -144,6 +145,70 @@ class PagesController extends BaseController
     }
 
     /**
+     * Read a file of a source of files now: to see at once whether it is answered from, and why not.
+     */
+    public function readfile(): void
+    {
+        $this->check();
+
+        $db       = $this->db();
+        $settings = Settings::load();
+        $name     = $this->input->post->getCmd('source', '');
+        $id       = $this->input->post->getInt('item', 0);
+        $source   = Sources::own($db, $settings)[$name] ?? null;
+
+        try {
+            $document = $source?->load($id);
+            $outcome  = $document ? (new Indexer($db, $settings))->index($document) : 'unreadable';
+
+            // Not read at all, or read without text: gone from the index
+            if (!$document) {
+                (new Indexer($db, $settings))->remove($name, $id);
+            }
+
+            $this->app->enqueueMessage(
+                Text::sprintf('COM_MCPASK_FILES_READ_' . strtoupper($outcome), $document ? $document->title : '#' . $id),
+                \in_array($outcome, ['indexed', 'unchanged'], true) ? 'success' : 'warning'
+            );
+        } catch (ServiceException $e) {
+            $this->app->enqueueMessage($e->getMessage(), 'error');
+        } catch (\Throwable $e) {
+            $this->app->enqueueMessage(Text::sprintf('COM_MCPASK_FILES_READ_FAILED', $e->getMessage()), 'error');
+        }
+
+        $this->back('files');
+    }
+
+    /**
+     * Keep the text given for a file (or any page of this site), and index it again with it.
+     */
+    public function text(): void
+    {
+        $this->check();
+
+        $db       = $this->db();
+        $settings = Settings::load();
+        $name     = $this->input->post->getCmd('source', '');
+        $id       = $this->input->post->getInt('item', 0);
+        $source   = Sources::own($db, $settings)[$name] ?? null;
+
+        if ($source === null || $id <= 0) {
+            $this->back('files');
+
+            return;
+        }
+
+        $text = (string) $this->input->post->get('text', '', 'raw');
+
+        (new SuppliedTexts($db))->save($name, $id, $text, $this->input->post->getCmd('mode', 'add'), (int) $this->app->getIdentity()->id);
+        $this->app->enqueueMessage(Text::_(trim($text) === '' ? 'COM_MCPASK_FILES_TEXT_REMOVED' : 'COM_MCPASK_FILES_TEXT_SAVED'), 'success');
+
+        // Index it again now, with its text
+        $this->input->post->set('item', $id);
+        $this->readfile();
+    }
+
+    /**
      * Ignore indexed pages from now on.
      */
     public function ignore(): void
@@ -260,7 +325,7 @@ class PagesController extends BaseController
         $keep = array_filter([
             'tab'        => $tab ?: $this->input->post->getCmd('tab', ''),
             'search'     => $this->input->post->getString('search', ''),
-            'kind'       => $this->input->post->getCmd('kind', ''),
+            'kind'       => $this->input->post->getString('kind', ''),
             'status'     => $this->input->post->getCmd('status', ''),
             'thin'       => $this->input->post->getInt('thin', 0) ?: null,
             'limitstart' => $this->input->post->getInt('limitstart', 0) ?: null,

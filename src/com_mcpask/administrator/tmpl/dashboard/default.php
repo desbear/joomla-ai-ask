@@ -161,7 +161,7 @@ $e     = fn ($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 				<h2 class="card-header"><?php echo Text::sprintf('COM_MCPASK_QUESTIONS', $this->today); ?></h2>
 				<div class="card-body">
 					<nav class="mb-2 d-flex flex-wrap gap-1" aria-label="<?php echo $e(Text::_('COM_MCPASK_FLAGS_FILTER')); ?>">
-						<?php foreach (['' => 'COM_MCPASK_FLAGS_ALL', 'injection_suspect' => 'COM_MCPASK_FLAG_INJECTION_SUSPECT', 'html_payload' => 'COM_MCPASK_FLAG_HTML_PAYLOAD', 'output_filtered' => 'COM_MCPASK_FLAG_OUTPUT_FILTERED'] as $value => $label) : ?>
+						<?php foreach (['' => 'COM_MCPASK_FLAGS_ALL', 'injection_suspect' => 'COM_MCPASK_FLAG_INJECTION_SUSPECT', 'html_payload' => 'COM_MCPASK_FLAG_HTML_PAYLOAD', 'output_filtered' => 'COM_MCPASK_FLAG_OUTPUT_FILTERED', 'probe' => 'COM_MCPASK_FLAG_PROBE', 'dismissed' => 'COM_MCPASK_FLAG_DISMISSED'] as $value => $label) : ?>
 							<a class="btn btn-sm <?php echo $this->flag === $value ? 'btn-primary' : 'btn-outline-secondary'; ?>"
 								href="<?php echo $e(Route::_('index.php?option=com_mcpask' . ($value !== '' ? '&flag=' . $value : ''), false)); ?>"<?php echo $this->flag === $value ? ' aria-current="true"' : ''; ?>><?php echo Text::_($label); ?></a>
 						<?php endforeach; ?>

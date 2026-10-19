@@ -160,6 +160,20 @@ final class Guard
         return $this->refuses($value, false);
     }
 
+    /**
+     * Like refuses(), for the reason given with a rating: a probe there (markup, statements,
+     * template expressions, one character over and over) means the rating is a scanner's, not a
+     * visitor's, and is not counted.
+     */
+    public function refusesFeedback(string $feedback): ?string
+    {
+        if (trim($feedback) === '') {
+            return null;
+        }
+
+        return $this->refuses($feedback, false) ?? (preg_match('/(.)\1{29,}/us', $feedback) ? 'probe repeated' : null);
+    }
+
     public function refuses(string $question, bool $asQuestion = true): ?string
     {
         foreach ($this->settings->blockedWords() as $word) {

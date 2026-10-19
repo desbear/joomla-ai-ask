@@ -37,6 +37,67 @@ $card = function (string $choice, string $title, string $link, string $footer) u
         . '</div>';
 };
 ?>
+<?php
+// Dragged into place: the new order is kept at once
+HTMLHelper::_('form.csrf');
+\Joomla\CMS\Factory::getApplication()->getDocument()->getWebAssetManager()->addInlineScript(<<<'JS'
+document.addEventListener('DOMContentLoaded', () => {
+  const grid = document.querySelector('[data-mcpask-pet-order]');
+  let dragged = null;
+
+  if (!grid) {
+    return;
+  }
+
+  grid.addEventListener('dragstart', (event) => {
+    dragged = event.target.closest('[data-id]');
+    event.dataTransfer.effectAllowed = 'move';
+    dragged.style.opacity = '0.4';
+  });
+
+  grid.addEventListener('dragover', (event) => {
+    const over = event.target.closest('[data-id]');
+
+    event.preventDefault();
+
+    if (!dragged || !over || over === dragged) {
+      return;
+    }
+
+    const box = over.getBoundingClientRect();
+    const after = event.clientX > box.left + box.width / 2;
+
+    grid.insertBefore(dragged, after ? over.nextSibling : over);
+  });
+
+  grid.addEventListener('dragend', async () => {
+    if (!dragged) {
+      return;
+    }
+
+    dragged.style.opacity = '';
+    dragged = null;
+
+    const body = new URLSearchParams();
+    [...grid.querySelectorAll('[data-id]')].forEach((card) => body.append('ids[]', card.dataset.id));
+    body.append(Joomla.getOptions('csrf.token'), '1');
+
+    try {
+      const response = await fetch(grid.dataset.mcpaskPetOrder, { method: 'POST', body, credentials: 'same-origin' });
+      const json = await response.json();
+
+      if (!json.success) {
+        throw new Error(json.message || response.statusText);
+      }
+    } catch (error) {
+      window.alert(error.message);
+    }
+
+    window.location.reload();
+  });
+});
+JS);
+?>
 <form action="<?php echo Route::_('index.php?option=com_mcpask&view=pets'); ?>" method="post" name="adminForm" id="adminForm">
 	<ul class="nav nav-tabs mb-3">
 		<?php foreach (Pets::KINDS as $kind) : ?>
@@ -55,15 +116,23 @@ $card = function (string $choice, string $title, string $link, string $footer) u
 		</div>
 	<?php endif; ?>
 
-	<div class="row row-cols-2 row-cols-md-4 row-cols-xl-6 g-3 mb-4">
+	<?php if (count($this->pets) > 1) : ?>
+		<p class="small text-muted"><?php echo Text::_('COM_MCPASK_PETS_ORDER_DESC'); ?></p>
+	<?php endif; ?>
+
+	<div class="row row-cols-2 row-cols-md-4 row-cols-xl-6 g-3 mb-4" data-mcpask-pet-order="<?php echo $e(Route::_('index.php?option=com_mcpask&task=pets.reorder', false)); ?>">
 		<?php foreach ($this->pets as $i => $pet) : ?>
-			<div class="col">
+			<div class="col" draggable="true" data-id="<?php echo (int) $pet->id; ?>" style="cursor:grab">
 				<?php echo $card(
 					(string) $pet->id,
 					$pet->title,
 					Route::_('index.php?option=com_mcpask&view=pet&id=' . (int) $pet->id, false),
 					'<a class="btn btn-outline-primary btn-sm" href="' . $e(Route::_('index.php?option=com_mcpask&view=pet&id=' . (int) $pet->id, false)) . '"><span class="icon-edit" aria-hidden="true"></span> ' . Text::_('JTOOLBAR_EDIT') . '</a>'
 					. '<label class="small d-inline-flex align-items-center gap-1 mb-0">' . HTMLHelper::_('grid.id', $i, (int) $pet->id) . ' ' . Text::_('JSELECT') . '</label>'
+					. (count($this->pets) > 1 ? '<span class="btn-group btn-group-sm">'
+						. '<button type="submit" class="btn btn-outline-secondary" name="move" value="' . (int) $pet->id . ':-1" onclick="this.form.task.value=\'pets.move\'"' . ($i === 0 ? ' disabled' : '') . ' title="' . $e(Text::_('COM_MCPASK_PET_MOVE_EARLIER')) . '" aria-label="' . $e(Text::_('COM_MCPASK_PET_MOVE_EARLIER')) . '"><span class="icon-arrow-left" aria-hidden="true"></span></button>'
+						. '<button type="submit" class="btn btn-outline-secondary" name="move" value="' . (int) $pet->id . ':1" onclick="this.form.task.value=\'pets.move\'"' . ($i === count($this->pets) - 1 ? ' disabled' : '') . ' title="' . $e(Text::_('COM_MCPASK_PET_MOVE_LATER')) . '" aria-label="' . $e(Text::_('COM_MCPASK_PET_MOVE_LATER')) . '"><span class="icon-arrow-right" aria-hidden="true"></span></button>'
+						. '</span>' : '')
 				); ?>
 			</div>
 		<?php endforeach; ?>

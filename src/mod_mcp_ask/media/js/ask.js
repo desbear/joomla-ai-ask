@@ -58,6 +58,8 @@
     reportOpen: 'Open the full report in a new tab',
     reportEmailed: 'The link to the report was also sent to your e-mail.',
     reportSources: 'Sources',
+    filePage: 'p. %s',
+    fileDownload: 'Download',
     handoff: 'Talk to a person',
     signIn: 'Sign in',
     signOut: 'Sign out',
@@ -67,6 +69,8 @@
     agentReply: 'Reply to %s…',
     agentStart: 'Start',
     agentTry: 'You can also try:',
+    agentMore: 'More helpers',
+    useSuggestion: 'Put in the box',
     required: 'required',
     previous: 'Previous',
     next: 'Next',
@@ -77,6 +81,7 @@
   };
 
   const ICON_SEND = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>';
+  const ICON_PLUS = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
   const ICON_CLOSE = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
   const ICON_SPARK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2c.7 5.6 4.4 9.300 10 10-5.600.7-9.300 4.400-10 10-.7-5.600-4.400-9.300-10-10 5.600-.7 9.300-4.400 10-10z"/></svg>';
   const ICON_UP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11v9H4v-9h3zm0 0l4-8c1.700 0 3 1.300 3 3v3h5c1.100 0 2 .900 1.900 2l-1.200 7c-.200 1-1 1.700-2 1.700H7"/></svg>';
@@ -110,13 +115,35 @@
     }
   };
 
+  // A document (a file of the site's download manager): its kind, size, the page the passage is
+  // on, and where to open and download it
+  const cleanFile = (file) => {
+    if (!file || typeof file !== 'object' || !safeUrl(file.download)) {
+      return null;
+    }
+
+    return {
+      type: String(file.type || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8),
+      size: Math.max(0, Number(file.size) || 0),
+      page: Math.max(0, Math.floor(Number(file.page) || 0)),
+      open: safeUrl(file.open),
+      download: safeUrl(file.download),
+    };
+  };
+
   const cleanSources = (items) => (Array.isArray(items) ? items : [])
-    .map((item) => ({
-      title: String((item && item.title) || '').slice(0, 200),
-      section: String((item && item.section) || '').slice(0, 200),
-      site: String((item && item.site) || '').slice(0, 100),
-      url: safeUrl(item && item.url),
-    }))
+    .map((item) => {
+      const file = cleanFile(item && item.file);
+
+      return {
+        title: String((item && item.title) || '').slice(0, 200),
+        section: String((item && item.section) || '').slice(0, 200),
+        site: String((item && item.site) || '').slice(0, 100),
+        // A document opens where the passage is, or downloads when it cannot be shown
+        url: file ? (file.open || file.download) : safeUrl(item && item.url),
+        file,
+      };
+    })
     .filter((item) => item.url)
     // As many as the server numbers: a citation must never point past the end of the list
     .slice(0, 50);
@@ -763,7 +790,24 @@
   new ResizeObserver(logEdges).observe(log);
   new MutationObserver(logEdges).observe(log, { childList: true });
 
+  const fileSize = (bytes) => {
+    if (bytes >= 1048576) {
+      return `${(bytes / 1048576).toFixed(bytes >= 10485760 ? 0 : 1)} MB`;
+    }
+
+    return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  };
+
   const sourcePath = (source) => {
+    // A document: its kind, the page the passage is on, and its size
+    if (source.file) {
+      return [
+        source.file.type.toUpperCase(),
+        source.file.page ? strings.filePage.replace('%s', source.file.page) : source.section,
+        source.file.size ? fileSize(source.file.size) : '',
+      ].filter(Boolean).join(' · ');
+    }
+
     // A page of another site says so first
     if (source.site) {
       return source.section ? `${source.site} · ${source.section}` : source.site;
@@ -1103,6 +1147,21 @@
             el('span', 'mcp-ask-source__path', sourcePath(source)),
           );
           item.append(link);
+
+          // A document opens in a new tab, and can be downloaded from its card
+          if (source.file) {
+            const save = el('a', 'mcp-ask-source__save');
+
+            link.classList.add('mcp-ask-source--file');
+            link.dataset.type = source.file.type;
+            link.target = '_blank';
+            link.rel = 'noopener';
+            save.href = source.file.download;
+            save.title = strings.fileDownload;
+            save.setAttribute('aria-label', `${strings.fileDownload}: ${source.title}`);
+            item.classList.add('mcp-ask-source-item--file');
+            item.append(save);
+          }
 
           return item;
         }));
@@ -1574,9 +1633,14 @@
     const box = el('div', 'mcp-ask-card mcp-ask-card--suggestions');
 
     (card.items || []).forEach((item) => {
-      const button = el('button', 'mcp-ask-chip', item);
+      const button = el('button', 'mcp-ask-chip mcp-ask-suggestion', item);
       button.type = 'button';
-      // Put in the box to send as it is, or to change first
+      button.title = strings.useSuggestion;
+      // A plus: it goes into the box, to send as it is or to change first
+      const plus = el('span', 'mcp-ask-suggestion__plus');
+
+      plus.innerHTML = ICON_PLUS;
+      button.prepend(plus);
       button.addEventListener('click', () => {
         field.value = item;
         field.dispatchEvent(new Event('input'));
@@ -2493,33 +2557,147 @@
     agentChips.hidden = Boolean(agent) || !agentList.length;
   };
 
-  const chips = (target, from) => {
-    target.replaceChildren();
+  const chip = (item, from, className = 'mcp-ask-chip') => {
+    const button = el('button', className, item.label);
+    const face = avatar(item.id, 'mcp-ask-chip__face');
+
+    if (face) {
+      button.prepend(face);
+    }
+
+    if (item.status) {
+      button.append(light(item.id));
+    }
+
+    button.type = 'button';
+    button.addEventListener('click', () => startAgent(item.id, from(), 'list'));
+
+    return button;
+  };
+
+  // The agents that do not fit, in one button: their faces stacked (the first few), and a list
+  // of them that drops open
+  const MORE_FACES = 3;
+  let openMenu = null;
+
+  const closeMenu = () => {
+    if (openMenu) {
+      openMenu.menu.hidden = true;
+      openMenu.button.setAttribute('aria-expanded', 'false');
+      openMenu = null;
+    }
+  };
+
+  document.addEventListener('pointerdown', (event) => {
+    if (openMenu && !openMenu.box.contains(event.target)) {
+      closeMenu();
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && openMenu) {
+      const { button } = openMenu;
+
+      closeMenu();
+      button.focus();
+    }
+  });
+
+  const more = (items, from) => {
+    const box = el('span', 'mcp-ask-more');
+    const button = el('button', 'mcp-ask-more__button');
+    const faces = el('span', 'mcp-ask-more__faces');
+    const menu = el('div', 'mcp-ask-more__menu');
+
+    items.slice(0, MORE_FACES).forEach((item) => {
+      faces.append(avatar(item.id, 'mcp-ask-more__face') || el('span', 'mcp-ask-more__face mcp-ask-more__face--letter', [...item.label][0] || '?'));
+    });
+
+    if (items.length > MORE_FACES) {
+      faces.append(el('span', 'mcp-ask-more__face mcp-ask-more__face--count', `+${items.length - MORE_FACES}`));
+    }
+
+    button.type = 'button';
+    button.title = strings.agentMore;
+    button.setAttribute('aria-label', `${strings.agentMore} (${items.length})`);
+    button.setAttribute('aria-haspopup', 'true');
+    button.setAttribute('aria-expanded', 'false');
+    button.append(faces);
+    menu.hidden = true;
+    menu.setAttribute('role', 'menu');
+    menu.append(...items.map((item) => {
+      const option = chip(item, from, 'mcp-ask-more__item');
+
+      option.setAttribute('role', 'menuitem');
+      option.addEventListener('click', closeMenu);
+
+      return option;
+    }));
+
+    button.addEventListener('click', () => {
+      const opening = menu.hidden;
+
+      closeMenu();
+
+      if (opening) {
+        menu.hidden = false;
+        button.setAttribute('aria-expanded', 'true');
+        openMenu = { box, button, menu };
+        menu.querySelector('button')?.focus();
+      }
+    });
+
+    box.append(button, menu);
+
+    return box;
+  };
+
+  // The agents to try: at most so many as chips (all of them by default), the rest in one button;
+  // or, to fit one line, as many as fit
+  const chips = (target, from, { most = Infinity, fit = false } = {}) => {
+    const lay = (shown) => {
+      target.replaceChildren(
+        el('span', 'mcp-ask-try__label', strings.agentTry),
+        ...agentList.slice(0, shown).map((item) => chip(item, from)),
+        ...(shown < agentList.length ? [more(agentList.slice(shown), from)] : []),
+      );
+    };
 
     if (!agentList.length) {
+      target.replaceChildren();
+
       return;
     }
 
-    target.append(el('span', 'mcp-ask-try__label', strings.agentTry));
-    agentList.forEach((item) => {
-      const button = el('button', 'mcp-ask-chip', item.label);
-      const face = avatar(item.id, 'mcp-ask-chip__face');
+    const all = Math.min(most, agentList.length);
 
-      if (face) {
-        button.prepend(face);
+    lay(all);
+
+    if (!fit) {
+      return;
+    }
+
+    // One line: fewer chips while they run over, measured again when the width changes
+    target.classList.add('mcp-ask-try--line');
+
+    let width = 0;
+
+    new ResizeObserver(() => {
+      if (target.hidden || !target.clientWidth || target.clientWidth === width) {
+        return;
       }
 
-      if (item.status) {
-        button.append(light(item.id));
-      }
+      width = target.clientWidth;
+      closeMenu();
+      lay(all);
 
-      button.type = 'button';
-      button.addEventListener('click', () => startAgent(item.id, from(), 'list'));
-      target.append(button);
-    });
+      for (let shown = all - 1; shown >= 0 && target.scrollWidth > target.clientWidth + 1; shown--) {
+        lay(shown);
+      }
+    }).observe(target);
   };
 
-  chips(agentChips, () => origin);
+  chips(agentChips, () => origin, { fit: true });
 
   const endAgent = () => {
     agent = null;
@@ -2826,7 +3004,25 @@
 
     const list = el('div', 'mcp-ask__agents');
     launcher.root.append(list);
-    chips(list, () => launcher);
+    // Beside a pet, two at most: the rest in one button
+    chips(list, () => launcher, launcher.root.classList.contains('mcp-ask--pet') ? { most: 2 } : {});
+  });
+
+  // Beside a pet, the box to type in and the helpers to try are one card that the pet speaks:
+  // above it, or below it when the pet sits too high for the card to fit
+  launchers.filter((launcher) => launcher.float && launcher.root.classList.contains('mcp-ask--pet') && !embed).forEach((launcher) => {
+    const card = el('div', 'mcp-ask__card');
+    const form = launcher.root.querySelector('.mcp-ask__form');
+    const list = launcher.root.querySelector('.mcp-ask__agents');
+
+    launcher.root.insertBefore(card, form);
+    card.append(...[list, form].filter(Boolean));
+    launcher.card = card;
+
+    // Its height, for the pet to peek over it while the visitor types on a phone
+    new ResizeObserver(() => {
+      launcher.root.style.setProperty('--mcp-ask-card-h', `${card.offsetHeight}px`);
+    }).observe(card);
   });
 
   // A floating button belongs to the window, wherever the template put the module: inside a
@@ -2849,7 +3045,8 @@
       frame = window.requestAnimationFrame(() => {
         const covered = Math.max(0, Math.round(window.innerHeight - viewport.height - viewport.offsetTop));
         // More than a browser's own bars: a keyboard
-        const typing = covered > 80;
+        // (iOS may also scroll the window while it brings the keyboard up: the height alone tells)
+        const typing = window.innerHeight - viewport.height > 80;
 
         html.classList.toggle('mcp-ask-keyboard', typing);
         html.style.setProperty('--mcp-ask-keyboard', `${typing ? covered : 0}px`);
@@ -3015,7 +3212,8 @@
       return null;
     }
 
-    root.style.setProperty('--mcp-ask-pet-size', `${Number(data.size) || 96}px`);
+    // The size on a wide screen; CSS takes the phone size below 640 pixels
+    root.style.setProperty('--mcp-ask-pet-wide', `${Number(data.size) || 96}px`);
     root.style.setProperty('--mcp-ask-pet-mobile', `${Number(data.mobile) || 72}px`);
 
     // The button is the whole pet; beside the conversation the whole pet again, or its thumbnail
@@ -3029,6 +3227,17 @@
 
     root.append(stages[0].stage);
     extra.forEach((stage) => { stage.stage.hidden = false; });
+
+    // On a phone the pet is its half-body thumbnails, when it has them: a whole body is too
+    // small there to read, and too tall beside the card
+    const phone = window.matchMedia('(max-width: 640px)');
+    const hasThumbs = Object.values(data.actions).some((item) => item && item.thumb);
+    const fitPhone = () => {
+      stages[0].kind = phone.matches && hasThumbs ? 'thumb' : 'full';
+      root.classList.toggle('mcp-ask--pet-half', stages[0].kind === 'thumb');
+    };
+
+    fitPhone();
 
     const action = (name) => data.actions[name] || data.actions.idle;
 
@@ -3126,6 +3335,19 @@
       seconds: (name) => Number((data.actions[name] || {}).seconds) || 2,
       has: (name) => Boolean(data.actions[name]),
     };
+
+    phone.addEventListener('change', () => {
+      fitPhone();
+
+      if (still) {
+        stages[0].frames[0].src = stillOf(stages[0].kind);
+      } else {
+        const name = current || base;
+
+        current = '';
+        show(name);
+      }
+    });
 
     if (still) {
       stages.forEach((stage) => {
@@ -3396,6 +3618,13 @@
   const setState = (launcher, state) => {
     launcher.root.dataset.state = state;
     launcher.input.readOnly = state === 'pending';
+
+    if (launcher.card && state !== 'idle') {
+      const top = launcher.root.getBoundingClientRect().top;
+      const pet = launcher.root.querySelector('.mcp-ask-pet');
+
+      launcher.root.dataset.card = (pet ? pet.getBoundingClientRect().top : top) - launcher.card.offsetHeight - 24 < 0 ? 'below' : 'above';
+    }
 
     if (!launcher.box) {
       launcher.toggle.setAttribute('aria-expanded', String(state !== 'idle'));
@@ -3776,6 +4005,8 @@
   // beside the box to type in, and its size
   const clearMode = roots.map((root) => root.dataset.clear).find(Boolean) || 'saucer';
   const ufoPoint = roots.map((root) => root.dataset.ufoPoint).find(Boolean) || '';
+  // A cleaning pet brings its own light in its pictures; the beam is the saucer's
+  const ownBeam = !roots.some((root) => root.dataset.ufoSize);
   const ufoSize = Number(roots.map((root) => root.dataset.ufoSize).find(Boolean)) || 0;
 
   if (ufoSize) {
@@ -4131,14 +4362,18 @@
       { duration: 900, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' },
     ).finished;
 
-    beam.hidden = false;
-    beam.animate([{ opacity: 0, scale: '0.3 0' }, { opacity: 1, scale: '1 1' }], { duration: 350, easing: 'ease-out', fill: 'forwards' });
+    if (ownBeam) {
+      beam.hidden = false;
+      beam.animate([{ opacity: 0, scale: '0.3 0' }, { opacity: 1, scale: '1 1' }], { duration: 350, easing: 'ease-out', fill: 'forwards' });
+    }
 
     await lift();
 
     forget();
 
-    await beam.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 450, fill: 'forwards' }).finished;
+    if (ownBeam) {
+      await beam.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 450, fill: 'forwards' }).finished;
+    }
 
     beam.hidden = true;
     beam.getAnimations().forEach((animation) => animation.cancel());

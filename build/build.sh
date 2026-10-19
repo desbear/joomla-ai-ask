@@ -28,15 +28,16 @@ build() {
 }
 
 # The browser fetches a module's script and styles again only when their version changes:
-# the asset manifest must carry the module's version
+# the asset manifest must carry the module's version (its assets may say "auto", Joomla's media
+# version, which changes with every install)
 for module in mod_mcp_ask; do
   want=$(sed -n 's:.*<version>\(.*\)</version>.*:\1:p' "src/$module/$module.xml" | head -1)
-  if grep -q '"version"' "src/$module/media/joomla.asset.json" && grep '"version"' "src/$module/media/joomla.asset.json" | grep -vq "\"$want\""; then
+  if grep -q '"version"' "src/$module/media/joomla.asset.json" && grep '"version"' "src/$module/media/joomla.asset.json" | grep -v '"auto"' | grep -vq "\"$want\""; then
     echo "src/$module/media/joomla.asset.json: asset versions differ from $want" >&2
     exit 1
   fi
 done
 
 build pkg_mcpask src/pkg_mcpask/pkg_mcpask.xml src/pkg_mcpask/script.php src/pkg_mcpask/language \
-  com_mcpask mod_mcp_ask mod_mcp_ask_log plg_content_mcpask plg_task_mcpask plg_easyblog_mcpask plg_mcpask_rsform plg_mcpask_livechat plg_mcpask_imagegen plg_mcp_mcpask
+  com_mcpask mod_mcp_ask mod_mcp_ask_log plg_content_mcpask plg_task_mcpask plg_easyblog_mcpask plg_mcpask_rsform plg_mcpask_livechat plg_mcpask_imagegen plg_mcpask_dropfiles plg_mcp_mcpask
 
