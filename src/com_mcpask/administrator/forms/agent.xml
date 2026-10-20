@@ -125,6 +125,8 @@
 				label="COM_MCPASK_AGENT_LANGUAGES" description="COM_MCPASK_AGENT_LANGUAGES_DESC" />
 			<field name="access" type="accesslevel" default="1"
 				label="JFIELD_ACCESS_LABEL" description="COM_MCPASK_AGENT_ACCESS_DESC" />
+			<field name="groups" type="usergrouplist" multiple="true" layout="joomla.form.field.list-fancy-select"
+				label="COM_MCPASK_AGENT_GROUPS" description="COM_MCPASK_AGENT_GROUPS_DESC" />
 			<field name="per_day" type="number" default="5" min="1" max="100" filter="integer" validate="number"
 				label="COM_MCPASK_AGENT_PER_DAY" description="COM_MCPASK_AGENT_PER_DAY_DESC" />
 		</fieldset>

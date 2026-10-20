@@ -938,8 +938,12 @@
     main.append(status, body, rate);
     node.append(token, main, aside);
 
-    // Three pages first, the rest in one line until the visitor asks for them; opened, the whole
-    // list stays in view beside the answer
+    // Whether the answer is written and cites pages: then the pages it cites are shown, and the
+    // others it was given are folded away, however many there were (0.19.1)
+    let settled = false;
+
+    // Three pages first (while the answer is written), the rest in one line until the visitor asks
+    // for them; opened, the whole list stays in view beside the answer
     const arrange = () => {
       const items = [...list.children];
       let fits = expanded || !sourcesShown ? items.length : Math.min(items.length, sourcesShown);
@@ -951,8 +955,15 @@
         fits = Math.min(items.length, fits + columns - (fits % columns));
       }
 
-      items.forEach((item, index) => { item.hidden = index >= fits; });
-      more.hidden = !expanded && fits === items.length;
+      const citedOnly = settled && !expanded;
+
+      items.forEach((item, index) => {
+        item.hidden = citedOnly ? !item.firstChild.classList.contains('mcp-ask-source--cited') : index >= fits;
+      });
+
+      const folded = items.filter((item) => item.hidden);
+
+      more.hidden = !expanded && !folded.length;
 
       // The rest in one line: a mark for the first few of them, and how many there are
       if (expanded) {
@@ -960,11 +971,11 @@
       } else {
         const marks = el('span', 'mcp-ask-msg__more-marks');
 
-        items.slice(fits, fits + 3).forEach((item) => {
+        folded.slice(0, 3).forEach((item) => {
           const title = (item.querySelector('.mcp-ask-source__title') || item).textContent.trim();
           marks.append(el('span', 'mcp-ask-msg__more-mark', [...title][0] || '·'));
         });
-        more.replaceChildren(marks, el('span', '', strings.others.replace('%s', items.length - fits)));
+        more.replaceChildren(marks, el('span', '', strings.others.replace('%s', folded.length)));
       }
 
       more.setAttribute('aria-expanded', String(expanded));
@@ -1174,6 +1185,14 @@
       [...list.children].forEach((item, index) => {
         item.firstChild.classList.toggle('mcp-ask-source--cited', cited.has(String(index + 1)));
       });
+
+      // Written: the pages it cites, the others folded
+      const done = !writing && !message.pending && !message.error && cited.size > 0;
+
+      if (done !== settled) {
+        settled = done;
+        arrange();
+      }
 
       if (stick) {
         toBottom();

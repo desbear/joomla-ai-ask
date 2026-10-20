@@ -125,13 +125,17 @@ class PetsController extends BaseController
     {
         $this->guard();
 
-        $pets = new Pets(Factory::getContainer()->get(DatabaseInterface::class));
+        $pets    = new Pets(Factory::getContainer()->get(DatabaseInterface::class));
+        $cleaner = false;
 
         foreach ((array) $this->app->getInput()->get('cid', [], 'int') as $id) {
+            // Back to the tab they were on
+            $pet      = $pets->get((int) $id);
+            $cleaner  = $cleaner || ($pet && Pets::kindOf($pet) === 'cleaner');
             $pets->delete((int) $id);
         }
 
-        $this->setRedirect(Route::_('index.php?option=com_mcpask&view=pets', false), Text::_('COM_MCPASK_PET_DELETED'));
+        $this->setRedirect(Route::_('index.php?option=com_mcpask&view=pets' . ($cleaner ? '&kind=cleaner' : ''), false), Text::_('COM_MCPASK_PET_DELETED'));
     }
 
     /**

@@ -2,6 +2,20 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask for Joomla 0.19.1
+
+- **Agents kept to user groups**: an agent can be kept to some user groups (a group counts with the groups under it).
+  Others do not see it listed, are not offered it by the AI or passed to it by another agent, and cannot start or
+  go on with it. The list of agents marks those kept to groups. None chosen: everyone the access level lets in.
+- **Answers drawn from what was asked, not from pages written alike.** Passages scoring well below the best one are
+  left out, and a passage that names a distinctive word of the question (a product name, say) counts for a little
+  more: asked about a product with one page of its own, the answer is given that page rather than twenty pages of
+  other products that only share the site's wording. A subject with many pages keeps them, as they score alike.
+- **Sources: the pages the answer cites.** Once an answer is written, only the pages it cites are listed; the others
+  it was given are folded into one line that opens them.
+- Pets page: **Delete** is in the toolbar beside New, as in Joomla's own lists (it asks to choose pets first and
+  confirms); deleting cleaning pets returns to their tab.
+
 ## AI Ask for Joomla 0.19.0
 
 - **Documents answered from, with the site's pages.** A new plugin, **AI Ask - Dropfiles documents**

@@ -64,6 +64,12 @@ class HtmlView extends BaseHtmlView
 
         ToolbarHelper::title(Text::_('COM_MCPASK_PETS'), 'image');
         ToolbarHelper::link('index.php?option=com_mcpask&view=pet&kind=' . $this->kind, Text::_($this->kind === 'cleaner' ? 'COM_MCPASK_CLEANER_NEW' : 'COM_MCPASK_PET_NEW'), 'new');
+
+        // Deleting the chosen ones, as in Joomla's own lists
+        if ($this->pets) {
+            ToolbarHelper::deleteList(Text::_('COM_MCPASK_PET_DELETE_CONFIRM'), 'pets.delete', 'JTOOLBAR_DELETE');
+        }
+
         ToolbarHelper::link('index.php?option=com_mcpask', Text::_('COM_MCPASK_SUBMENU_DASHBOARD'), 'home');
 
         parent::display($tpl);

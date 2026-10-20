@@ -138,14 +138,6 @@ JS);
 		<?php endforeach; ?>
 	</div>
 
-	<?php if ($this->pets) : ?>
-		<div class="border-top pt-3">
-			<button type="submit" class="btn btn-outline-danger btn-sm" onclick="if (!document.adminForm.boxchecked.value || document.adminForm.boxchecked.value === '0') { alert('<?php echo $e(Text::_('JLIB_HTML_PLEASE_MAKE_A_SELECTION_FROM_THE_LIST')); ?>'); return false; } if (!confirm('<?php echo $e(Text::_('COM_MCPASK_PET_DELETE_CONFIRM')); ?>')) return false; this.form.task.value='pets.delete';">
-				<span class="icon-trash" aria-hidden="true"></span> <?php echo Text::_('COM_MCPASK_PET_DELETE_CHOSEN'); ?>
-			</button>
-		</div>
-	<?php endif; ?>
-
 	<input type="hidden" name="task" value="">
 	<input type="hidden" name="boxchecked" value="0">
 	<?php echo HTMLHelper::_('form.token'); ?>

@@ -40,6 +40,9 @@ class HtmlView extends BaseHtmlView
     /** @var array<int, array<string, int>> */
     public array $stats = [];
 
+    /** @var array<int, string>  User group names, by ID */
+    public array $groupNames = [];
+
     public function display($tpl = null): void
     {
         $user = Factory::getApplication()->getIdentity();
@@ -53,6 +56,10 @@ class HtmlView extends BaseHtmlView
         $this->stats  = $agents->stats(30);
         $this->types  = Agents::types();
         $this->known  = Agents::types(false);
+        $db           = Factory::getContainer()->get(DatabaseInterface::class);
+        $this->groupNames = array_map('strval', $db->setQuery(
+            $db->getQuery(true)->select('id, title')->from($db->quoteName('#__usergroups'))
+        )->loadAssocList('id', 'title'));
 
         ToolbarHelper::title(Text::_('COM_MCPASK_AGENTS'), 'users');
         ToolbarHelper::link('index.php?option=com_mcpask', Text::_('COM_MCPASK_SUBMENU_DASHBOARD'), 'home');
