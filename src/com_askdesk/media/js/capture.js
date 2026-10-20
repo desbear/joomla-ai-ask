@@ -251,7 +251,159 @@
       });
 
       editor.show(canvas.toDataURL('image/png'));
+      settingsBar(holder, editor, options.language);
     });
+  }
+
+  // Width, colours and the size of text always in the bar, as on a Mac: each opens a little menu above
+  // it, and those the tool in hand does not use are dimmed (Painterro's own, tool by tool, put away)
+  const SWATCHES = ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#0a84ff', '#af52de', '#ffffff', '#1d1d1f'];
+  const USES = { line: ['width', 'line'], arrow: ['width', 'line'], brush: ['width', 'line'], rect: ['width', 'line', 'fill'], text: ['line', 'font'] };
+
+  function settingsBar(holder, editor, language) {
+    const bar = holder.querySelector('.ptro-bar');
+    const right = holder.querySelector('.ptro-bar-right');
+
+    if (!bar || !right) {
+      return;
+    }
+
+    const lower = String(language || document.documentElement.lang || 'en').toLowerCase();
+    const zh = lower.startsWith('zh');
+    const words = zh ? (/^zh-(cn|hans|sg)/.test(lower) ? CN : ZH) : { lineWidthFull: 'Line width', lineColorFull: 'Line colour', fillColorFull: 'Fill', fontSizeFull: 'Text size' };
+    const group = el('div', 'mcp-ask-capture__settings');
+    const state = { width: 4, line: '#ff3b30', fill: '', font: 24 };
+    const controls = {};
+    let openMenu = null;
+
+    const close = () => {
+      if (openMenu) {
+        openMenu.classList.remove('mcp-ask-capture__control--open');
+        openMenu = null;
+      }
+    };
+
+    const apply = {
+      width: (value) => {
+        editor.params.defaultLineWidth = value;
+        editor.primitiveTool && editor.primitiveTool.setLineWidth && editor.primitiveTool.setLineWidth(value);
+      },
+      line: (value) => {
+        editor.params.activeColor = value;
+        editor.colorWidgetState.line = { target: 'line', palleteColor: value, alpha: 1, alphaColor: value };
+        editor.textTool && editor.textTool.setFontColor && editor.textTool.setFontColor(value);
+      },
+      fill: (value) => {
+        editor.params.activeFillColor = value || '#000000';
+        editor.colorWidgetState.fill = { target: 'fill', palleteColor: value || '#000000', alpha: value ? 1 : 0, alphaColor: value || 'rgba(0, 0, 0, 0)' };
+      },
+      font: (value) => {
+        editor.params.defaultFontSize = value;
+        editor.textTool && editor.textTool.setFontSize && editor.textTool.setFontSize(value);
+      },
+    };
+
+    // One control: a button showing what is chosen, a chevron, and its menu of choices
+    const control = (name, title, options, show) => {
+      const box = el('div', 'mcp-ask-capture__control');
+      const face = el('button', 'mcp-ask-capture__face');
+      const menu = el('div', 'mcp-ask-capture__menu');
+
+      face.type = 'button';
+      face.title = title;
+      face.setAttribute('aria-label', title);
+      face.setAttribute('aria-haspopup', 'true');
+      face.addEventListener('click', () => {
+        const was = openMenu === box;
+
+        close();
+
+        if (!was && !face.disabled) {
+          box.classList.add('mcp-ask-capture__control--open');
+          openMenu = box;
+        }
+      });
+
+      options.forEach((value) => {
+        const choice = el('button', 'mcp-ask-capture__choice');
+
+        choice.type = 'button';
+        choice.dataset.value = String(value);
+        choice.append(show(value));
+        choice.addEventListener('click', () => {
+          state[name] = value;
+          apply[name](value);
+          paint();
+          close();
+        });
+        menu.append(choice);
+      });
+
+      box.append(face, menu);
+      controls[name] = { box, face, menu, show };
+      group.append(box);
+    };
+
+    const dot = (size) => {
+      const mark = el('span', 'mcp-ask-capture__width');
+
+      mark.style.setProperty('--size', `${size}px`);
+
+      return mark;
+    };
+
+    const swatch = (color) => {
+      const mark = el('span', `mcp-ask-capture__swatch${color ? '' : ' mcp-ask-capture__swatch--none'}`);
+
+      mark.style.setProperty('--color', color || 'transparent');
+
+      return mark;
+    };
+
+    const letter = (size) => {
+      const mark = el('span', 'mcp-ask-capture__font', 'A');
+
+      mark.style.fontSize = `${Math.round(size * 0.6)}px`;
+
+      return mark;
+    };
+
+    control('width', words.lineWidthFull, [2, 4, 8], dot);
+    control('line', words.lineColorFull, SWATCHES, swatch);
+    control('fill', words.fillColorFull, ['', ...SWATCHES], swatch);
+    control('font', words.fontSizeFull, [16, 24, 36], letter);
+
+    // What is chosen, on each button; the menus mark it; and those the tool does not use, dimmed
+    const paint = () => {
+      const tool = editor.activeTool && editor.activeTool.name;
+      const uses = USES[tool] || [];
+
+      Object.entries(controls).forEach(([name, item]) => {
+        item.face.replaceChildren(item.show(state[name]), el('i', 'mcp-ask-capture__chevron'));
+        item.face.disabled = !uses.includes(name);
+        item.box.classList.toggle('mcp-ask-capture__control--off', item.face.disabled);
+        item.menu.querySelectorAll('.mcp-ask-capture__choice').forEach((choice) => {
+          choice.classList.toggle('mcp-ask-capture__choice--on', choice.dataset.value === String(state[name]));
+        });
+      });
+
+      if (openMenu && openMenu.querySelector('.mcp-ask-capture__face').disabled) {
+        close();
+      }
+    };
+
+    Object.entries(state).forEach(([name, value]) => apply[name](value));
+    right.before(group);
+    paint();
+
+    // Another tool taken (by the bar, or a key): the controls follow it
+    bar.addEventListener('click', () => window.setTimeout(paint, 0));
+    holder.addEventListener('keyup', () => window.setTimeout(paint, 0));
+    holder.addEventListener('pointerdown', (event) => {
+      if (openMenu && !openMenu.contains(event.target)) {
+        close();
+      }
+    }, true);
   }
 
   // This tab as it is, the chat window put away for the moment
@@ -523,8 +675,9 @@
     .mcp-ask-capture { position: fixed; inset: 0; inline-size: 100vw; block-size: 100dvh; max-inline-size: none; max-block-size: none; margin: 0; padding: 0; border: 0; background: transparent; color: #232332; font: 15px/1.5 system-ui, -apple-system, "PingFang TC", "Noto Sans TC", sans-serif; }
     .mcp-ask-capture::backdrop { background: rgba(20, 24, 33, 0.55); }
     .mcp-ask-capture__editor { position: absolute; inset: 0; background: #1d2129; }
-    .mcp-ask-capture__editor .ptro-bar { position: absolute !important; inset: auto auto 18px 50% !important; inline-size: max-content !important; max-inline-size: calc(100vw - 24px) !important; block-size: auto !important; padding: 6px !important; overflow: visible !important; border-radius: 20px; background: rgba(22, 26, 35, 0.88) !important; backdrop-filter: blur(14px) saturate(1.4); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 18px 48px rgba(0, 0, 0, 0.45); transform: translateX(-50%); animation: mcp-ask-capture-rise 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
-    .mcp-ask-capture__editor .ptro-bar > div { display: flex; flex-wrap: nowrap; align-items: center; gap: 2px; max-inline-size: calc(100vw - 36px); overflow-x: auto; scrollbar-width: none; }
+    .mcp-ask-capture__editor .ptro-bar { position: absolute !important; inset: auto auto max(28px, calc(env(safe-area-inset-bottom) + 16px)) 50% !important; inline-size: max-content !important; max-inline-size: calc(100vw - 24px) !important; block-size: auto !important; padding: 6px !important; overflow: visible !important; border-radius: 20px; background: rgba(22, 26, 35, 0.88) !important; backdrop-filter: blur(14px) saturate(1.4); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 18px 48px rgba(0, 0, 0, 0.45); transform: translateX(-50%); animation: mcp-ask-capture-rise 0.32s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+    .mcp-ask-capture__editor .ptro-bar > div { display: flex; flex-wrap: nowrap; align-items: center; gap: 2px; max-inline-size: calc(100vw - 36px); padding-block: 2px; overflow: visible; }
+    @media (max-width: 760px) { .mcp-ask-capture__editor .ptro-bar > div { flex-wrap: wrap; justify-content: center; row-gap: 6px; } }
     .mcp-ask-capture__editor .ptro-tool-controls > * { flex: none; }
     .mcp-ask-capture__editor .ptro-icon-btn { inline-size: 36px !important; block-size: 36px !important; margin: 0 !important; border-radius: 12px !important; transition: background-color 0.15s, transform 0.15s; }
     .mcp-ask-capture__editor .ptro-icon-btn:hover { transform: translateY(-1px); }
@@ -543,7 +696,24 @@
     .mcp-ask-capture__editor .ptro-icon-redo { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 14l5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 14l5-5-5-5M20 9H9.5a5.5 5.5 0 0 0 0 11H13'/%3E%3C/svg%3E"); }
     .mcp-ask-capture__editor .ptro-icon-save { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5L20 7'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5L20 7'/%3E%3C/svg%3E"); }
     .mcp-ask-capture__editor .ptro-icon-close { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E"); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E"); }
-    .mcp-ask-capture__editor .ptro-tool-controls { display: inline-flex; align-items: center; gap: 4px; margin-inline: 6px; padding-inline-start: 8px; border-inline-start: 1px solid rgba(255, 255, 255, 0.12); }
+    .mcp-ask-capture__editor .ptro-tool-controls { display: none !important; }
+    .mcp-ask-capture__settings { display: inline-flex; align-items: center; gap: 2px; margin-inline-start: 6px; padding-inline-start: 8px; border-inline-start: 1px solid rgba(255, 255, 255, 0.12); }
+    .mcp-ask-capture__control { position: relative; }
+    .mcp-ask-capture__face { display: inline-flex; align-items: center; justify-content: center; gap: 4px; block-size: 36px; min-inline-size: 44px; padding: 0 8px; border: 0; border-radius: 12px; background: none; color: #dfe5ef; cursor: pointer; transition: background-color 0.15s, opacity 0.2s; }
+    .mcp-ask-capture__face:hover:not(:disabled), .mcp-ask-capture__control--open .mcp-ask-capture__face { background: rgba(255, 255, 255, 0.1); color: #fff; }
+    .mcp-ask-capture__face:focus-visible { outline: none; box-shadow: 0 0 0 2px #a6d2ff; }
+    .mcp-ask-capture__face:disabled { opacity: 0.32; cursor: default; }
+    .mcp-ask-capture__chevron { inline-size: 6px; block-size: 6px; border-block-end: 1.5px solid currentColor; border-inline-end: 1.5px solid currentColor; opacity: 0.7; transform: translateY(-2px) rotate(45deg); }
+    .mcp-ask-capture__width { display: block; inline-size: 18px; block-size: var(--size); border-radius: 99px; background: currentColor; }
+    .mcp-ask-capture__swatch { display: block; inline-size: 18px; block-size: 18px; border-radius: 6px; background: var(--color); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.55); }
+    .mcp-ask-capture__swatch--none { background: linear-gradient(135deg, transparent 45%, #ff3b30 45%, #ff3b30 55%, transparent 55%); }
+    .mcp-ask-capture__font { display: block; min-inline-size: 18px; font: 600 14px/1 system-ui, -apple-system, sans-serif; text-align: center; }
+    .mcp-ask-capture__menu { position: absolute; inset-block-end: calc(100% + 10px); inset-inline-start: 50%; z-index: 5; display: grid; grid-template-columns: repeat(4, 34px); gap: 4px; padding: 6px; border-radius: 14px; background: rgba(30, 34, 44, 0.96); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 14px 32px rgba(0, 0, 0, 0.45); opacity: 0; visibility: hidden; transform: translate(-50%, 6px) scale(0.96); transform-origin: bottom center; transition: opacity 0.15s, transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2), visibility 0s 0.2s; }
+    .mcp-ask-capture__control--open .mcp-ask-capture__menu { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition: opacity 0.15s, transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2); }
+    .mcp-ask-capture__choice { display: grid; place-items: center; inline-size: 34px; block-size: 34px; padding: 0; border: 0; border-radius: 10px; background: none; color: #dfe5ef; cursor: pointer; }
+    .mcp-ask-capture__choice:hover { background: rgba(255, 255, 255, 0.1); }
+    .mcp-ask-capture__choice--on { background: #0e86fe !important; color: #fff; }
+    .mcp-ask-capture__control:first-child .mcp-ask-capture__menu, .mcp-ask-capture__control:last-child .mcp-ask-capture__menu { grid-template-columns: repeat(3, 34px); }
     .mcp-ask-capture__editor .ptro-tool-controls:empty { display: none; }
     .mcp-ask-capture__editor .ptro-tool-ctl-name { padding: 0 2px 0 6px !important; background: none !important; color: rgba(255, 255, 255, 0.6) !important; font-size: 12px !important; }
     .mcp-ask-capture__editor .ptro-color-btn { inline-size: 24px !important; block-size: 24px !important; border-radius: 50% !important; }

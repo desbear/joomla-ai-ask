@@ -119,6 +119,7 @@ class Dispatcher extends AbstractModuleDispatcher
             'liveLeaveConfirm' => Text::_('MOD_MCP_ASK_LIVE_LEAVE_CONFIRM'),
             'liveAttach'        => Text::_('MOD_MCP_ASK_LIVE_ATTACH'),
             'liveUploading'     => Text::_('MOD_MCP_ASK_LIVE_UPLOADING'),
+            'liveRemove'        => Text::_('MOD_MCP_ASK_LIVE_REMOVE'),
             'liveExpiresIn'     => Text::_('MOD_MCP_ASK_LIVE_EXPIRES_IN'),
             'liveExpired'       => Text::_('MOD_MCP_ASK_LIVE_EXPIRED'),
             'liveDownload'      => Text::_('MOD_MCP_ASK_LIVE_DOWNLOAD'),

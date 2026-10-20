@@ -115,6 +115,7 @@
     up: 'M12 19V5M5 12l7-7 7 7',
     enter: 'M9 10l-5 5 5 5M20 4v7a4 4 0 0 1-4 4H4',
     down: 'M6 9l6 6 6-6',
+    close: 'M6 6l12 12M18 6L6 18',
     globe: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3.6 9h16.8M3.6 15h16.8M11.5 3a17 17 0 0 0 0 18M12.5 3a17 17 0 0 1 0 18',
     panel: 'M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM15 4v16M11 10l-2 2 2 2',
     clip: 'M15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13',
@@ -1095,6 +1096,67 @@
   stickerMenu.setAttribute('aria-label', t.stickers);
   box.append(attach, attachInput, stickerButton, field, send, stickerMenu);
 
+  // What was chosen to send (files, pictures, stickers) waits above the box, each to take away again,
+  // until one sends: then it goes, before the words written
+  const tray = el('div', 'askdesk-tray');
+  let staged = [];
+
+  tray.hidden = true;
+
+  const paintTray = () => {
+    tray.replaceChildren();
+    tray.hidden = !staged.length;
+
+    staged.forEach((item) => {
+      const chip = el('div', `askdesk-tray__item askdesk-tray__item--${item.kind}`);
+      const remove = button('askdesk-tray__remove', '', () => {
+        if (item.url) {
+          URL.revokeObjectURL(item.url);
+        }
+
+        staged = staged.filter((other) => other !== item);
+        paintTray();
+        field.focus();
+      });
+
+      if (item.preview) {
+        const picture = el('img', '');
+
+        picture.src = item.preview;
+        picture.alt = '';
+        chip.append(picture);
+      } else {
+        chip.append(icon(item.kind === 'video' ? 'video' : 'file'), el('span', 'askdesk-tray__name', item.name));
+      }
+
+      remove.append(icon('close'));
+      remove.title = `${t.remove} ${item.name}`;
+      remove.setAttribute('aria-label', remove.title);
+      chip.title = item.name;
+      chip.append(remove);
+      tray.append(chip);
+    });
+  };
+
+  const stageFile = (file) => {
+    if (!file || staged.length >= 5) {
+      return;
+    }
+
+    const kind = /^image\//.test(file.type) ? 'image' : (/^video\//.test(file.type) ? 'video' : 'file');
+    const url = kind === 'image' ? URL.createObjectURL(file) : '';
+
+    staged.push({ kind, file, url, preview: url, name: file.name || 'file' });
+    paintTray();
+    field.focus();
+  };
+
+  const clearTray = () => {
+    staged.forEach((item) => item.url && URL.revokeObjectURL(item.url));
+    staged = [];
+    paintTray();
+  };
+
   const closeStickers = () => {
     stickerMenu.hidden = true;
     stickerButton.setAttribute('aria-expanded', 'false');
@@ -1119,18 +1181,14 @@
     });
 
     pack.stickers.forEach((sticker) => {
-      const pick = button('askdesk-sticker-menu__pick', '', async () => {
+      const pick = button('askdesk-sticker-menu__pick', '', () => {
         closeStickers();
 
-        try {
-          const data = await post(config.urls.send, { room: state.open, sticker: sticker.id });
-
-          say(data.error || '');
-        } catch (error) {
-          say(t.error);
+        if (staged.length < 5) {
+          staged.push({ kind: 'sticker', sticker, preview: sticker.url, name: sticker.title || '' });
+          paintTray();
+          field.focus();
         }
-
-        later(true);
       });
       const picture = el('img', '');
 
@@ -1187,7 +1245,7 @@
       stickerButton.focus();
     }
   });
-  composer.append(box, note);
+  composer.append(tray, box, note);
   composer.addEventListener('animationend', (event) => {
     if (event.target === box) {
       composer.classList.remove('askdesk-composer--enter');
@@ -2353,6 +2411,7 @@
 
   const openRoom = (id) => {
     if (state.open !== id) {
+      clearTray();
       state.open = id;
       state.after = 0;
       state.detail = null;
@@ -2640,13 +2699,24 @@
 
     const text = field.value.trim();
 
-    if (!text || !state.open) {
+    if ((!text && !staged.length) || !state.open) {
       return;
     }
 
     if (composer.dataset.mode === 'email') {
-      await replyByEmail(text);
+      if (text) {
+        await replyByEmail(text);
+      }
 
+      return;
+    }
+
+    // What waits above the box goes first; then the words, if any
+    if (staged.length) {
+      await sendStaged();
+    }
+
+    if (!text) {
       return;
     }
 
@@ -2777,17 +2847,43 @@
     later(true);
   }
 
-  const sendFiles = async (files) => {
-    for (const file of files.slice(0, 5)) {
-      await sendFile(file);
+  const sendFiles = (files) => {
+    files.slice(0, 5).forEach(stageFile);
+  };
+
+  // What waits above the box, sent in the order chosen
+  const sendStaged = async () => {
+    const items = staged;
+
+    staged = [];
+    paintTray();
+
+    for (const item of items) {
+      if (item.kind === 'sticker') {
+        try {
+          const data = await post(config.urls.send, { room: state.open, sticker: item.sticker.id });
+
+          say(data.error || '');
+        } catch (error) {
+          say(t.error);
+        }
+      } else {
+        await sendFile(item.file);
+      }
+
+      if (item.url) {
+        URL.revokeObjectURL(item.url);
+      }
     }
+
+    later(true);
   };
 
   attachInput.addEventListener('change', () => {
     const file = attachInput.files[0];
 
     attachInput.value = '';
-    sendFile(file);
+    stageFile(file);
   });
 
   // Only into one's own chat, while it goes on

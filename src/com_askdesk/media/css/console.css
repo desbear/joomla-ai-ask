@@ -4860,3 +4860,88 @@ button.askdesk-me {
 .askdesk-trail__hint {
   inset-inline-start: 0;
 }
+
+/* What one chose to send, waiting above the box: small tiles, each with a cross to take it away */
+.askdesk-tray {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 8px 10px;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.askdesk-tray__item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  inline-size: 64px;
+  block-size: 64px;
+  border-radius: 14px;
+  background: var(--askdesk-surface);
+  box-shadow: 0 0 0 0.5px var(--askdesk-line-strong), 0 6px 16px -8px rgba(26, 60, 140, 0.35);
+  animation: askdesk-drop-in 0.25s ease both;
+
+  > img {
+    inline-size: 100%;
+    block-size: 100%;
+    border-radius: inherit;
+    object-fit: cover;
+  }
+
+  > .askdesk-icon {
+    inline-size: 18px;
+    block-size: 18px;
+    color: var(--askdesk-accent);
+  }
+}
+
+.askdesk-tray__item--sticker > img {
+  box-sizing: border-box;
+  padding: 4px;
+  object-fit: contain;
+}
+
+.askdesk-tray__item--file,
+.askdesk-tray__item--video {
+  inline-size: auto;
+  max-inline-size: 200px;
+  padding: 0 14px 0 12px;
+}
+
+.askdesk-tray__name {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.askdesk-tray__remove {
+  position: absolute;
+  inset-block-start: -7px;
+  inset-inline-end: -7px;
+  display: grid;
+  place-items: center;
+  inline-size: 22px;
+  block-size: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #2b2f3a;
+  color: #fff;
+  box-shadow: 0 0 0 2px var(--askdesk-surface);
+  cursor: pointer;
+
+  .askdesk-icon {
+    inline-size: 12px;
+    block-size: 12px;
+  }
+
+  &:hover {
+    background: #e5484d;
+  }
+}

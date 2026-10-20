@@ -79,6 +79,7 @@
     liveLeaveConfirm: 'Press again to end the chat',
     liveAttach: 'Send a file',
     liveUploading: 'Sending the file…',
+    liveRemove: 'Remove',
     liveExpiresIn: 'Expires in %s days',
     liveExpired: 'This file has expired',
     liveDownload: 'Download',
@@ -2828,6 +2829,105 @@
   composer.append(liveAttachInput);
   liveAttach.addEventListener('click', () => liveAttachInput.click());
 
+  // What was chosen to send (files, pictures, recordings made here, stickers) waits above the box,
+  // each to take away again, until the visitor sends: then it goes, before the words written
+  const liveTray = el('div', 'mcp-ask-tray');
+  let liveStaged = [];
+
+  liveTray.hidden = true;
+  composer.before(liveTray);
+
+  const paintTray = () => {
+    liveTray.replaceChildren();
+    liveTray.hidden = !liveStaged.length;
+
+    liveStaged.forEach((item) => {
+      const chip = el('div', `mcp-ask-tray__item mcp-ask-tray__item--${item.kind}`);
+      const remove = el('button', 'mcp-ask-tray__remove');
+
+      if (item.preview) {
+        const picture = el('img', '');
+
+        picture.src = item.preview;
+        picture.alt = '';
+        chip.append(picture);
+      } else {
+        chip.append(el('span', 'mcp-ask-tray__name', item.name));
+      }
+
+      if (item.kind === 'video') {
+        chip.append(el('span', 'mcp-ask-tray__play'));
+      }
+
+      remove.type = 'button';
+      remove.title = `${strings.liveRemove} ${item.name}`;
+      remove.setAttribute('aria-label', remove.title);
+      remove.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+      remove.addEventListener('click', () => {
+        if (item.url) {
+          URL.revokeObjectURL(item.url);
+        }
+
+        liveStaged = liveStaged.filter((other) => other !== item);
+        paintTray();
+        field.focus();
+      });
+
+      chip.title = item.name;
+      chip.append(remove);
+      liveTray.append(chip);
+    });
+  };
+
+  const stage = (file) => {
+    if (!file || liveStaged.length >= 5) {
+      return;
+    }
+
+    const kind = /^image\//.test(file.type) ? 'image' : (/^video\//.test(file.type) ? 'video' : 'file');
+    const url = kind === 'image' ? URL.createObjectURL(file) : '';
+
+    liveStaged.push({ kind, file, url, preview: url, name: file.name || 'file' });
+    paintTray();
+    field.focus();
+  };
+
+  const stageSticker = (sticker) => {
+    if (liveStaged.length >= 5) {
+      return;
+    }
+
+    liveStaged.push({ kind: 'sticker', sticker, preview: sticker.url, name: sticker.title || '' });
+    paintTray();
+    field.focus();
+  };
+
+  const clearTray = () => {
+    liveStaged.forEach((item) => item.url && URL.revokeObjectURL(item.url));
+    liveStaged = [];
+    paintTray();
+  };
+
+  // Sent in the order chosen, then the words
+  const sendStaged = async () => {
+    const items = liveStaged;
+
+    liveStaged = [];
+    paintTray();
+
+    for (const item of items) {
+      if (item.kind === 'sticker') {
+        await sendSticker(item.sticker);
+      } else {
+        await liveUpload(item.file);
+      }
+
+      if (item.url) {
+        URL.revokeObjectURL(item.url);
+      }
+    }
+  };
+
   // Pictures and recordings of the page (AI Ask Desk): a screenshot or a picture marked up first,
   // or a short recording; the script that makes them comes from the chat's own site when first used
   const liveCapture = el('button', 'mcp-ask-chat__attach mcp-ask-chat__capture');
@@ -3302,6 +3402,7 @@
       live = null;
       window.clearTimeout(liveTimer);
       showTyping(false);
+      clearTray();
     }
 
     const paint = liveCards.get(key);
@@ -4122,16 +4223,14 @@
     const file = liveAttachInput.files[0];
 
     liveAttachInput.value = '';
-    liveUpload(file);
+    stage(file);
   });
 
-  // Files dropped on the window, or pictures pasted into the box, in a chat with a person: sent one
-  // after another (five at most at a time)
+  // Files dropped on the window, or pictures pasted into the box, in a chat with a person: put above
+  // the box to send (five at most)
   const liveTakesFiles = () => Boolean(live && live.urls && live.urls.upload && ['waiting', 'active'].includes(live.state));
-  const liveSendFiles = async (files) => {
-    for (const file of files.slice(0, 5)) {
-      await liveUpload(file);
-    }
+  const liveSendFiles = (files) => {
+    files.slice(0, 5).forEach(stage);
   };
   let dragDepth = 0;
 
@@ -4301,7 +4400,7 @@
       const file = await tool[how](captureOptions());
 
       if (file) {
-        liveUpload(file);
+        stage(file);
       }
     } catch (error) {
       document.documentElement.classList.remove('mcp-ask-capturing');
@@ -4381,8 +4480,6 @@
 
   // A sticker sent: it comes back with the next news, as a message of the visitor
   const sendSticker = async (sticker) => {
-    closeStickers();
-
     try {
       const data = await agentPost(live.urls.send, { key: live.key, sticker: sticker.id });
 
@@ -4424,7 +4521,10 @@
       picture.alt = '';
       picture.loading = 'lazy';
       pick.append(picture);
-      pick.addEventListener('click', () => sendSticker(sticker));
+      pick.addEventListener('click', () => {
+        closeStickers();
+        stageSticker(sticker);
+      });
       grid.append(pick);
     });
 
@@ -5795,9 +5895,10 @@
 
     event.preventDefault();
 
-    if (question && live) {
+    if (live && (question || liveStaged.length)) {
       field.value = '';
-      liveSend(question);
+      // What waits above the box goes first, then the words
+      sendStaged().then(() => (question ? liveSend(question) : undefined));
     } else if (question && agent && !agentBusy) {
       field.value = '';
       agentTurn({ text: question });
