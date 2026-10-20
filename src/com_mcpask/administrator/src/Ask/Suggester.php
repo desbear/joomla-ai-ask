@@ -69,10 +69,10 @@ final class Suggester
         $search    = mb_strlen($question) < 12 && $before !== '' ? $before . "\n" . $question : $question;
         $embedding = $this->settings->client()->embeddings($this->settings->embeddingModel(), [$search], $this->settings->embeddingDimensions())[0];
 
-        // One passage per page: the best of each
+        // One passage per page: the best of each, of the passages drawn from what was asked (0.19.1)
         $candidates = [];
 
-        foreach ($retriever->search($embedding, $language) as $passage) {
+        foreach ($retriever->focus($retriever->search($embedding, $language), $search) as $passage) {
             $key = (int) $passage->document_id;
 
             if (!isset($candidates[$key]) && \count($candidates) < self::CANDIDATES) {

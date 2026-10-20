@@ -379,7 +379,7 @@ final class Answerer
             // Kept, so agents can be matched to the question without asking the service again
             $this->questionEmbedding = $plain;
 
-            return $this->guides($this->pin($plain, $language, $this->retriever->search($plain, $language, $this->seen)));
+            return $this->guides($this->pin($plain, $language, $this->retriever->focus($this->retriever->search($plain, $language, $this->seen), $query)));
         }
 
         [$plain, $placed] = $this->settings->client()->embeddings(
@@ -396,7 +396,7 @@ final class Answerer
         $taken  = array_map(static fn ($passage) => (int) $passage->id, $direct);
         $about  = $this->retriever->search($placed, $language, array_merge($this->seen, $taken));
         $share  = min(\count($about), (int) ceil($wanted / 3));
-        $found  = array_merge(\array_slice($direct, 0, max($wanted - $share, 0)), \array_slice($about, 0, $share));
+        $found  = $this->retriever->focus(array_merge(\array_slice($direct, 0, max($wanted - $share, 0)), \array_slice($about, 0, $share)), $query);
 
         if ($current && !array_filter($found, static fn ($passage) => (int) $passage->document_id === (int) $current->id)) {
             $taken = array_map(static fn ($passage) => (int) $passage->id, $found);
@@ -547,7 +547,7 @@ final class Answerer
             $this->settings->embeddingDimensions()
         )[0];
 
-        return $this->retriever->search($embedding, $language, $this->seen);
+        return $this->retriever->focus($this->retriever->search($embedding, $language, $this->seen), $text);
     }
 
     /**

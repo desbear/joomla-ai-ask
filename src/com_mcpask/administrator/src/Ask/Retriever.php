@@ -216,6 +216,72 @@ final class Retriever
         return $found;
     }
 
+    /** Passages scoring this much below the best are left out: they only share the site's wording. */
+    private const FOCUS_MARGIN = 0.08;
+
+    /** What a passage that names a distinctive word of the question is counted up by. */
+    private const FOCUS_WORD = 0.05;
+
+    /** Passages kept however they score. */
+    private const FOCUS_KEEP = 3;
+
+    /**
+     * Of the passages found, those about what was asked (0.19.1). On a site whose pages are written
+     * alike ("Vital ... 雲端服務"), a subject with one page of its own comes first and is followed by
+     * many that only share the wording; a fixed number of passages fills up with those. So a
+     * passage that names a distinctive word of the question (a product name in Latin letters, found
+     * in fewer than half of the passages) counts for a little more, and passages far below the
+     * best are left out. A subject with many pages keeps them all, as they score alike.
+     *
+     * @param   object[]  $found  As search() gives them, with score
+     *
+     * @return  object[]  Best first
+     */
+    public function focus(array $found, string $question): array
+    {
+        if (\count($found) <= self::FOCUS_KEEP) {
+            return $found;
+        }
+
+        $texts = array_map(static fn ($passage) => mb_strtolower($passage->title . ' ' . $passage->heading . ' ' . $passage->text), $found);
+        $words = [];
+
+        preg_match_all('/[a-z][a-z0-9]{2,}/', mb_strtolower($question), $match);
+
+        foreach (array_unique($match[0]) as $word) {
+            $with = \count(array_filter($texts, static fn ($text) => str_contains($text, $word)));
+
+            // A word most passages have says nothing about which of them is meant
+            if ($with > 0 && $with < \count($found) / 2) {
+                $words[] = $word;
+            }
+        }
+
+        $weighed = [];
+        $naming  = 0;
+
+        foreach ($found as $index => $passage) {
+            $named     = array_filter($words, static fn ($word) => str_contains($texts[$index], $word));
+            $naming   += $named ? 1 : 0;
+            $weighed[] = ['passage' => $passage, 'score' => (float) $passage->score + ($named ? self::FOCUS_WORD : 0.0)];
+        }
+
+        usort($weighed, static fn ($a, $b) => $b['score'] <=> $a['score']);
+
+        $best = $weighed[0]['score'];
+        $kept = [];
+        // When some passages name what was asked, they are enough: none others to make up a number
+        $keep = $naming ? 1 : self::FOCUS_KEEP;
+
+        foreach ($weighed as $position => $item) {
+            if ($position < $keep || $item['score'] >= $best - self::FOCUS_MARGIN) {
+                $kept[] = $item['passage'];
+            }
+        }
+
+        return $kept;
+    }
+
     /**
      * The passages to compare exactly, in batches: a shortlist made by the database, or all of them.
      *
