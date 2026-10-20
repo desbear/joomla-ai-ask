@@ -1204,50 +1204,94 @@
     log.scrollTo({ top: log.scrollHeight, behavior: eased && !reduced.matches ? 'smooth' : 'auto' });
   };
 
-  // The visitor's page now, and, folded below it, the pages they went through during the chat
-  const pageView = (room) => {
+  // An address kept short: its middle left out
+  const shortUrl = (url, most = 34) => {
+    const plain = String(url || '').replace(/^https?:\/\//i, '');
+
+    return plain.length > most ? `${plain.slice(0, Math.ceil(most * 0.55))}…${plain.slice(-Math.floor(most * 0.4))}` : plain;
+  };
+
+  // The visitor's page, beside their name: a little timeline, the page now at the bottom, the one before
+  // fading above it; on another page it scrolls up. Pointed at, it tells how many; clicked, all of them
+  const TRAIL_ROW = 40;
+
+  const pageView = (room, before = 0) => {
     if (!room.page) {
       return null;
     }
 
-    const box = el('div', 'askdesk-room__pages');
-    const page = el('p', 'askdesk-room__page');
-    const link = el('a', '', room.page);
-    const pages = (room.pages || []).filter((item) => item && /^https?:\/\//i.test(item.url));
+    const known = (room.pages || []).filter((item) => item && /^https?:\/\//i.test(item.url));
+    const pages = known.length ? known : [{ url: room.page, title: '', at: '' }];
+    const box = el('div', 'askdesk-trail');
+    const face = button('askdesk-trail__face', '', () => {
+      box.classList.toggle('askdesk-trail--open');
+      state.trailOpen = box.classList.contains('askdesk-trail--open');
+      face.setAttribute('aria-expanded', String(state.trailOpen));
+    });
+    const view = el('span', 'askdesk-trail__window');
+    const list = el('span', 'askdesk-trail__list');
+    const hint = el('span', 'askdesk-trail__hint', pages.length > 1 ? `${t.pagesVisited.replace('%s', pages.length)} · ${t.pagesAll}` : t.page);
+    const pop = el('div', 'askdesk-trail__pop');
+    const all = el('ol', '');
 
-    link.href = room.page;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    page.append(icon('link'), link);
-    page.title = t.page;
-    box.append(page);
+    pages.forEach((item, index) => {
+      const row = el('span', `askdesk-trail__row${index === pages.length - 1 ? ' askdesk-trail__row--now' : ''}`);
 
-    if (pages.length > 1) {
-      const trail = el('details', 'askdesk-room__trail');
-      const summary = el('summary', '', t.pagesVisited.replace('%s', pages.length));
-      const list = el('ol', '');
+      row.append(el('i', 'askdesk-trail__dot'), el('strong', '', item.title || shortUrl(item.url, 30)), el('small', '', shortUrl(item.url)));
+      list.append(row);
+    });
 
-      [...pages].reverse().forEach((item) => {
-        const row = el('li', '');
-        const go = el('a', '', item.title || item.url);
+    // Scrolled to the page now; from the one seen before when there are new ones
+    const offset = (count) => `translateY(${-Math.max(0, count - 1) * TRAIL_ROW}px)`;
 
-        go.href = item.url;
-        go.title = item.url;
-        go.target = '_blank';
-        go.rel = 'noopener noreferrer';
-        row.append(go, el('time', '', timeOf(item.at)));
-        list.append(row);
-      });
+    list.style.transform = offset(before && before < pages.length ? before : pages.length);
 
-      trail.append(summary, list);
-      box.append(trail);
+    if (before && before < pages.length && !reduced.matches) {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+        list.classList.add('askdesk-trail__list--moving');
+        list.style.transform = offset(pages.length);
+      }));
     }
 
+    [...pages].reverse().forEach((item, index) => {
+      const row = el('li', index === 0 ? 'askdesk-trail__item--now' : '');
+      const go = el('a', '', item.title || shortUrl(item.url, 40));
+
+      go.href = item.url;
+      go.target = '_blank';
+      go.rel = 'noopener noreferrer';
+      row.append(go, el('small', '', item.url), el('time', '', item.at ? timeOf(item.at) : ''));
+      all.append(row);
+    });
+
+    pop.append(el('p', 'askdesk-trail__heading', pages.length > 1 ? t.pagesVisited.replace('%s', pages.length) : t.page), all);
+    view.append(list);
+    face.append(view);
+    face.title = room.page;
+    face.setAttribute('aria-haspopup', 'dialog');
+    face.setAttribute('aria-expanded', String(Boolean(state.trailOpen)));
+    box.append(face, hint, pop);
+    box.classList.toggle('askdesk-trail--open', Boolean(state.trailOpen));
     box.dataset.page = room.page;
     box.dataset.count = String(pages.length);
 
     return box;
   };
+
+  // The list of pages closes on a click elsewhere, or Escape
+  document.addEventListener('pointerdown', (event) => {
+    if (state.pageNode && state.trailOpen && !state.pageNode.contains(event.target)) {
+      state.trailOpen = false;
+      state.pageNode.classList.remove('askdesk-trail--open');
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && state.pageNode && state.trailOpen) {
+      state.trailOpen = false;
+      state.pageNode.classList.remove('askdesk-trail--open');
+    }
+  });
 
   const paintHead = () => {
     const room = state.detail;
@@ -1334,10 +1378,11 @@
     head.append(back, who, actions);
 
     // Where the visitor is now (it follows them from page to page), and the pages they went through
+    state.trailOpen = false;
     state.pageNode = pageView(room);
 
     if (state.pageNode) {
-      head.append(state.pageNode);
+      who.after(state.pageNode);
     }
 
     // How the visitor rated the chat that ended
@@ -2379,20 +2424,11 @@
       if (shape !== state.shape) {
         paintHead();
       } else if (room.page && state.pageNode && (state.pageNode.dataset.page !== room.page || state.pageNode.dataset.count !== String((room.pages || []).length))) {
-        // The visitor went to another page: the line changes in place, with a glow
-        const open = state.pageNode.querySelector('details[open]');
-        const next = pageView(room);
-
-        if (open && next.querySelector('details')) {
-          next.querySelector('details').open = true;
-        }
+        // The visitor went to another page: the timeline scrolls up to it
+        const next = pageView(room, Number(state.pageNode.dataset.count) || 0);
 
         state.pageNode.replaceWith(next);
         state.pageNode = next;
-
-        if (!reduced.matches) {
-          next.querySelector('.askdesk-room__page').classList.add('askdesk-room__page--moved');
-        }
       }
 
       if (incoming.length) {
