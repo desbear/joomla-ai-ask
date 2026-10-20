@@ -49,6 +49,18 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
 - **Office hours, days closed, and no one there**: a message to leave (answered by e-mail), other agents, or both.
 - **Kept only for signed-in visitors**, for the days set, and they are told so; guests' chats are gone an hour after
   they end. Nothing by IP address.
+- **No waiting on a slow translation**: when the AI takes longer than the seconds set (3 by default), Google's
+  translation (Cloud Translation, an API key of one's own) is shown for the moment, marked as such, and the AI's takes
+  its place; a reply held back for its translation still shows in the order written. Messages left are kept at once
+  and translated afterwards too.
+- **Where the visitor is**: the page they are on follows them from page to page, beside their name in the console as a
+  little timeline that scrolls up when they move on; a click shows every page of the chat.
+- **Chosen, then sent**: pictures, videos, files and stickers wait above the box, each to take away again, until
+  send or Enter. The picture editor keeps width, colours and text size in its bar, dimmed where the tool has no use
+  for them.
+- **The console's look**: the side in a deep wash of one's status (blue online, amber busy, grey-black away), the
+  status switched from the desk's card; new waiting chats light up red and ring a bell on the count; ended chats fold
+  away; drop-down menus, Mac-like scroll bars, and the work on a calm grey-blue with white cards.
 
 ## AI Ask for Joomla 0.20.0
 
@@ -67,6 +79,12 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
   open in a new tab with the conversation left open.
 - **Talk to a person** goes to the first agent that passes visitors on to people (one telling whether they answer
   now), LiveChat or AI Ask Desk.
+- **What the visitor chose to send waits above the box** in a chat with a person (pictures, recordings, files,
+  stickers), and the page the visitor is on goes with each look for news (of this site, or of a website the chat is
+  embedded in).
+- **"Done" said as the agent's own reply**, a bubble beside its face with a small tick; a chat's thank-you shows the
+  face on white in a card of deep blue and violet.
+- Addresses of this site are known by the site's own name too (its Live Site, with or without "www.").
 
 ## AI Ask for Joomla 0.19.1
 
