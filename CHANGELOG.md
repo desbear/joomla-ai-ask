@@ -2,6 +2,13 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.1.1
+
+- The console's box of the visitor's conversation with AI before the chat: its colours fade out within it, with no
+  edge partway down when the conversation is long.
+- The picture editor's bar is no longer half covered by the picture: the picture takes the whole window, the bar
+  floats over it.
+
 ## AI Ask Desk 0.1.0 (new)
 
 - **A lean live chat in AI Ask's own window**, a package of its own (`pkg_askdesk`, see docs/askdesk.md): visitors

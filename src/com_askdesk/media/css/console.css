@@ -1338,11 +1338,12 @@ html.askdesk-app body {
   border: 0.5px solid color-mix(in srgb, var(--askdesk-ai-2) 22%, transparent);
   border-radius: var(--askdesk-radius);
   /* AI Ask's own field: a cool white with a glow of each of its colours in the corners */
-  /* Of a fixed size from the top left, so that it looks the same closed (one line) or open */
+  /* Of a fixed size from the top left, so that it looks the same closed (one line) or open; each glow fades out
+     well inside that size, so no edge shows when the box is taller */
   background:
-    radial-gradient(60% 80% at 100% 0%, color-mix(in srgb, var(--askdesk-ai-2) 20%, transparent), transparent 72%) top left / 100% 320px no-repeat,
-    radial-gradient(60% 90% at 0% 100%, color-mix(in srgb, var(--askdesk-ai-3) 16%, transparent), transparent 72%) top left / 100% 320px no-repeat,
-    radial-gradient(50% 70% at 80% 100%, color-mix(in srgb, var(--askdesk-ai) 12%, transparent), transparent 72%) top left / 100% 320px no-repeat,
+    radial-gradient(60% 70% at 100% 0%, color-mix(in srgb, var(--askdesk-ai-2) 20%, transparent), transparent 72%) top left / 100% 320px no-repeat,
+    radial-gradient(55% 60% at 0% 55%, color-mix(in srgb, var(--askdesk-ai-3) 16%, transparent), transparent 72%) top left / 100% 320px no-repeat,
+    radial-gradient(45% 55% at 80% 60%, color-mix(in srgb, var(--askdesk-ai) 12%, transparent), transparent 72%) top left / 100% 320px no-repeat,
     color-mix(in srgb, var(--askdesk-surface) 92%, var(--askdesk-ai-2));
   font-size: 13px;
 
