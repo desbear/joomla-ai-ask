@@ -36,6 +36,21 @@ What the other website's page says about who the visitor is never counts unless 
 
 A known visitor is the request's user for that request only: questions are logged to the account, its limits and access apply, and agents fill in names and e-mail addresses.
 
+## Chats with people, and showing the screen
+
+A chat with a person in AI Ask Desk works in the frame as on the site: messages, translation, files, ratings. Links to
+pages of another website (an article of your Joomla site, say) open in a new tab, and the chat stays open.
+
+The frame may capture the page for the person answering, when the visitor chooses to: a screenshot to mark up, or a
+recording of the tab (see docs/askdesk.md). It is allowed to (`allow="clipboard-write; display-capture"`), and the
+page puts it aside meanwhile: out of sight for a screenshot, shrunk to the bar with **Stop** for a recording, so the
+page can be used. What is captured is the whole tab: the other website's page, as the visitor sees it.
+
+- A frame of your own instead of `embed.js` needs `allow="display-capture"`, and takes part in putting itself aside
+  only through `embed.js`; without it, visitors can still mark up a picture of their own.
+- A `Permissions-Policy` header of the other website that leaves out `display-capture` turns it off there too.
+- The browser asks the visitor which tab to share, naming your Joomla site; phones' browsers cannot capture at all.
+
 ---
 
-**繁體中文**：在「AI 問答 → 嵌入」建立嵌入金鑰，把一行程式碼貼到其他網站，角落就會出現問答按鈕（本站的 iframe，只允許設定的網站，瀏覽器會拒絕其他網站）。對方網頁可以用 `McpAsk.setContext()` 帶入所在功能。身分只接受兩種：本站小視窗登入後發的憑證，或對方伺服器用金鑰密鑰簽的 JWT；email 必須是本站已有的帳號。
+**繁體中文**：在「AI 問答 → 嵌入」建立嵌入金鑰，把一行程式碼貼到其他網站，角落就會出現問答按鈕（本站的 iframe，只允許設定的網站，瀏覽器會拒絕其他網站）。對方網頁可以用 `McpAsk.setContext()` 帶入所在功能。身分只接受兩種：本站小視窗登入後發的憑證，或對方伺服器用金鑰密鑰簽的 JWT；email 必須是本站已有的帳號。與真人客服（AI Ask Desk）的對話在嵌入時同樣可用；訪客可截圖標註或錄製分頁畫面給客服看（iframe 已允許 `display-capture`，截圖時 iframe 會暫時隱藏、錄影時縮成底部的停止列）。自行撰寫 iframe 的網站需加上 `allow="display-capture"`；手機瀏覽器無法截取畫面。

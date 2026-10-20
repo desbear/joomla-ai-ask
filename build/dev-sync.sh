@@ -30,3 +30,15 @@ sync_plugin mcpask livechat plg_mcpask_livechat
 sync_plugin mcpask imagegen plg_mcpask_imagegen
 sync_plugin mcpask dropfiles plg_mcpask_dropfiles
 sync_plugin mcp mcpask plg_mcp_mcpask
+# AI Ask Desk (pkg_askdesk), when it is installed there
+if [ -d "$SITE/administrator/components/com_askdesk" ]; then
+  rsync -a --delete src/com_askdesk/administrator/ "$SITE/administrator/components/com_askdesk/" --exclude language
+  rsync -a --delete src/com_askdesk/site/ "$SITE/components/com_askdesk/" --exclude language
+  rsync -a --delete --exclude files src/com_askdesk/media/ "$SITE/media/com_askdesk/"
+  cp src/com_askdesk/askdesk.xml "$SITE/administrator/components/com_askdesk/askdesk.xml"
+  for tag in en-GB zh-TW; do
+    cp src/com_askdesk/administrator/language/$tag/* "$SITE/administrator/language/$tag/"
+    cp src/com_askdesk/site/language/$tag/* "$SITE/language/$tag/"
+  done
+  sync_plugin mcpask askdesk plg_mcpask_askdesk
+fi

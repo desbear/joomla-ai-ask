@@ -214,7 +214,15 @@ class AgentController extends BaseController
             // Embedded: the page is on the website the key is embedded in
             $origin = strtolower($parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : ''));
 
-            return strcasecmp($parts['host'], Uri::getInstance()->getHost()) === 0 || ($elsewhere && $embed && Embeds::allows($embed, $origin)) ? $url : '';
+            // This site, by any name it answers to: the request's own and the one configured (its Live
+            // Site), with or without "www."
+            $bare  = static fn ($host) => preg_replace('/^www\./', '', strtolower(trim((string) $host)));
+            $hosts = array_map($bare, array_filter([
+                Uri::getInstance()->getHost(),
+                parse_url(Uri::root(), PHP_URL_HOST),
+            ]));
+
+            return \in_array($bare($parts['host']), $hosts, true) || ($elsewhere && $embed && Embeds::allows($embed, $origin)) ? $url : '';
         };
 
         // The conversation before it: turns of the visitor and of the answers, newest last
@@ -263,7 +271,7 @@ class AgentController extends BaseController
         }
 
         foreach ($reply->cards as $card) {
-            if (\in_array($card['type'] ?? '', ['handoff', 'agents', 'error'], true)) {
+            if (\in_array($card['type'] ?? '', ['handoff', 'chat', 'agents', 'error'], true)) {
                 return;
             }
         }

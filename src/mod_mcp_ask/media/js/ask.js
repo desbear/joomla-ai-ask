@@ -71,6 +71,44 @@
     agentTry: 'You can also try:',
     agentMore: 'More helpers',
     useSuggestion: 'Put in the box',
+    liveLeave: 'End the chat',
+    liveOriginal: 'Show the original',
+    liveTranslated: 'Show the translation',
+    liveFailed: 'Your message could not be sent. Please try again.',
+    liveByAi: 'Translated by AI',
+    liveLeaveConfirm: 'Press again to end the chat',
+    liveAttach: 'Send a file',
+    liveUploading: 'Sending the file…',
+    liveExpiresIn: 'Expires in %s days',
+    liveExpired: 'This file has expired',
+    liveDownload: 'Download',
+    liveTooLarge: 'The file is larger than 10 MB.',
+    liveImageTooLarge: 'The picture is larger than 1 MB.',
+    liveCapture: 'Show us your screen',
+    liveScreenshot: 'Screenshot and mark up',
+    livePicture: 'Mark up a picture',
+    liveRecord: 'Record the screen',
+    liveRecordNote: 'Pages can change, up to 60 seconds',
+    liveRecording: 'Recording',
+    liveStop: 'Stop',
+    liveWatch: 'Send this recording?',
+    liveAgain: 'Record again',
+    liveCancel: 'Cancel',
+    liveSend: 'Send',
+    liveCut: 'Stopped at the largest size',
+    liveCaptureFailed: 'The screen could not be captured.',
+    liveDrop: 'Drop files to send them',
+    liveStickers: 'Stickers',
+    liveDraft: 'First translation by your browser',
+    liveShotNow: 'Take the picture',
+    liveShotHint: 'Scroll to what to show, or go to another tab first; then take the picture',
+    liveMarkHint: 'Select an area, then crop or pixelate it; or point things out with boxes, arrows and words',
+    liveRecorderTitle: 'Record the screen for us',
+    liveRecorderNote: 'Press Start, then choose the tab to record (the one you were on). You can change pages while recording, up to 60 seconds.',
+    liveRecorderStart: 'Start recording',
+    liveRecorderBack: 'Recording: go back to your tab and show what happens, then come back here and stop.',
+    liveRecorderSending: 'Sending…',
+    liveRecorderSent: 'Sent. This window closes by itself.',
     required: 'required',
     previous: 'Previous',
     next: 'Next',
@@ -484,6 +522,38 @@
     });
   }
 
+  // That website's page lets this frame capture it (embed.js 0.20.0), the browser too
+  let hostCapture = false;
+
+  onHost('host', (data) => {
+    let allowed = true;
+
+    try {
+      const policy = document.permissionsPolicy || document.featurePolicy;
+
+      allowed = !policy || typeof policy.allowsFeature !== 'function' || policy.allowsFeature('display-capture');
+    } catch (error) {
+      allowed = true;
+    }
+
+    hostCapture = Boolean(data.capture) && allowed;
+  });
+
+  // The frame put aside on that page while it is captured, or only the bar to stop a recording
+  const hostCapturing = (phase) => new Promise((resolve) => {
+    const done = onHost('captured', () => {
+      done();
+      window.clearTimeout(timer);
+      resolve();
+    });
+    const timer = window.setTimeout(() => {
+      done();
+      resolve();
+    }, 800);
+
+    hostPost('capture', { phase });
+  });
+
   // Where the visitor is on that website: its address and title, and what its page says about it
   let hostPage = { url: '', title: '', context: '' };
   const plain = (value, length) => String(value == null ? '' : value).replace(/[\u0000-\u001f\u007f]+/g, ' ').trim().slice(0, length);
@@ -560,10 +630,19 @@
 
   const save = () => {
     const kept = messages
-      .filter((message) => (message.text || (message.role === 'agent' && message.cards && message.cards.length)) && !message.pending)
-      .map(({ role, text, sources, ref, rating, explained, offer, cards, agent: who }) => (role === 'agent'
-        ? { role, cards, agent: who }
-        : { role, text, sources, ref, rating, explained, offer }));
+      .filter((message) => (message.text || message.file || message.sticker || (message.role === 'agent' && message.cards && message.cards.length)) && !message.pending)
+      .map(({ role, text, sources, ref, rating, explained, offer, cards, agent: who, liveId, original, name: by, system, face, links, file, sticker, translating, draft, quick, from, to }) => {
+        if (role === 'agent') {
+          return { role, cards, agent: who };
+        }
+
+        // A chat with a person (0.20.0): what was said, by whom, and in which words first
+        if (role === 'person' || liveId) {
+          return { role, text, liveId, original, name: by, system, face, links, file, sticker, translating, draft, quick, from, to };
+        }
+
+        return { role, text, sources, ref, rating, explained, offer };
+      });
 
     try {
       if (kept.length) {
@@ -589,8 +668,24 @@
     const lastAgent = list.map((message) => message && message.role).lastIndexOf('agent');
 
     return list
-      .filter((message) => message && (typeof message.text === 'string' || (message.role === 'agent' && Array.isArray(message.cards))))
-      .map((message, index) => (message.role === 'agent' ? {
+      .filter((message) => message && (typeof message.text === 'string' || message.file || message.sticker || (message.role === 'agent' && Array.isArray(message.cards))))
+      .map((message, index) => (message.role === 'person' || Number(message.liveId) > 0 ? {
+        role: message.role === 'person' ? 'person' : 'user',
+        text: message.text,
+        liveId: Number(message.liveId) || 0,
+        original: typeof message.original === 'string' ? message.original : '',
+        name: typeof message.name === 'string' ? message.name.slice(0, 100) : '',
+        system: message.system === true,
+        face: cleanFace(message.face),
+        links: cleanLinks(message.links),
+        file: cleanLiveFile(message.file),
+        sticker: cleanSticker(message.sticker),
+        translating: message.translating === true,
+        draft: message.draft === true,
+        quick: message.quick === true,
+        from: typeof message.from === 'string' ? message.from.slice(0, 20) : '',
+        to: typeof message.to === 'string' ? message.to.slice(0, 20) : '',
+      } : message.role === 'agent' ? {
         role: 'agent',
         restored: true,
         cards: message.cards.filter((card) => card && typeof card.type === 'string'),
@@ -667,6 +762,13 @@
     </div>`;
 
   const panel = dialog.querySelector('.mcp-ask-chat__panel');
+  // What shows while the window comes into place: the shape of a conversation, not its weight
+  const skeleton = el('div', 'mcp-ask-chat__skeleton');
+  let revealed = 0;
+
+  skeleton.setAttribute('aria-hidden', 'true');
+  skeleton.innerHTML = '<span class="mcp-ask-chat__bone mcp-ask-chat__bone--head"></span><span class="mcp-ask-chat__bone mcp-ask-chat__bone--user"></span><span class="mcp-ask-chat__bone mcp-ask-chat__bone--bot"></span><span class="mcp-ask-chat__bone mcp-ask-chat__bone--bot mcp-ask-chat__bone--short"></span><span class="mcp-ask-chat__bone mcp-ask-chat__bone--box"></span>';
+  panel.append(skeleton);
   const log = dialog.querySelector('.mcp-ask-chat__log');
   const composer = dialog.querySelector('.mcp-ask-chat__composer');
   const field = dialog.querySelector('.mcp-ask-chat__input');
@@ -834,6 +936,10 @@
       return showAgent(message);
     }
 
+    if (message.role === 'person') {
+      return showPerson(message);
+    }
+
     const user = message.role === 'user';
     const node = el('article', `mcp-ask-msg mcp-ask-msg--${user ? 'user' : 'bot'}`);
     const body = el('div', 'mcp-ask-msg__body');
@@ -841,7 +947,16 @@
     log.append(node);
 
     if (user) {
-      body.textContent = message.text;
+      if (message.sticker) {
+        node.classList.add('mcp-ask-msg--sticker');
+        body.append(stickerView(message.sticker));
+      } else if (message.file) {
+        node.classList.add('mcp-ask-msg--file');
+        body.append(liveFileView(message.file));
+      } else {
+        body.textContent = message.text;
+      }
+
       node.append(body);
 
       return { node, paint() {} };
@@ -1286,7 +1401,7 @@
       return 'happy';
     }
 
-    return types.includes('report') || types.includes('handoff') ? 'thinking' : 'talking';
+    return types.includes('report') || types.includes('handoff') || types.includes('chat') ? 'thinking' : 'talking';
   };
 
   // A card telling the faces around it how things go (thinking, talking, happy, confused, idle)
@@ -1316,6 +1431,145 @@
       }
     } catch (error) {
       // The agent conversation lasts until the page is left
+    }
+  };
+
+  // A chat with a person in this window (AI Ask Desk, 0.20.0): the room's key, the addresses it is
+  // talked through, the last message heard, how it stands and who answers. What the visitor writes
+  // goes there while it lasts.
+  const LIVE = 'mcp-ask:live';
+  let live = (() => {
+    try {
+      const kept = JSON.parse(sessionStorage.getItem(LIVE));
+
+      return kept && /^[0-9a-f]{48}$/.test(kept.key) && kept.urls && typeof kept.urls.poll === 'string' ? kept : null;
+    } catch (error) {
+      return null;
+    }
+  })();
+
+  // The face of a person answering (AI Ask Desk): a picture to show, and a still one
+  const cleanFace = (face) => {
+    const src = face && typeof face.src === 'string' ? safeUrl(face.src) : '';
+
+    return src ? { src, still: typeof face.still === 'string' ? safeUrl(face.still) : '', thanks: typeof face.thanks === 'string' ? safeUrl(face.thanks) : '' } : null;
+  };
+
+  // Cards for the site's articles a person linked to: where it goes, its title, first words, picture
+  const cleanLinks = (links) => (Array.isArray(links) ? links : []).slice(0, 3).map((link) => {
+    const url = link && typeof link.url === 'string' ? safeUrl(link.url) : '';
+    const image = link && typeof link.image === 'string' && /^\/(?!\/)[^\s"'<>]+\.(?:jpe?g|png|gif|webp|avif)$/i.test(link.image) ? link.image : '';
+
+    return url ? { url, title: String(link.title || '').slice(0, 200), excerpt: String(link.excerpt || '').slice(0, 300), image } : null;
+  }).filter(Boolean);
+
+  // A sticker sent in a chat with a person: its name, and its picture (of this site)
+  const cleanSticker = (sticker) => {
+    if (!sticker || typeof sticker.title !== 'string') {
+      return null;
+    }
+
+    return { title: sticker.title.slice(0, 100), url: typeof sticker.url === 'string' && /^\/(?!\/)[^\s]*$/.test(sticker.url) ? sticker.url : '' };
+  };
+
+  const stickerView = (sticker) => {
+    if (!sticker.url) {
+      return el('span', 'mcp-ask-sticker mcp-ask-sticker--gone', sticker.title);
+    }
+
+    const picture = el('img', 'mcp-ask-sticker');
+
+    picture.src = sticker.url;
+    picture.alt = sticker.title;
+    picture.title = sticker.title;
+    picture.decoding = 'async';
+
+    return picture;
+  };
+
+  // A file sent in a chat with a person: its name, kind, size, days, and where to get it
+  const cleanLiveFile = (file) => {
+    if (!file || typeof file.name !== 'string') {
+      return null;
+    }
+
+    const url = typeof file.url === 'string' && /^\/(?!\/)/.test(file.url) ? file.url : '';
+
+    return {
+      name: file.name.slice(0, 160),
+      kind: ['image', 'video', 'document'].includes(file.kind) ? file.kind : 'document',
+      size: Number(file.size) || 0,
+      expires: typeof file.expires === 'string' ? file.expires : '',
+      url,
+      gone: Boolean(file.gone) || !url,
+    };
+  };
+
+  // A picture to open whole (AI Ask's own lightbox), a video to play, a document to download; with
+  // its size, and how many days it is kept still
+  const liveFileView = (file) => {
+    const view = el('div', `mcp-ask-live-file mcp-ask-live-file--${file.kind}`);
+
+    if (file.gone) {
+      view.classList.add('mcp-ask-live-file--gone');
+      view.append(el('span', '', `${file.name} · ${strings.liveExpired}`));
+
+      return view;
+    }
+
+    if (file.kind === 'image') {
+      const picture = el('img', 'mcp-ask-image mcp-ask-live-file__image');
+
+      picture.src = file.url;
+      picture.alt = file.name;
+      picture.loading = 'lazy';
+      view.append(picture);
+    } else if (file.kind === 'video') {
+      const video = el('video', 'mcp-ask-live-file__video');
+
+      // From its first moment, so a frame shows rather than black
+      video.src = `${file.url}#t=0.1`;
+      video.controls = true;
+      video.preload = 'metadata';
+      video.playsInline = true;
+      view.append(video);
+    } else {
+      const card = el('a', 'mcp-ask-live-file__doc');
+      const size = file.size >= 1048576 ? `${(file.size / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(file.size / 1024))} KB`;
+
+      card.href = file.url;
+      card.setAttribute('download', file.name);
+      card.setAttribute('data-mcp-ask-download', '');
+      card.title = strings.liveDownload;
+      card.append(el('strong', '', file.name), el('span', '', `${size} · ${strings.liveDownload}`));
+      view.append(card);
+    }
+
+    if (file.expires) {
+      const days = Math.max(0, Math.ceil((new Date(file.expires).getTime() - Date.now()) / 86400000));
+
+      view.append(el('span', 'mcp-ask-live-file__expires', strings.liveExpiresIn.replace('%s', days)));
+    }
+
+    return view;
+  };
+
+  // Addresses in what a person wrote become links (the desk made the site's short)
+  const linkWords = (text) => String(text || '').replace(/\bhttps?:\/\/[^\s<>"']+/g, (found) => {
+    const [, url, tail] = found.match(/^(.*?)([.,;:!?)\]}」』。，、！？]*)$/u);
+
+    return `[${url}](${url})${tail}`;
+  });
+
+  const keepLive = () => {
+    try {
+      if (live) {
+        sessionStorage.setItem(LIVE, JSON.stringify(live));
+      } else {
+        sessionStorage.removeItem(LIVE);
+      }
+    } catch (error) {
+      // The chat lasts until the page is left
     }
   };
 
@@ -2378,6 +2632,8 @@
         return reportCard(card);
       case 'handoff':
         return handoffCard(card);
+      case 'chat':
+        return chatCard(card);
       case 'agents':
         return agentsCard(card);
       case 'text': {
@@ -2538,6 +2794,56 @@
     }
   }
 
+  const liveAttach = el('button', 'mcp-ask-chat__attach');
+  const liveAttachInput = el('input');
+
+  liveAttach.type = 'button';
+  liveAttach.hidden = true;
+  liveAttach.title = strings.liveAttach;
+  liveAttach.setAttribute('aria-label', strings.liveAttach);
+  liveAttach.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13"/></svg>';
+  liveAttachInput.type = 'file';
+  liveAttachInput.hidden = true;
+  liveAttachInput.accept = 'image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip';
+  composer.insertBefore(liveAttach, field);
+  composer.append(liveAttachInput);
+  liveAttach.addEventListener('click', () => liveAttachInput.click());
+
+  // Pictures and recordings of the page (AI Ask Desk): a screenshot or a picture marked up first,
+  // or a short recording; the script that makes them comes from the chat's own site when first used
+  const liveCapture = el('button', 'mcp-ask-chat__attach mcp-ask-chat__capture');
+  const captureMenu = el('div', 'mcp-ask-capture-menu');
+
+  liveCapture.type = 'button';
+  liveCapture.hidden = true;
+  liveCapture.title = strings.liveCapture;
+  liveCapture.setAttribute('aria-label', strings.liveCapture);
+  liveCapture.setAttribute('aria-haspopup', 'menu');
+  liveCapture.setAttribute('aria-expanded', 'false');
+  liveCapture.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 0 1 2-2h2M4 16v2a2 2 0 0 0 2 2h2M16 4h2a2 2 0 0 1 2 2v2M16 20h2a2 2 0 0 0 2-2v-2M9 12a3 3 0 1 0 6 0 3 3 0 1 0-6 0"/></svg>';
+  captureMenu.hidden = true;
+  captureMenu.setAttribute('role', 'menu');
+  composer.insertBefore(liveCapture, field);
+  composer.append(captureMenu);
+
+  // Stickers (AI Ask Desk): the packs the site offers visitors, asked for once in a chat
+  const liveSticker = el('button', 'mcp-ask-chat__attach mcp-ask-chat__sticker');
+  const stickerMenu = el('div', 'mcp-ask-sticker-menu');
+  let stickerPacks = null;
+
+  liveSticker.type = 'button';
+  liveSticker.hidden = true;
+  liveSticker.title = strings.liveStickers;
+  liveSticker.setAttribute('aria-label', strings.liveStickers);
+  liveSticker.setAttribute('aria-haspopup', 'dialog');
+  liveSticker.setAttribute('aria-expanded', 'false');
+  liveSticker.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 1 0-18 0M9 10h.01M15 10h.01M9.5 15a3.5 3.5 0 0 0 5 0"/></svg>';
+  stickerMenu.hidden = true;
+  stickerMenu.setAttribute('role', 'dialog');
+  stickerMenu.setAttribute('aria-label', strings.liveStickers);
+  composer.insertBefore(liveSticker, field);
+  composer.append(stickerMenu);
+
   const agentBar = el('div', 'mcp-ask-chat__agent');
   const agentName = el('span', 'mcp-ask-chat__agent-name');
   const agentLeave = el('button', 'mcp-ask-chat__agent-leave', strings.agentLeave);
@@ -2551,10 +2857,30 @@
 
   // The bar shows who the visitor is talking with; the box says so too
   const showAgentMode = () => {
-    agentBar.hidden = !agent;
-    agentName.replaceChildren(...(agent ? [avatar(agent.id, 'mcp-ask-chat__agent-face'), strings.agentWith.replace('%s', agent.title)].filter(Boolean) : []));
-    field.placeholder = agent ? strings.agentReply.replace('%s', agent.title) : strings.followup;
-    agentChips.hidden = Boolean(agent) || !agentList.length;
+    // An agent, or a person in a chat
+    const who = agent || live;
+
+    agentBar.hidden = !who;
+    liveAttach.hidden = !live || !live.urls || !live.urls.upload;
+    liveCapture.hidden = liveAttach.hidden || !live.urls.capture;
+    liveSticker.hidden = liveAttach.hidden || !live.urls.stickers || Boolean(stickerPacks && !stickerPacks.length);
+
+    // Which stickers there are, once a chat has an address to ask
+    if (!liveSticker.hidden && stickerPacks === null) {
+      stickerPacks = [];
+      agentPost(live.urls.stickers, { key: live.key }).then((data) => {
+        stickerPacks = (Array.isArray(data && data.packs) ? data.packs : []).map((pack) => ({
+          pack: String(pack.pack || '').slice(0, 100),
+          stickers: (Array.isArray(pack.stickers) ? pack.stickers : []).map((item) => ({ id: Number(item.id) || 0, ...cleanSticker(item) })).filter((item) => item.id > 0 && item.url),
+        })).filter((pack) => pack.stickers.length);
+        liveSticker.hidden = !stickerPacks.length;
+      }).catch(() => {
+        stickerPacks = null;
+      });
+    }
+    agentName.replaceChildren(...(who ? [avatar(who.id, 'mcp-ask-chat__agent-face'), strings.agentWith.replace('%s', who.title)].filter(Boolean) : []));
+    field.placeholder = who ? strings.agentReply.replace('%s', who.title) : strings.followup;
+    agentChips.hidden = Boolean(who) || !agentList.length;
   };
 
   const chip = (item, from, className = 'mcp-ask-chip') => {
@@ -2747,6 +3073,13 @@
       return;
     }
 
+    // In a chat with a person already: that chat is shown
+    if (live) {
+      openChat(from || origin);
+
+      return;
+    }
+
     agentBusy = true;
     busy();
     petMood('thinking');
@@ -2897,13 +3230,1444 @@
   };
 
   agentLeave.addEventListener('click', () => {
-    if (agent) {
+    if (live) {
+      confirmTwice(agentLeave, liveLeave);
+    } else if (agent) {
       agentTurn({ action: 'leave' });
       endAgent();
     }
   });
 
   showAgentMode();
+
+  // ---------- A chat with a person in this window (AI Ask Desk, 0.20.0) ----------
+
+  // The page asks the room what is new: often while the chat is in view, seldom when it is not
+  let liveTimer = 0;
+  let livePolling = false;
+  const liveCards = new Map();
+
+  const liveLater = (soon = false) => {
+    window.clearTimeout(liveTimer);
+
+    if (live) {
+      liveTimer = window.setTimeout(livePoll, soon ? 300 : document.hidden ? 15000 : dialog.open ? 2000 : 6000);
+    }
+  };
+
+  // How the chat stands, on its card, in the bar and for the next page
+  const liveState = (state, staff = '') => {
+    if (!live) {
+      return;
+    }
+
+    const was = live.state;
+    const key = live.key;
+
+    live.state = state;
+    live.staff = staff || live.staff || '';
+
+    messages.forEach((item) => (item.cards || []).forEach((card) => {
+      if (card.type === 'chat' && card.key === key) {
+        card.state = state;
+        card.staff = live.staff;
+      }
+    }));
+
+    if (state === 'active' && was !== 'active') {
+      handoffEvent(live.handoff, 'chatting', 'online');
+      petMood('happy');
+    }
+
+    if (state === 'closed') {
+      live = null;
+      window.clearTimeout(liveTimer);
+      showTyping(false);
+    }
+
+    const paint = liveCards.get(key);
+
+    if (paint) {
+      paint();
+    }
+
+    keepLive();
+    showAgentMode();
+    save();
+  };
+
+  // ---- Typing: dots for the person answering while they write, and before each of their messages ----
+
+  let liveTyped = 0;
+  let liveTypingSent = 0;
+  let liveTypingNode = null;
+  let liveRevealing = false;
+  const liveQueue = [];
+  const wait = (ms) => new Promise((resolve) => { window.setTimeout(resolve, reduced.matches ? 0 : ms); });
+
+  // Three dots in a bubble, beside the face of the person answering
+  const showTyping = (on) => {
+    if (!on) {
+      if (liveTypingNode) {
+        const leaving = liveTypingNode;
+
+        liveTypingNode = null;
+
+        if (reduced.matches) {
+          leaving.remove();
+        } else {
+          leaving.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(0.6)' }], { duration: 160, easing: 'ease-in' }).finished.then(() => leaving.remove(), () => leaving.remove());
+        }
+      }
+
+      return;
+    }
+
+    if (liveTypingNode) {
+      log.append(liveTypingNode);
+
+      return;
+    }
+
+    const node = el('article', 'mcp-ask-msg mcp-ask-msg--bot mcp-ask-msg--person mcp-ask-msg--typing');
+    const token = el('span', 'mcp-ask-msg__token mcp-ask-msg__token--person');
+    const body = el('div', 'mcp-ask-msg__body');
+    const face = live && live.face ? cleanFace(live.face) : null;
+
+    if (face) {
+      const picture = el('img', 'mcp-ask-msg__face-picture');
+
+      picture.alt = '';
+      picture.src = reduced.matches && face.still ? face.still : face.src;
+      token.classList.add('mcp-ask-msg__token--face');
+      token.append(picture);
+    } else {
+      token.textContent = Array.from(String((live && live.staff) || '').trim() || '…')[0].toUpperCase();
+    }
+
+    token.setAttribute('aria-hidden', 'true');
+    body.innerHTML = DOTS;
+    body.setAttribute('aria-label', '…');
+    node.append(token, body);
+    log.append(node);
+    liveTypingNode = node;
+    toBottom();
+  };
+
+  // A person's messages come in one by one, each after a moment of dots, as if just typed
+  const liveReveal = async () => {
+    if (liveRevealing) {
+      return;
+    }
+
+    liveRevealing = true;
+
+    while (liveQueue.length) {
+      const message = liveQueue.shift();
+
+      // Not translated yet: the browser's first translation, or held back with dots until the AI's comes
+      if (message.translating && !message.draft) {
+        const draft = await liveBrowserTranslate(message.text, message.from, message.to);
+
+        if (draft) {
+          message.original = message.text;
+          message.text = draft;
+          message.draft = true;
+        } else {
+          liveHeld.push(message);
+          showTyping(true);
+
+          continue;
+        }
+      }
+
+      if (message.role === 'person' && !message.system) {
+        showTyping(true);
+        await wait(700);
+        showTyping(false);
+      }
+
+      // In the order written: one held back for its translation goes before what the visitor wrote
+      // after it, as on the other side
+      const after = message.liveId ? messages.findIndex((other) => other.liveId > message.liveId) : -1;
+
+      message.view = show(message);
+
+      if (after >= 0) {
+        messages.splice(after, 0, message);
+
+        const next = messages.slice(after + 1).find((other) => other.view && other.view.node && other.view.node.isConnected);
+
+        if (next) {
+          next.view.node.before(message.view.node);
+        }
+      } else {
+        messages.push(message);
+      }
+
+      toBottom();
+      save();
+
+      if (message.role === 'person' && !message.system) {
+        petMood('talking');
+      }
+    }
+
+    liveRevealing = false;
+
+    // Dots stay while a message is held back for its translation
+    if (liveHeld.length) {
+      showTyping(true);
+    }
+  };
+
+  // A message of the chat as the page keeps it
+  const liveMessage = (item) => (item.author === 'visitor'
+    ? { role: 'user', text: String(item.text || ''), liveId: Number(item.id) || 0, file: cleanLiveFile(item.file), sticker: cleanSticker(item.sticker) }
+    : {
+      role: 'person',
+      text: String(item.text || ''),
+      original: String(item.original || ''),
+      name: String(item.name || '').slice(0, 100),
+      system: item.author === 'system',
+      liveId: Number(item.id) || 0,
+      face: cleanFace(item.face),
+      links: cleanLinks(item.links),
+      file: cleanLiveFile(item.file),
+      sticker: cleanSticker(item.sticker),
+      // Still being translated for the visitor: held back (dots meanwhile), or shown in the browser's
+      // own first translation until the AI's comes
+      translating: item.translating === true,
+      from: String(item.from || '').slice(0, 20),
+      to: String(item.to || '').slice(0, 20),
+    });
+
+  // The AI slow to translate it: the server's quick machine translation (Google's) for the moment,
+  // marked as such, until the AI's comes
+  const liveQuick = (item) => {
+    const message = liveMessage(item);
+
+    if (message.translating && typeof item.draft === 'string' && item.draft.trim()) {
+      message.original = message.text;
+      message.text = item.draft;
+      message.draft = true;
+      message.quick = true;
+    }
+
+    return message;
+  };
+
+  // Held back while the AI translates them, where the browser cannot translate for the moment
+  const liveHeld = [];
+
+  // The browser's own translation (Chrome's, on the computer; nothing sent anywhere), only where it has
+  // both languages already: nothing is downloaded for it
+  const liveBrowserCode = (tag) => {
+    const lower = String(tag || '').toLowerCase();
+
+    return ['zh-tw', 'zh-hk', 'zh-hant'].includes(lower) ? 'zh-Hant' : lower.split('-')[0];
+  };
+  const liveTranslators = {};
+
+  // Each step of it given a moment at most: a browser that does not answer must not hold the chat up
+  const inTime = (promise, ms = 1500) => Promise.race([promise, new Promise((resolve, reject) => { window.setTimeout(() => reject(new Error('time')), ms); })]);
+
+  const liveBrowserTranslate = async (text, from, to) => {
+    const source = liveBrowserCode(from);
+    const target = liveBrowserCode(to);
+
+    if (!live || live.browser === false || !('Translator' in window) || !text || !source || !target || source === target) {
+      return '';
+    }
+
+    const pair = `${source}>${target}`;
+
+    try {
+      if (liveTranslators[pair] === false) {
+        return '';
+      }
+
+      if (!liveTranslators[pair]) {
+        if ((await inTime(window.Translator.availability({ sourceLanguage: source, targetLanguage: target }))) !== 'available') {
+          liveTranslators[pair] = false;
+
+          return '';
+        }
+
+        liveTranslators[pair] = window.Translator.create({ sourceLanguage: source, targetLanguage: target });
+      }
+
+      return String(await inTime((await inTime(liveTranslators[pair])).translate(text), 2500) || '');
+    } catch (error) {
+      // Not this pair, not now: the AI's translation only
+      liveTranslators[pair] = false;
+
+      return '';
+    }
+  };
+
+  const liveHeard = (data) => {
+    if (!data || data.error) {
+      if (data && data.gone) {
+        liveState('closed');
+      }
+
+      return;
+    }
+
+    let heard = false;
+
+    (Array.isArray(data.messages) ? data.messages : []).forEach((item) => {
+      const id = Number(item && item.id) || 0;
+
+      if (!live || !id || id <= live.after) {
+        return;
+      }
+
+      live.after = id;
+
+      // What the visitor sent is in the conversation already, perhaps still on its way
+      const sending = item.author === 'visitor' ? messages.find((message) => message.sending && message.text === String(item.text || '')) : null;
+
+      if (sending) {
+        sending.liveId = id;
+      }
+
+      if (sending || messages.some((message) => message.liveId === id)) {
+        return;
+      }
+
+      const message = liveQuick(item);
+
+      liveQueue.push(message);
+      heard = heard || message.role === 'person';
+    });
+
+    if (live && typeof data.browser === 'boolean') {
+      live.browser = data.browser;
+    }
+
+    // Translated since: held ones come now, shown ones take their translation in place
+    (Array.isArray(data.updates) ? data.updates : []).forEach((item) => {
+      const fresh = liveQuick(item);
+      const held = liveHeld.findIndex((message) => message.liveId === fresh.liveId);
+
+      if (held >= 0) {
+        liveHeld.splice(held, 1);
+        liveQueue.push(fresh);
+        heard = true;
+
+        return;
+      }
+
+      const index = messages.findIndex((message) => message.liveId === fresh.liveId);
+
+      if (index < 0) {
+        return;
+      }
+
+      const before = messages[index];
+
+      // The quick translation again, or one where the browser's is already shown: kept as it is
+      if (fresh.translating && (!fresh.quick || before.draft)) {
+        return;
+      }
+
+      messages[index] = fresh;
+
+      if (before.view && before.view.node && before.view.node.isConnected) {
+        const view = show(fresh);
+
+        before.view.node.replaceWith(view.node);
+        fresh.view = view;
+      }
+
+      save();
+    });
+
+    // Someone wrote while the conversation was put away: it comes back
+    if (heard && !dialog.open) {
+      openChat(origin);
+    }
+
+    if (live && data.face) {
+      live.face = cleanFace(data.face);
+    }
+
+    // Dots while they write; the messages that came, one after another
+    if (liveQueue.length) {
+      liveReveal();
+    } else if (!liveRevealing) {
+      showTyping((Boolean(data.typing) && live && live.state === 'active') || liveHeld.length > 0);
+    }
+
+    if (live && ['waiting', 'active', 'closed'].includes(data.status) && (data.status !== live.state || String(data.staff || '') !== (live.staff || ''))) {
+      // Ended by the person answering: asked how it went, once the last words are in
+      if (data.status === 'closed' && data.rating) {
+        const { key, urls } = live;
+
+        window.setTimeout(() => showRating(data.rating, key, urls.rate), liveQueue.length ? 1200 : 400);
+      }
+
+      liveState(data.status, String(data.staff || ''));
+    } else {
+      keepLive();
+      save();
+    }
+  };
+
+  async function livePoll() {
+    if (!live || livePolling) {
+      liveLater();
+
+      return;
+    }
+
+    const key = live.key;
+
+    livePolling = true;
+
+    try {
+      // Writing just now (the box not empty): the person answering sees dots
+      const typing = Boolean(field.value.trim()) && Date.now() - liveTyped < 4000;
+
+      if (typing) {
+        liveTypingSent = Date.now();
+      }
+
+      // Messages still being translated (held back, or in the browser's translation), to have them again once they are
+      const pending = [...liveHeld, ...messages.filter((message) => message.translating)].map((message) => message.liveId).filter(Boolean).slice(-50);
+      // Where the visitor is now (the window goes with them), for the people answering
+      const page = embed ? hostPage.url : window.location.href;
+      const data = await agentPost(live.urls.poll, { key, after: live.after || 0, typing, pending, page, title: embed ? hostPage.title : document.title });
+
+      if (live && live.key === key) {
+        liveHeard(data);
+      }
+    } catch (error) {
+      // Asked again in a moment
+    }
+
+    livePolling = false;
+    liveLater();
+  }
+
+  async function liveSend(text) {
+    if (!live) {
+      return;
+    }
+
+    const message = { role: 'user', text: text.slice(0, 2000), sending: true };
+    const view = show(message);
+
+    messages.push(message);
+    view.node.classList.add('mcp-ask-msg--sending');
+    toBottom();
+
+    try {
+      const data = await agentPost(live.urls.send, { key: live.key, text: message.text });
+
+      if (data.error) {
+        if (data.gone) {
+          liveState('closed');
+        }
+
+        throw new AskError(data.error);
+      }
+
+      message.liveId = message.liveId || Number(data.id) || 0;
+    } catch (error) {
+      // Not sent: it stays, marked, and is not kept
+      message.failed = true;
+      view.node.classList.add('mcp-ask-msg--failed');
+      view.node.append(el('p', 'mcp-ask-msg__failed', error instanceof AskError && error.message ? error.message : strings.liveFailed));
+      messages.splice(messages.indexOf(message), 1);
+    }
+
+    message.sending = false;
+    view.node.classList.remove('mcp-ask-msg--sending');
+    save();
+    liveLater(true);
+  }
+
+  // Ending a chat with a person takes a second press: the button asks first, in warning colours,
+  // and goes back to itself after a moment
+  function confirmTwice(control, action) {
+    if (control.dataset.confirm) {
+      window.clearTimeout(Number(control.dataset.confirm));
+      delete control.dataset.confirm;
+      control.classList.remove('mcp-ask-confirming');
+      control.textContent = control.dataset.label || control.textContent;
+      action();
+
+      return;
+    }
+
+    control.dataset.label = control.textContent;
+    control.textContent = strings.liveLeaveConfirm;
+    control.classList.add('mcp-ask-confirming');
+    control.dataset.confirm = String(window.setTimeout(() => {
+      delete control.dataset.confirm;
+      control.classList.remove('mcp-ask-confirming');
+      control.textContent = control.dataset.label;
+    }, 3500));
+  }
+
+  // ---- Rating the chat that ended: a window of its own over the conversation, the face of the
+  // person who answered bowing to say thank you once it is sent ----
+
+  const RATED = 'mcp-ask:rated';
+  const STAR = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.7 5.5 6 .9-4.4 4.2 1 6-5.3-2.8-5.3 2.8 1-6-4.4-4.2 6-.9z"/></svg>';
+  const THUMB = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 11v9H4v-9h3zm0 0l4-8c1.700 0 3 1.300 3 3v3h5c1.100 0 2 .900 1.900 2l-1.200 7c-.200 1-1 1.700-2 1.700H7"/></svg>';
+
+  const wasRated = (key) => {
+    try {
+      return (JSON.parse(sessionStorage.getItem(RATED)) || []).includes(key);
+    } catch (error) {
+      return false;
+    }
+  };
+
+  const keepRated = (key) => {
+    try {
+      const list = JSON.parse(sessionStorage.getItem(RATED)) || [];
+
+      sessionStorage.setItem(RATED, JSON.stringify([...list, key].slice(-20)));
+    } catch (error) {
+      // Asked again on this page only
+    }
+  };
+
+  function showRating(form, key, url) {
+    if (!form || !Array.isArray(form.dimensions) || !form.dimensions.length || !url || !/^\/(?!\/)/.test(url) || wasRated(key) || panel.querySelector('.mcp-ask-survey')) {
+      return;
+    }
+
+    keepRated(key);
+
+    const texts = form.texts || {};
+    const overlay = el('div', 'mcp-ask-survey');
+    const card = el('form', 'mcp-ask-survey__card');
+    const face = cleanFace(form.face);
+    const values = {};
+    const problem = el('p', 'mcp-ask-survey__problem');
+    const comment = el('textarea', 'mcp-ask-survey__comment');
+    const actions = el('div', 'mcp-ask-survey__actions');
+    const skip = el('button', 'mcp-ask-survey__skip', String(texts.skip || ''));
+    const submit = el('button', 'mcp-ask-survey__submit', String(texts.submit || ''));
+    let picture = null;
+
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', String(form.title || ''));
+
+    if (face) {
+      picture = el('img', 'mcp-ask-survey__face');
+      picture.alt = '';
+      picture.src = reduced.matches && face.still ? face.still : face.src;
+      card.append(picture);
+    }
+
+    card.append(el('h3', 'mcp-ask-survey__title', String(form.title || '')));
+
+    if (texts.by && form.staff) {
+      card.append(el('p', 'mcp-ask-survey__by', String(texts.by)));
+    }
+
+    // One row of choices for each thing rated
+    form.dimensions.forEach((dimension) => {
+      const row = el('fieldset', `mcp-ask-survey__item mcp-ask-survey__item--${dimension.type}`);
+      const legend = el('legend', '', String(dimension.label || ''));
+      const choices = el('div', 'mcp-ask-survey__choices');
+      let lighting = [];
+
+      // A burst on the star chosen: a ring, and sparks flying out both ways
+      const burst = (star) => {
+        const ring = el('span', 'mcp-ask-survey__burst');
+
+        for (let index = 0; index < 8; index += 1) {
+          const spark = el('i', '');
+
+          spark.style.setProperty('--angle', `${index * 45 + 22}deg`);
+          ring.append(spark);
+        }
+
+        star.append(ring);
+        window.setTimeout(() => ring.remove(), 900);
+      };
+
+      const pick = (value, chosen) => {
+        values[dimension.key] = value;
+        problem.textContent = '';
+        lighting.forEach((timer) => window.clearTimeout(timer));
+        lighting = [];
+
+        choices.querySelectorAll('button').forEach((item) => {
+          item.setAttribute('aria-checked', String(item === chosen));
+
+          if (dimension.type !== 'stars') {
+            item.classList.toggle('mcp-ask-survey__choice--on', item === chosen);
+
+            return;
+          }
+
+          const at = Number(item.dataset.value);
+          const on = at <= Number(value);
+
+          // Stars light up one after another, from the first to the one chosen, each springing up
+          if (!on || reduced.matches) {
+            item.classList.toggle('mcp-ask-survey__choice--on', on);
+
+            return;
+          }
+
+          item.classList.remove('mcp-ask-survey__choice--on');
+          lighting.push(window.setTimeout(() => {
+            item.classList.add('mcp-ask-survey__choice--on');
+            item.animate([{ transform: 'scale(0.4) rotate(-20deg)' }, { transform: 'scale(1.35) rotate(8deg)', offset: 0.55 }, { transform: 'scale(0.92)', offset: 0.8 }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1.2)' });
+
+            if (item === chosen) {
+              burst(item);
+            }
+          }, (at - 1) * 80));
+        });
+
+        if (!reduced.matches && dimension.type !== 'stars') {
+          chosen.animate([{ transform: 'scale(0.8)' }, { transform: 'scale(1.18)' }, { transform: 'none' }], { duration: 320, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1.2)' });
+        }
+      };
+
+      const add = (value, content, label) => {
+        const choice = el('button', 'mcp-ask-survey__choice');
+
+        choice.type = 'button';
+        choice.dataset.value = String(value);
+        choice.setAttribute('role', 'radio');
+        choice.setAttribute('aria-checked', 'false');
+        choice.setAttribute('aria-label', label);
+
+        if (content.startsWith('<svg')) {
+          choice.innerHTML = content;
+        } else {
+          choice.textContent = content;
+        }
+
+        choice.addEventListener('click', () => pick(value, choice));
+        choices.append(choice);
+
+        return choice;
+      };
+
+      if (dimension.required) {
+        legend.append(el('span', 'mcp-ask-survey__required', ' *'));
+      }
+
+      choices.setAttribute('role', 'radiogroup');
+      choices.setAttribute('aria-label', String(dimension.label || ''));
+
+      if (dimension.type === 'stars') {
+        [1, 2, 3, 4, 5].forEach((value) => add(value, STAR, `${value} / 5`));
+      } else if (dimension.type === 'thumbs') {
+        add(1, THUMB, String(texts.good || '')).append(el('span', '', String(texts.good || '')));
+        add(-1, THUMB, String(texts.bad || '')).append(el('span', '', String(texts.bad || '')));
+        choices.lastChild.classList.add('mcp-ask-survey__choice--down');
+      } else if (dimension.type === 'scale') {
+        for (let value = 0; value <= 10; value += 1) {
+          add(value, String(value), String(value));
+        }
+      } else {
+        (dimension.options || []).forEach((option) => add(String(option), String(option), String(option)));
+      }
+
+      row.append(legend, choices);
+      card.append(row);
+    });
+
+    if (form.comment) {
+      comment.rows = 2;
+      comment.maxLength = 1000;
+      comment.placeholder = String(texts.comment || '');
+      card.append(comment);
+    }
+
+    skip.type = 'button';
+    submit.type = 'submit';
+    actions.append(skip, submit);
+    card.append(problem, actions);
+    overlay.append(card);
+    panel.append(overlay);
+
+    const close = () => {
+      if (reduced.matches) {
+        overlay.remove();
+
+        return;
+      }
+
+      overlay.classList.add('mcp-ask-survey--leaving');
+      window.setTimeout(() => overlay.remove(), 260);
+    };
+
+    skip.addEventListener('click', close);
+    overlay.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        close();
+      }
+    });
+
+    card.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const missing = form.dimensions.find((dimension) => dimension.required && values[dimension.key] === undefined);
+
+      if (missing || !Object.keys(values).length) {
+        problem.textContent = missing ? String(missing.label) : String(texts.empty || '');
+        problem.classList.add('mcp-ask-survey__problem--shown');
+
+        if (!reduced.matches) {
+          card.animate([{ transform: 'translateX(0)' }, { transform: 'translateX(-6px)' }, { transform: 'translateX(6px)' }, { transform: 'none' }], { duration: 300 });
+        }
+
+        return;
+      }
+
+      submit.disabled = true;
+
+      try {
+        const data = await agentPost(url, { key, values, comment: comment.value.trim() });
+
+        if (data.error) {
+          problem.textContent = String(data.error);
+          submit.disabled = false;
+
+          return;
+        }
+      } catch (error) {
+        problem.textContent = strings.error;
+        submit.disabled = false;
+
+        return;
+      }
+
+      // Thank you: the person bows
+      card.classList.add('mcp-ask-survey__card--thanks');
+      card.querySelectorAll('fieldset, textarea, .mcp-ask-survey__actions, .mcp-ask-survey__by, .mcp-ask-survey__problem').forEach((node) => node.remove());
+      card.querySelector('.mcp-ask-survey__title').textContent = String(texts.thanks || '');
+
+      if (picture && face && face.thanks && !reduced.matches) {
+        picture.src = `${face.thanks}${face.thanks.includes('?') ? '&' : '?'}t=${Date.now()}`;
+      }
+
+      petMood('happy');
+      window.setTimeout(close, 3200);
+    });
+
+    // In view, and the first choice ready for the keyboard
+    if (!dialog.open) {
+      openChat(origin);
+    }
+
+    const first = card.querySelector('.mcp-ask-survey__choice');
+
+    if (first) {
+      first.focus({ preventScroll: true });
+    }
+  }
+
+  function liveLeave() {
+    if (!live) {
+      return;
+    }
+
+    const { key, urls } = live;
+
+    // Ended: asked how it went
+    agentPost(urls.leave, { key }).then((data) => showRating(data && data.rating, key, urls.rate)).catch(() => {});
+    liveState('closed');
+  }
+
+  // A file sent in the chat: shown as on its way, then as the room has it
+  // A picture made smaller before it is sent: 1920 pixels at most on its longer side, as WebP (JPEG
+  // where the browser cannot write WebP), smaller still until under 1 MB. Moving GIFs, and pictures
+  // that would not get smaller, are sent as they are
+  const shrinkPicture = async (file) => {
+    if (!/^image\/(?:jpeg|png|webp)$/.test(file.type) || !window.createImageBitmap) {
+      return file;
+    }
+
+    let bitmap;
+
+    try {
+      bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    } catch (error) {
+      return file;
+    }
+
+    const encode = (canvas, type, quality) => new Promise((resolve) => { canvas.toBlob(resolve, type, quality); });
+    let scale = Math.min(1, 1920 / Math.max(bitmap.width, bitmap.height));
+    let made = null;
+
+    for (let round = 0; round < 5 && !made; round += 1) {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+      for (const quality of [0.82, 0.68]) {
+        let blob = await encode(canvas, 'image/webp', quality);
+
+        if (!blob || blob.type !== 'image/webp') {
+          // JPEG has no transparency: on white
+          context.globalCompositeOperation = 'destination-over';
+          context.fillStyle = '#fff';
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          blob = await encode(canvas, 'image/jpeg', quality);
+        }
+
+        if (blob && blob.size <= 1048576) {
+          made = blob;
+          break;
+        }
+      }
+
+      scale *= 0.75;
+    }
+
+    if (bitmap.close) {
+      bitmap.close();
+    }
+
+    if (!made || (made.size >= file.size && file.size <= 1048576)) {
+      return file;
+    }
+
+    const base = (file.name || 'picture').replace(/\.[^.]+$/, '') || 'picture';
+
+    return new File([made], `${base}.${made.type === 'image/webp' ? 'webp' : 'jpg'}`, { type: made.type });
+  };
+
+  async function liveUpload(given) {
+    if (!given || !live || !live.urls.upload) {
+      return;
+    }
+
+    const note = { role: 'user', text: '', pending: true };
+    const view = show({ role: 'user', text: strings.liveUploading });
+    const file = await shrinkPicture(given);
+    const image = /^image\//.test(file.type);
+
+    if (file.size > (image ? 1048576 : 10485760)) {
+      view.node.classList.add('mcp-ask-msg--failed');
+      view.node.querySelector('.mcp-ask-msg__body').textContent = file.name;
+      view.node.append(el('p', 'mcp-ask-msg__failed', image ? strings.liveImageTooLarge : strings.liveTooLarge));
+
+      return;
+    }
+
+    const form = new FormData();
+
+    form.append('key', live.key);
+    form.append('file', file);
+    view.node.classList.add('mcp-ask-msg--sending');
+    toBottom();
+    liveAttach.disabled = true;
+    liveCapture.disabled = true;
+
+    try {
+      const response = await fetch(live.urls.upload, { method: 'POST', body: form, headers: { Accept: 'application/json', ...embedHeaders() }, credentials: 'same-origin' });
+      const data = await response.json();
+
+      if (data.error) {
+        throw new AskError(data.error);
+      }
+
+      // The file comes back with the next news, as a message of its own
+      view.node.remove();
+    } catch (error) {
+      view.node.classList.remove('mcp-ask-msg--sending');
+      view.node.classList.add('mcp-ask-msg--failed');
+      view.node.querySelector('.mcp-ask-msg__body').textContent = file.name;
+      view.node.append(el('p', 'mcp-ask-msg__failed', error instanceof AskError && error.message ? error.message : strings.liveFailed));
+    }
+
+    liveAttach.disabled = false;
+    liveCapture.disabled = false;
+    note.pending = false;
+    liveLater(true);
+  }
+
+  liveAttachInput.addEventListener('change', () => {
+    const file = liveAttachInput.files[0];
+
+    liveAttachInput.value = '';
+    liveUpload(file);
+  });
+
+  // Files dropped on the window, or pictures pasted into the box, in a chat with a person: sent one
+  // after another (five at most at a time)
+  const liveTakesFiles = () => Boolean(live && live.urls && live.urls.upload && ['waiting', 'active'].includes(live.state));
+  const liveSendFiles = async (files) => {
+    for (const file of files.slice(0, 5)) {
+      await liveUpload(file);
+    }
+  };
+  let dragDepth = 0;
+
+  panel.dataset.drop = strings.liveDrop;
+  panel.addEventListener('dragenter', (event) => {
+    if (liveTakesFiles() && [...event.dataTransfer.types].includes('Files')) {
+      dragDepth += 1;
+      panel.classList.add('mcp-ask-chat__panel--dropping');
+    }
+  });
+  panel.addEventListener('dragover', (event) => {
+    if (liveTakesFiles() && [...event.dataTransfer.types].includes('Files')) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+    }
+  });
+  panel.addEventListener('dragleave', () => {
+    dragDepth = Math.max(0, dragDepth - 1);
+
+    if (!dragDepth) {
+      panel.classList.remove('mcp-ask-chat__panel--dropping');
+    }
+  });
+  panel.addEventListener('drop', (event) => {
+    dragDepth = 0;
+    panel.classList.remove('mcp-ask-chat__panel--dropping');
+
+    if (liveTakesFiles() && event.dataTransfer.files.length) {
+      event.preventDefault();
+      liveSendFiles([...event.dataTransfer.files]);
+    }
+  });
+  field.addEventListener('paste', (event) => {
+    const files = [...((event.clipboardData && event.clipboardData.files) || [])];
+
+    if (liveTakesFiles() && files.length) {
+      event.preventDefault();
+      liveSendFiles(files);
+    }
+  });
+
+  // The capture script, from this site only
+  let capturing = null;
+  const loadCapture = () => {
+    const url = live && live.urls ? String(live.urls.capture || '') : '';
+
+    if (window.McpAskCapture) {
+      return Promise.resolve(window.McpAskCapture);
+    }
+
+    if (!/^\/(?!\/)[^\s]*$/.test(url)) {
+      return Promise.reject(new Error('capture'));
+    }
+
+    capturing = capturing || new Promise((resolve, reject) => {
+      const script = el('script');
+
+      script.src = url;
+      script.onload = () => (window.McpAskCapture ? resolve(window.McpAskCapture) : reject(new Error('capture')));
+      script.onerror = () => {
+        capturing = null;
+        reject(new Error('capture'));
+      };
+      document.head.append(script);
+    });
+
+    return capturing;
+  };
+
+  // The chat window steps aside while the page is captured, and comes back with the picture
+  const captureOptions = () => ({
+    language: document.documentElement.lang,
+    texts: {
+      stop: strings.liveStop, recording: strings.liveRecording, watchTitle: strings.liveWatch, again: strings.liveAgain,
+      cancel: strings.liveCancel, send: strings.liveSend, cut: strings.liveCut, tooLarge: strings.liveImageTooLarge, markHint: strings.liveMarkHint,
+      shotNow: strings.liveShotNow, shotHint: strings.liveShotHint,
+    },
+    // Out of sight for a screenshot; for a recording, only the bar to stop it stays (embedded:
+    // the frame shrinks to it, so the page around can be used)
+    hide: (how) => {
+      document.documentElement.classList.add('mcp-ask-capturing');
+
+      if (dialog.open) {
+        dialog.close();
+      }
+
+      return embed ? hostCapturing(how === 'record' || how === 'bar' ? 'bar' : 'hidden') : undefined;
+    },
+    // The picture about to be taken: embedded, the bar goes out of sight too
+    conceal: () => (embed ? hostCapturing('hidden') : undefined),
+    // The picture taken: the editor needs the whole window again, the chat window not yet
+    reveal: () => (embed ? hostCapturing('none') : undefined),
+    show: () => {
+      document.documentElement.classList.remove('mcp-ask-capturing');
+
+      if (embed) {
+        hostCapturing('none');
+      }
+
+      if (!dialog.open) {
+        dialog.showModal();
+        toBottom();
+      }
+    },
+  });
+
+  const closeCaptureMenu = () => {
+    captureMenu.hidden = true;
+    liveCapture.setAttribute('aria-expanded', 'false');
+  };
+
+  // A recording in a window of its own (recorder.html, next to the capture script): it goes on while
+  // the tab changes page, which one made in this page cannot. Opened at once, on the click
+  let recorder = null;
+
+  const openRecorder = () => {
+    const capture = live && live.urls ? String(live.urls.capture || '') : '';
+
+    if (!/^\/(?!\/)[^\s]*$/.test(capture)) {
+      return false;
+    }
+
+    const url = new URL('../recorder.html', new URL(capture, window.location.origin));
+
+    recorder = window.open(url.href, 'mcp-ask-recorder', 'popup=yes,width=480,height=560');
+
+    return Boolean(recorder);
+  };
+
+  window.addEventListener('message', (event) => {
+    const data = event.data;
+
+    if (event.origin !== window.location.origin || !data || typeof data.mcpAskRecorder !== 'string') {
+      return;
+    }
+
+    if (data.mcpAskRecorder === 'ready' && recorder && event.source === recorder && live) {
+      recorder.postMessage({
+        mcpAskRecorder: 'chat',
+        key: live.key,
+        upload: live.urls.upload,
+        headers: embedHeaders(),
+        language: document.documentElement.lang,
+        texts: {
+          title: strings.liveRecorderTitle, note: strings.liveRecorderNote, start: strings.liveRecorderStart, back: strings.liveRecorderBack,
+          sending: strings.liveRecorderSending, sent: strings.liveRecorderSent, failed: strings.liveFailed,
+          stop: strings.liveStop, recording: strings.liveRecording, watchTitle: strings.liveWatch, again: strings.liveAgain,
+          cancel: strings.liveCancel, send: strings.liveSend, cut: strings.liveCut,
+        },
+      }, window.location.origin);
+    } else if (data.mcpAskRecorder === 'sent') {
+      // The recording is in the chat: it comes with the next news
+      liveLater(true);
+    }
+  });
+
+  const runCapture = async (how) => {
+    closeCaptureMenu();
+
+    // Where the browser lets this page open the recorder's window; otherwise recorded here
+    if (how === 'record' && openRecorder()) {
+      return;
+    }
+
+    try {
+      const tool = await loadCapture();
+      const file = await tool[how](captureOptions());
+
+      if (file) {
+        liveUpload(file);
+      }
+    } catch (error) {
+      document.documentElement.classList.remove('mcp-ask-capturing');
+      show({ role: 'user', text: strings.liveCaptureFailed }).node.classList.add('mcp-ask-msg--failed');
+    }
+  };
+
+  liveCapture.addEventListener('click', async () => {
+    if (!captureMenu.hidden) {
+      closeCaptureMenu();
+
+      return;
+    }
+
+    let tool = null;
+
+    try {
+      tool = await loadCapture();
+    } catch (error) {
+      tool = null;
+    }
+
+    // In a frame on another website, only when that website's page lets the frame capture it
+    const can = tool && (!embed || hostCapture) ? tool.can : { screen: false, record: false };
+    const items = [
+      can.screen && ['screenshot', strings.liveScreenshot, '', 'M4 8V6a2 2 0 0 1 2-2h2M4 16v2a2 2 0 0 0 2 2h2M16 4h2a2 2 0 0 1 2 2v2M16 20h2a2 2 0 0 0 2-2v-2M8 12h8M12 8v8'],
+      ['picture', strings.livePicture, '', 'M15 8h.01M3 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zm0 10l5-5c.9-.9 2.1-.9 3 0l5 5m-2-2l1-1c.9-.9 2.1-.9 3 0l2 2'],
+      can.record && ['record', strings.liveRecord, strings.liveRecordNote, 'M12 12m-3 0a3 3 0 1 0 6 0 3 3 0 1 0-6 0M12 12m-8 0a8 8 0 1 0 16 0 8 8 0 1 0-16 0'],
+    ].filter(Boolean);
+
+    captureMenu.replaceChildren(...items.map(([how, label, note, path]) => {
+      const item = el('button', 'mcp-ask-capture-menu__item');
+      const words = el('span', 'mcp-ask-capture-menu__words');
+
+      item.type = 'button';
+      item.setAttribute('role', 'menuitem');
+      item.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${path}"/></svg>`;
+      words.append(el('strong', '', label));
+
+      if (note) {
+        words.append(el('small', '', note));
+      }
+
+      item.append(words);
+      item.addEventListener('click', () => runCapture(how));
+
+      return item;
+    }));
+    captureMenu.hidden = false;
+    liveCapture.setAttribute('aria-expanded', 'true');
+    captureMenu.querySelector('button').focus();
+  });
+
+  captureMenu.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      event.preventDefault();
+      closeCaptureMenu();
+      liveCapture.focus();
+    }
+  });
+
+  document.addEventListener('pointerdown', (event) => {
+    if (!captureMenu.hidden && !captureMenu.contains(event.target) && !liveCapture.contains(event.target)) {
+      closeCaptureMenu();
+    }
+
+    if (!stickerMenu.hidden && !stickerMenu.contains(event.target) && !liveSticker.contains(event.target)) {
+      closeStickers();
+    }
+  });
+
+  const closeStickers = () => {
+    stickerMenu.hidden = true;
+    liveSticker.setAttribute('aria-expanded', 'false');
+  };
+
+  // A sticker sent: it comes back with the next news, as a message of the visitor
+  const sendSticker = async (sticker) => {
+    closeStickers();
+
+    try {
+      const data = await agentPost(live.urls.send, { key: live.key, sticker: sticker.id });
+
+      if (data.error) {
+        throw new AskError(data.error);
+      }
+    } catch (error) {
+      show({ role: 'user', text: error instanceof AskError && error.message ? error.message : strings.liveFailed }).node.classList.add('mcp-ask-msg--failed');
+    }
+
+    liveLater(true);
+  };
+
+  // The packs as tabs, their stickers in a grid
+  const paintStickers = (index = 0) => {
+    const tabs = el('div', 'mcp-ask-sticker-menu__tabs');
+    const grid = el('div', 'mcp-ask-sticker-menu__grid');
+    const pack = stickerPacks[index] || stickerPacks[0];
+
+    if (stickerPacks.length > 1) {
+      stickerPacks.forEach((each, at) => {
+        const tab = el('button', 'mcp-ask-sticker-menu__tab', each.pack);
+
+        tab.type = 'button';
+        tab.setAttribute('aria-pressed', String(each === pack));
+        tab.addEventListener('click', () => paintStickers(at));
+        tabs.append(tab);
+      });
+    }
+
+    pack.stickers.forEach((sticker) => {
+      const pick = el('button', 'mcp-ask-sticker-menu__pick');
+      const picture = el('img', '');
+
+      pick.type = 'button';
+      pick.title = sticker.title;
+      pick.setAttribute('aria-label', sticker.title);
+      picture.src = sticker.url;
+      picture.alt = '';
+      picture.loading = 'lazy';
+      pick.append(picture);
+      pick.addEventListener('click', () => sendSticker(sticker));
+      grid.append(pick);
+    });
+
+    stickerMenu.replaceChildren(...(stickerPacks.length > 1 ? [tabs] : []), grid);
+  };
+
+  liveSticker.addEventListener('click', () => {
+    if (!stickerMenu.hidden) {
+      closeStickers();
+
+      return;
+    }
+
+    if (!stickerPacks || !stickerPacks.length || !live) {
+      return;
+    }
+
+    closeCaptureMenu();
+    paintStickers();
+    stickerMenu.hidden = false;
+    liveSticker.setAttribute('aria-expanded', 'true');
+
+    const first = stickerMenu.querySelector('.mcp-ask-sticker-menu__pick');
+
+    if (first) {
+      first.focus();
+    }
+  });
+
+  stickerMenu.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      event.preventDefault();
+      closeStickers();
+      liveSticker.focus();
+    }
+  });
+
+  // A new chat card starts the chat: the page talks with the room from now on
+  const liveBegin = (card) => {
+    const owner = messages.find((item) => (item.cards || []).includes(card));
+
+    card.state = 'waiting';
+    live = {
+      key: card.key,
+      handoff: card.handoff || '',
+      urls: { poll: String(card.urls.poll), send: String(card.urls.send), leave: String(card.urls.leave || ''), rate: String(card.urls.rate || ''), upload: String(card.urls.upload || ''), capture: String(card.urls.capture || ''), stickers: String(card.urls.stickers || '') },
+      after: 0,
+      state: 'waiting',
+      staff: '',
+      id: owner && owner.agent ? Number(owner.agent.id) : 0,
+      title: owner && owner.agent ? String(owner.agent.title || '') : '',
+    };
+
+    keepLive();
+    showAgentMode();
+    save();
+    handoffEvent(live.handoff, 'opened', 'online');
+    livePoll();
+  };
+
+  function chatCard(card) {
+    const box = el('div', 'mcp-ask-card mcp-ask-handoff mcp-ask-live');
+    const line = el('p', 'mcp-ask-handoff__status');
+    const dot = el('span', 'mcp-ask-handoff__dot');
+    const text = el('span', '');
+    const texts = card.texts || {};
+    const end = el('button', 'mcp-ask-card__secondary', texts.leave || strings.liveLeave);
+    const urls = card.urls || {};
+
+    line.append(dot, text);
+    box.append(line);
+
+    // How long the chat is kept, with a link to the privacy policy
+    if (texts.notice) {
+      const notice = el('div', 'mcp-ask-live__notice');
+
+      notice.innerHTML = markdown(String(texts.notice), []);
+      box.append(notice);
+    }
+
+    end.type = 'button';
+    box.append(end);
+    end.addEventListener('click', () => {
+      if (live && live.key === card.key) {
+        confirmTwice(end, liveLeave);
+      }
+    });
+
+    const paint = () => {
+      const state = card.state || 'waiting';
+      const shown = { waiting: 'waiting', active: 'online', closed: 'offline', failed: 'failed' };
+      const words = state === 'active'
+        ? String(texts.joined || '').replace('%s', card.staff || '')
+        : String(texts[state] || texts.waiting || '');
+
+      box.dataset.state = shown[state] || 'waiting';
+
+      // New words fade in (someone joined, the chat ended)
+      if (text.textContent && text.textContent !== words && !reduced.matches) {
+        text.animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
+      }
+
+      text.textContent = words;
+      end.hidden = !live || live.key !== card.key;
+    };
+
+    liveCards.set(card.key, paint);
+    paint();
+
+    // Not this site's addresses, or no room: nothing to talk to
+    const usable = /^[0-9a-f]{48}$/.test(card.key || '') && [urls.poll, urls.send].every((url) => typeof url === 'string' && /^\/(?!\/)/.test(url));
+
+    if (!usable) {
+      card.state = 'failed';
+      paint();
+    } else if (!card.state && !(live && live.key === card.key)) {
+      window.setTimeout(() => liveBegin(card), 0);
+    }
+
+    return box;
+  }
+
+  // What a person wrote: their name, the words in the visitor's language, and the words they
+  // wrote, to see when translated
+  function showPerson(message) {
+    if (message.system) {
+      const note = el('p', 'mcp-ask-msg mcp-ask-msg--system', message.text);
+
+      log.append(note);
+
+      return { node: note, paint() {} };
+    }
+
+    const node = el('article', 'mcp-ask-msg mcp-ask-msg--bot mcp-ask-msg--person');
+    const token = el('span', 'mcp-ask-msg__token mcp-ask-msg__token--person');
+
+    // Their face, when they chose one; otherwise the first letter of their name
+    if (message.face) {
+      const picture = el('img', 'mcp-ask-msg__face-picture');
+
+      picture.alt = '';
+      picture.decoding = 'async';
+      picture.src = reduced.matches && message.face.still ? message.face.still : message.face.src;
+      token.classList.add('mcp-ask-msg__token--face');
+      token.append(picture);
+    } else {
+      token.textContent = Array.from(message.name.trim() || '?')[0].toUpperCase();
+    }
+    const body = el('div', 'mcp-ask-msg__body');
+    const said = el('div', 'mcp-ask-msg__said');
+
+    token.setAttribute('aria-hidden', 'true');
+
+    if (message.name) {
+      body.append(el('p', 'mcp-ask-msg__who', message.name));
+    }
+
+    if (message.sticker) {
+      node.classList.add('mcp-ask-msg--sticker');
+      body.append(stickerView(message.sticker));
+    } else if (message.file) {
+      node.classList.add('mcp-ask-msg--file');
+      body.append(liveFileView(message.file));
+    } else if (message.draft) {
+      // The browser's first translation, until the AI's comes (said so below, with the original)
+      said.innerHTML = markdown(linkWords(message.text), []);
+      body.append(said);
+    } else {
+      said.innerHTML = markdown(linkWords(message.text), []);
+      body.append(said);
+    }
+
+    node.append(token, body);
+
+    // The articles linked, as cards to open
+    if (message.links && message.links.length) {
+      const cards = el('div', 'mcp-ask-linkcards');
+
+      message.links.forEach((link) => {
+        const card = el('a', 'mcp-ask-linkcard');
+        const words = el('span', 'mcp-ask-linkcard__words');
+
+        card.href = link.url;
+        card.rel = 'noopener';
+
+        if (link.image) {
+          const picture = el('img', 'mcp-ask-linkcard__image');
+
+          // A path of this site, from its root
+          picture.src = link.image;
+          picture.alt = '';
+          picture.loading = 'lazy';
+          picture.decoding = 'async';
+          picture.addEventListener('error', () => picture.remove());
+          card.append(picture);
+        }
+
+        words.append(el('strong', 'mcp-ask-linkcard__title', link.title || link.url));
+
+        if (link.excerpt) {
+          words.append(el('span', 'mcp-ask-linkcard__excerpt', link.excerpt));
+        }
+
+        words.append(el('span', 'mcp-ask-linkcard__host', new URL(link.url).host));
+        card.append(words);
+        cards.append(card);
+      });
+
+      node.append(cards);
+    }
+
+    // Translated by AI: the words the person wrote, a click away
+    if (message.original && message.original !== message.text) {
+      const note = el('p', 'mcp-ask-msg__translated');
+      const toggle = el('button', 'mcp-ask-msg__original', strings.liveOriginal);
+      let first = false;
+
+      toggle.type = 'button';
+      toggle.addEventListener('click', () => {
+        const from = body.getBoundingClientRect();
+
+        first = !first;
+        said.innerHTML = markdown(linkWords(first ? message.original : message.text), []);
+        toggle.textContent = first ? strings.liveTranslated : strings.liveOriginal;
+
+        // The bubble eases to its new size while the other words fade in
+        if (!reduced.matches) {
+          const to = body.getBoundingClientRect();
+
+          body.animate([{ width: `${from.width}px`, height: `${from.height}px` }, { width: `${to.width}px`, height: `${to.height}px` }], { duration: 240, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
+          said.animate([{ opacity: 0, filter: 'blur(2px)' }, { opacity: 1, filter: 'none' }], { duration: 280, easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)' });
+        }
+      });
+      note.append(el('span', '', message.quick ? strings.liveQuick : message.draft ? strings.liveDraft : strings.liveByAi), toggle);
+      node.append(note);
+    }
+
+    log.append(node);
+    toBottom();
+
+    return { node, paint() {} };
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (live && !document.hidden) {
+      liveLater(true);
+    }
+  });
+
+  // The visitor writes: told soon, not only at the next turn of asking
+  field.addEventListener('input', () => {
+    if (!live) {
+      return;
+    }
+
+    liveTyped = Date.now();
+
+    if (field.value.trim() && Date.now() - liveTypingSent > 3000) {
+      liveLater(true);
+    }
+  });
 
   // A person, from the head of the conversation or from any link to #mcp-ask-handoff on the page
   const human = dialog.querySelector('.mcp-ask-chat__human');
@@ -3732,6 +5496,15 @@
       dialog.style.setProperty(name, from.root.style.getPropertyValue(name));
     });
 
+    // In stages, so the browser moves something light: the panel with a skeleton of a conversation
+    // comes into place, then what is in it rises in, a part after another
+    const staged = Boolean(document.startViewTransition) && !reduced.matches;
+
+    if (staged) {
+      dialog.classList.remove('mcp-ask-chat--revealing');
+      dialog.classList.add('mcp-ask-chat--entering');
+    }
+
     return morph('mcp-ask-open', visible(from) ? from.form : null, panel, () => {
       from.input.value = '';
       setState(from, 'idle');
@@ -3739,6 +5512,14 @@
       // Do not raise the on-screen keyboard over an answer that is just arriving
       (coarse.matches ? dialog : field).focus();
       toBottom();
+    }).then(() => {
+      if (!staged) {
+        return;
+      }
+
+      dialog.classList.replace('mcp-ask-chat--entering', 'mcp-ask-chat--revealing');
+      window.clearTimeout(revealed);
+      revealed = window.setTimeout(() => dialog.classList.remove('mcp-ask-chat--revealing'), 700);
     });
   };
 
@@ -3763,6 +5544,23 @@
 
   // Put the conversation away first, then let the browser animate the page change
   const leave = async (url) => {
+    // Embedded: a page of another website opens in a new tab, and the conversation stays open
+    if (embed) {
+      let elsewhere = false;
+
+      try {
+        elsewhere = new URL(url, window.location.href).origin !== embed.host;
+      } catch (error) {
+        elsewhere = false;
+      }
+
+      if (elsewhere) {
+        hostPost('navigate', { url });
+
+        return;
+      }
+    }
+
     await closeChat();
 
     if (embed) {
@@ -3939,6 +5737,10 @@
 
       if (!question) {
         input.focus();
+      } else if (live) {
+        // A chat with a person goes on where it was
+        input.value = '';
+        openChat(launcher).then(() => liveSend(question));
       } else if (agent) {
         // A conversation with an agent goes on where it was
         input.value = '';
@@ -3974,7 +5776,10 @@
 
     event.preventDefault();
 
-    if (question && agent && !agentBusy) {
+    if (question && live) {
+      field.value = '';
+      liveSend(question);
+    } else if (question && agent && !agentBusy) {
       field.value = '';
       agentTurn({ text: question });
     } else if (question && !controller && !agent) {
@@ -4041,6 +5846,10 @@
   };
 
   const forget = () => {
+    if (live) {
+      liveLeave();
+    }
+
     if (agent) {
       agentPost(agentStepUrl, { session: agent.key, action: 'leave' }).catch(() => {});
       endAgent();
@@ -4069,6 +5878,19 @@
       animation.cancel();
     }, () => {});
   };
+
+  // The saucer leaves as soon as the conversation goes on in any way: the visitor starts typing, or a
+  // message comes (a person's, an agent's), not only when the AI is asked
+  field.addEventListener('input', () => {
+    if (field.value.trim()) {
+      depart();
+    }
+  });
+  new MutationObserver((changes) => {
+    if (changes.some((change) => [...change.addedNodes].some((node) => node.nodeType === 1 && node.classList.contains('mcp-ask-msg')))) {
+      depart();
+    }
+  }).observe(log, { childList: true });
 
   // The letters in view, measured where they stand, to be painted on a canvas so each can go its
   // own way while the boxes they stood in fade out underneath (0.18.0: several ways to go)
@@ -4431,6 +6253,11 @@
   if (embed) {
     // The conversation put away: back to the button (or the open search box)
     dialog.addEventListener('close', () => {
+      // Put aside while the page is captured: the frame keeps the whole window for what comes next
+      if (document.documentElement.classList.contains('mcp-ask-capturing')) {
+        return;
+      }
+
       hostSize(launchers.some((launcher) => launcher.root.dataset.state !== 'idle') ? 'bar' : 'button');
     });
 
@@ -4461,7 +6288,8 @@
     const link = event.target.closest('a[href]');
     const modified = event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey;
 
-    if (link && !modified && !event.defaultPrevented && !link.getAttribute('href').startsWith('#')) {
+    // A file to download stays a download; the conversation stays open
+    if (link && !modified && !event.defaultPrevented && !link.getAttribute('href').startsWith('#') && !link.hasAttribute('download')) {
       event.preventDefault();
       leave(link.href);
     }
@@ -4470,6 +6298,11 @@
   messages.push(...restore());
   messages.forEach(show);
   sync();
+
+  // A chat with a person goes on from the page before
+  if (live) {
+    livePoll();
+  }
 
   // Embedded: the other website's page may show the frame now, as big as the button
   if (embed) {

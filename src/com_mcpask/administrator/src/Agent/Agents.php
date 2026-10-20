@@ -80,25 +80,59 @@ final class Agents
     }
 
     /**
-     * The agents a visitor may meet: published, of a kind that is there, for the page's language
-     * and the visitor's access levels.
+     * The agents a visitor may meet: published, of a kind that is there, for the page's language,
+     * the visitor's access levels and, when the agent is kept to some user groups (0.19.1), one of
+     * the visitor's groups (a group counts with the groups under it).
      *
-     * @param   int[]  $levels
+     * @param   int[]       $levels
+     * @param   int[]|null  $groups  The visitor's groups with those above them; null for the
+     *                               visitor of this request
      *
      * @return  object[]
      */
-    public function active(string $language, array $levels): array
+    public function active(string $language, array $levels, ?array $groups = null): array
     {
-        $types = self::types();
+        $types  = self::types();
+        $groups = $groups ?? self::visitorGroups();
 
-        return array_values(array_filter($this->all(), static function ($agent) use ($types, $language, $levels) {
+        return array_values(array_filter($this->all(), static function ($agent) use ($types, $language, $levels, $groups) {
             $languages = array_filter((array) $agent->params->get('languages', []));
 
             return (int) $agent->published === 1
                 && isset($types[$agent->type])
                 && (!$languages || \in_array('*', $languages, true) || \in_array($language, $languages, true))
-                && \in_array((int) $agent->params->get('access', 1), $levels, true);
+                && \in_array((int) $agent->params->get('access', 1), $levels, true)
+                && self::allowsGroups($agent, $groups);
         }));
+    }
+
+    /**
+     * Whether an agent kept to user groups lets one of these in; one kept to none lets everyone in.
+     *
+     * @param   int[]  $groups
+     */
+    public static function allowsGroups(object $agent, array $groups): bool
+    {
+        $wanted = array_values(array_filter(array_map('intval', (array) $agent->params->get('groups', []))));
+
+        return !$wanted || (bool) array_intersect($wanted, $groups);
+    }
+
+    /**
+     * The groups of the visitor of this request, with the groups above them (Public for everyone,
+     * the guest group for those not signed in).
+     *
+     * @return  int[]
+     */
+    private static function visitorGroups(): array
+    {
+        try {
+            $user = Factory::getApplication()->getIdentity();
+        } catch (\Throwable) {
+            $user = null;
+        }
+
+        return $user ? array_map('intval', $user->getAuthorisedGroups()) : [1];
     }
 
     /** Agents passed on one after another at most, so that two agents never send a visitor back and forth. */

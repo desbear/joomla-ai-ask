@@ -2,6 +2,80 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.1.0 (new)
+
+- **A lean live chat in AI Ask's own window**, a package of its own (`pkg_askdesk`, see docs/askdesk.md): visitors
+  chat with people where they were asking questions, with what they asked the AI and the page handed over.
+- **Translated both ways by AI**: each side writes in its own language; every message is kept as written and
+  translated, and either side can see the words first written. A glossary keeps product names as they are.
+  Messages are kept at once in the order written and translated afterwards; those already in the reader's language
+  (told on the server by their letters) are not translated at all; translating has a model of its own with reasoning
+  at its least; Chrome's own translation shows first where it can.
+- **A console for the people answering**, a page of the site that works on a phone: chats waiting, one's own, others',
+  messages left; taking a chat (one person gets it), online, busy or away, one's own language, sound and
+  notifications, unread counts. Polling, no server of its own.
+- **Suggested replies beside the chat**: pages of AI Ask's index that its AI judges, strictly, to answer the visitor's
+  latest message, each with a reply drafted from it to put in the box and change; none when none does.
+- **The visitor's history**, signed-in visitors only: their earlier chats, and their questions to AI Ask.
+- **Short links and article cards**: links to the site's articles (in any of the site's address forms) are made short, and shown to the visitor as cards
+  with the article's title, first words (translated) and picture.
+- **AI search for the people answering**, above the suggested replies.
+- **Guests say who they are first**: a name and an e-mail (required), a company (optional), before a chat starts.
+- **Stickers**: packs of small pictures (moving ones too) managed in the back end, for both sides or staff only, sent
+  from a picker beside the box.
+- **Typing dots** on both sides, each message after a moment of dots, and messages that pop in.
+- **Rating chats**: when a chat ends the visitor rates it in a window of its own, the pet of the person who answered
+  bowing thanks; what is rated (stars, thumbs, 0–10, choices) is set in the Options; the averages on the dashboard.
+- **Awaiting reply**: an inbox filter for the visitors who wrote last and were not answered, the longest waiting first.
+- **Ending a chat asks once more**, in warning colours, while AI reads the chat: when it looks done the button turns
+  calm; when something is left (a question not answered, a promise not kept) it says what.
+- **People answering show themselves**: a name and a face (a pet of AI Ask, or a picture) for each, set in the back
+  end, shown to visitors beside their messages and in the console.
+- **Files in chats**: pictures (1 MB), videos and documents (10 MB) from both sides, by the paperclip, dropped on the
+  chat or pasted; pictures made smaller in the browser first (1920 px, WebP), checked for what they are; pictures
+  open whole, videos play, documents download with their size; each says the days it is kept (30), then it is deleted.
+  **Files** in the back end lists them with who sent each.
+- **Showing the screen**: visitors take a screenshot of the page (or choose a picture of their own) and mark it up
+  before sending (pixelate what must not be seen, boxes, arrows, words) with Painterro (MIT), or record the tab for up
+  to 60 seconds and watch it before sending, in a window of its own so pages can change while recording. The chat
+  window steps aside meanwhile.
+- **A library in Dropfiles**: each person answering has a folder, and there is a shared one, for files to send again
+  from the console; in a category for registered users only, so AI Ask does not read it. Files sent in a chat can be
+  kept there too.
+- **The chat by e-mail**: when a chat ends the visitor is sent it as a PDF, in the words they read.
+- **Only the people chosen answer**: a super user makes members people answering (no group permission); they set
+  their name and face in the console too. The back end shows each one's chats, waits and ratings.
+- **Messages left are answered by e-mail**: the reply, translated, opens in one's own mail program, and is kept.
+- **Office hours, days closed, and no one there**: a message to leave (answered by e-mail), other agents, or both.
+- **Kept only for signed-in visitors**, for the days set, and they are told so; guests' chats are gone an hour after
+  they end. Nothing by IP address.
+
+## AI Ask for Joomla 0.20.0
+
+- **Chats with people in the window** (for AI Ask Desk): a new card, `chat`, after which what the visitor writes goes
+  to the person answering; their messages show with their name and, when translated, the words they wrote. The chat
+  goes on from page to page and comes back into view when someone writes.
+- **Translating for agents**: `Ask\Translator` translates a message with the site's AI service and tells its language.
+- **Suggested replies and a visitor's questions, for AI Ask Desk**: `Ask\Suggester` (the index searched, each page
+  judged by the AI for whether it answers, a reply drafted from those that do) and `Ask\VisitorQuestions` (a
+  signed-in visitor's questions in the log).
+- **A new moment for pets, Bowing thanks**, played when a visitor rates a chat with a person (AI Ask Desk).
+- **Office hours shared by agents**: `Agent\OfficeHours` (LiveChat's, unchanged).
+- **Showing the screen to a person** (for AI Ask Desk): a button beside the paperclip in a chat with a person, for
+  screenshots marked up and recordings of the tab, made by a script the chat names (from the same site). Embedded,
+  the frame may capture the page (`display-capture`) and the page puts it aside meanwhile; links to other websites
+  open in a new tab with the conversation left open.
+- **Talk to a person** goes to the first agent that passes visitors on to people (one telling whether they answer
+  now), LiveChat or AI Ask Desk.
+
+## AI Ask for Joomla 0.19.1
+
+- **Agents kept to user groups**: an agent can be kept to some user groups (a group counts with the groups under it).
+  Others do not see it listed, are not offered it by the AI or passed to it by another agent, and cannot start or
+  go on with it. The list of agents marks those kept to groups. None chosen: everyone the access level lets in.
+- Pets page: **Delete** is in the toolbar beside New, as in Joomla's own lists (it asks to choose pets first and
+  confirms); deleting cleaning pets returns to their tab.
+
 ## AI Ask for Joomla 0.19.0
 
 - **Documents answered from, with the site's pages.** A new plugin, **AI Ask - Dropfiles documents**

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+	<inlinehelp button="show"/>
+	<fieldset name="desk" label="COM_ASKDESK_CONFIG_DESK" description="COM_ASKDESK_CONFIG_DESK_DESC">
+		<field name="staff_language" type="language" client="site" default=""
+			label="COM_ASKDESK_CONFIG_STAFF_LANGUAGE" description="COM_ASKDESK_CONFIG_STAFF_LANGUAGE_DESC">
+			<option value="">COM_ASKDESK_CONFIG_STAFF_LANGUAGE_SITE</option>
+		</field>
+		<field name="translate" type="radio" layout="joomla.form.field.radio.switcher" default="1"
+			label="COM_ASKDESK_CONFIG_TRANSLATE" description="COM_ASKDESK_CONFIG_TRANSLATE_DESC">
+			<option value="0">JNO</option>
+			<option value="1">JYES</option>
+		</field>
+		<field name="translate_model" type="text" filter="string" showon="translate:1" hint="gpt-4.1-mini"
+			label="COM_ASKDESK_CONFIG_TRANSLATE_MODEL" description="COM_ASKDESK_CONFIG_TRANSLATE_MODEL_DESC" />
+		<field name="translate_effort" type="list" default="minimal" showon="translate:1"
+			label="COM_ASKDESK_CONFIG_TRANSLATE_EFFORT" description="COM_ASKDESK_CONFIG_TRANSLATE_EFFORT_DESC">
+			<option value="minimal">COM_ASKDESK_CONFIG_TRANSLATE_EFFORT_MINIMAL</option>
+			<option value="none">COM_ASKDESK_CONFIG_TRANSLATE_EFFORT_NONE</option>
+			<option value="low">low</option>
+			<option value="">COM_ASKDESK_CONFIG_TRANSLATE_EFFORT_MODEL</option>
+		</field>
+		<field name="browser_translate" type="radio" layout="joomla.form.field.radio.switcher" default="1" showon="translate:1"
+			label="COM_ASKDESK_CONFIG_BROWSER_TRANSLATE" description="COM_ASKDESK_CONFIG_BROWSER_TRANSLATE_DESC">
+			<option value="0">JNO</option>
+			<option value="1">JYES</option>
+		</field>
+		<field name="quick_translate" type="list" default="" showon="translate:1"
+			label="COM_ASKDESK_CONFIG_QUICK" description="COM_ASKDESK_CONFIG_QUICK_DESC">
+			<option value="">COM_ASKDESK_CONFIG_QUICK_OFF</option>
+			<option value="google">COM_ASKDESK_CONFIG_QUICK_GOOGLE</option>
+		</field>
+		<field name="google_key" type="password" filter="string" autocomplete="off" showon="translate:1[AND]quick_translate:google"
+			label="COM_ASKDESK_CONFIG_GOOGLE_KEY" description="COM_ASKDESK_CONFIG_GOOGLE_KEY_DESC" />
+		<field name="quick_seconds" type="number" default="3" min="1" max="20" filter="integer" showon="translate:1[AND]quick_translate:google"
+			label="COM_ASKDESK_CONFIG_QUICK_SECONDS" description="COM_ASKDESK_CONFIG_QUICK_SECONDS_DESC" />
+		<field name="glossary" type="textarea" rows="6" filter="string" showon="translate:1"
+			label="COM_ASKDESK_CONFIG_GLOSSARY" description="COM_ASKDESK_CONFIG_GLOSSARY_DESC" hint="AI Ask&#10;雲端主機 = cloud host" />
+		<field name="idle_minutes" type="number" default="15" min="3" max="240" filter="integer"
+			label="COM_ASKDESK_CONFIG_IDLE" description="COM_ASKDESK_CONFIG_IDLE_DESC" />
+		<field name="sound" type="radio" layout="joomla.form.field.radio.switcher" default="1"
+			label="COM_ASKDESK_CONFIG_SOUND" description="COM_ASKDESK_CONFIG_SOUND_DESC">
+			<option value="0">JNO</option>
+			<option value="1">JYES</option>
+		</field>
+	</fieldset>
+	<fieldset name="privacy" label="COM_ASKDESK_CONFIG_PRIVACY" description="COM_ASKDESK_CONFIG_PRIVACY_DESC">
+		<field name="keep_days" type="number" default="365" min="1" max="3650" filter="integer"
+			label="COM_ASKDESK_CONFIG_KEEP_DAYS" description="COM_ASKDESK_CONFIG_KEEP_DAYS_DESC" />
+		<field name="notice_member" type="textarea" rows="2" filter="string"
+			label="COM_ASKDESK_CONFIG_NOTICE_MEMBER" description="COM_ASKDESK_CONFIG_NOTICE_MEMBER_DESC" />
+		<field name="notice_guest" type="textarea" rows="2" filter="string"
+			label="COM_ASKDESK_CONFIG_NOTICE_GUEST" description="COM_ASKDESK_CONFIG_NOTICE_GUEST_DESC" />
+		<field name="transcript" type="radio" layout="joomla.form.field.radio.switcher" default="1"
+			label="COM_ASKDESK_CONFIG_TRANSCRIPT" description="COM_ASKDESK_CONFIG_TRANSCRIPT_DESC">
+			<option value="0">JNO</option>
+			<option value="1">JYES</option>
+		</field>
+		<field name="privacy_url" type="url" filter="url" validate="url"
+			label="COM_ASKDESK_CONFIG_PRIVACY_URL" description="COM_ASKDESK_CONFIG_PRIVACY_URL_DESC" />
+	</fieldset>
+	<fieldset name="library" label="COM_ASKDESK_CONFIG_LIBRARY" description="COM_ASKDESK_CONFIG_LIBRARY_DESC">
+		<field name="library_root" type="sql" default="0" filter="integer" key_field="value" value_field="text"
+			query="SELECT id AS value, CONCAT(REPEAT('- ', level - 1), title) AS text FROM #__categories WHERE extension = 'com_dropfiles' AND published = 1 ORDER BY lft"
+			label="COM_ASKDESK_CONFIG_LIBRARY_ROOT" description="COM_ASKDESK_CONFIG_LIBRARY_ROOT_DESC">
+			<option value="0">COM_ASKDESK_CONFIG_LIBRARY_ROOT_AUTO</option>
+		</field>
+	</fieldset>
+	<fieldset name="rating" label="COM_ASKDESK_CONFIG_RATING" description="COM_ASKDESK_CONFIG_RATING_DESC">
+		<field name="rating" type="radio" layout="joomla.form.field.radio.switcher" default="1"
+			label="COM_ASKDESK_CONFIG_RATING_ON" description="COM_ASKDESK_CONFIG_RATING_ON_DESC">
+			<option value="0">JNO</option>
+			<option value="1">JYES</option>
+		</field>
+		<field name="rating_title" type="text" maxlength="200" filter="string" showon="rating:1"
+			label="COM_ASKDESK_CONFIG_RATING_TITLE" description="COM_ASKDESK_CONFIG_RATING_TITLE_DESC" />
+		<field name="rating_dimensions" type="subform" multiple="true" min="0" max="8" showon="rating:1"
+			layout="joomla.form.field.subform.repeatable" buttons="add,remove,move"
+			label="COM_ASKDESK_CONFIG_RATING_DIMENSIONS" description="COM_ASKDESK_CONFIG_RATING_DIMENSIONS_DESC">
+			<form>
+				<field name="label" type="text" maxlength="100" filter="string" required="true"
+					label="COM_ASKDESK_CONFIG_RATING_LABEL" hint="COM_ASKDESK_CONFIG_RATING_LABEL_HINT" />
+				<field name="type" type="list" default="stars"
+					label="COM_ASKDESK_CONFIG_RATING_TYPE">
+					<option value="stars">COM_ASKDESK_CONFIG_RATING_STARS</option>
+					<option value="thumbs">COM_ASKDESK_CONFIG_RATING_THUMBS</option>
+					<option value="scale">COM_ASKDESK_CONFIG_RATING_SCALE</option>
+					<option value="choice">COM_ASKDESK_CONFIG_RATING_CHOICE</option>
+				</field>
+				<field name="options" type="textarea" rows="3" filter="string" showon="type:choice"
+					label="COM_ASKDESK_CONFIG_RATING_OPTIONS" description="COM_ASKDESK_CONFIG_RATING_OPTIONS_DESC" />
+				<field name="required" type="radio" layout="joomla.form.field.radio.switcher" default="0"
+					label="COM_ASKDESK_CONFIG_RATING_REQUIRED">
+					<option value="0">JNO</option>
+					<option value="1">JYES</option>
+				</field>
+			</form>
+		</field>
+		<field name="rating_comment" type="radio" layout="joomla.form.field.radio.switcher" default="1" showon="rating:1"
+			label="COM_ASKDESK_CONFIG_RATING_COMMENT" description="COM_ASKDESK_CONFIG_RATING_COMMENT_DESC">
+			<option value="0">JNO</option>
+			<option value="1">JYES</option>
+		</field>
+	</fieldset>
+	<fieldset name="permissions" label="JCONFIG_PERMISSIONS_LABEL" description="JCONFIG_PERMISSIONS_DESC">
+		<field name="rules" type="rules" label="JCONFIG_PERMISSIONS_LABEL" validate="rules" filter="rules" component="com_askdesk" section="component" />
+	</fieldset>
+</config>

@@ -173,7 +173,7 @@ Factory::getApplication()->getDocument()->getWebAssetManager()->addInlineStyle('
 							<div class="fw-semibold">
 								<?php echo $e($row->title); ?>
 								<?php if ($row->language !== '*' && $row->language !== '') : ?><span class="badge bg-light text-dark"><?php echo $e($row->language); ?></span><?php endif; ?>
-								<?php if ($row->status !== 'ok') : ?><span class="badge bg-warning text-dark" title="<?php echo $e($row->message); ?>"><?php echo Text::_('COM_MCPASK_PAGES_STATUS_PENDING'); ?></span><?php endif; ?>
+								<?php if ($row->status !== 'ok') : ?><span class="badge bg-warning" title="<?php echo $e($row->message); ?>"><?php echo Text::_('COM_MCPASK_PAGES_STATUS_PENDING'); ?></span><?php endif; ?>
 							</div>
 							<div class="small text-truncate mcpask-url"><a href="<?php echo $e($row->url); ?>" target="_blank" rel="noopener noreferrer"><?php echo $e($row->url); ?></a></div>
 							<?php if ($row->status !== 'ok' && $row->message !== '') : ?><div class="small text-danger"><?php echo $e($row->message); ?></div><?php endif; ?>
@@ -223,7 +223,7 @@ Factory::getApplication()->getDocument()->getWebAssetManager()->addInlineStyle('
 		<h2 class="h5"><?php echo $e($group['label']); ?></h2>
 		<p class="small">
 			<span class="badge bg-success"><?php echo Text::sprintf('COM_MCPASK_FILES_COUNT_READ', $read); ?></span>
-			<span class="badge bg-warning text-dark"><?php echo Text::sprintf('COM_MCPASK_FILES_COUNT_WAITING', \count($group['files']) - $read - $skipped); ?></span>
+			<span class="badge bg-warning"><?php echo Text::sprintf('COM_MCPASK_FILES_COUNT_WAITING', \count($group['files']) - $read - $skipped); ?></span>
 			<span class="badge bg-secondary"><?php echo Text::sprintf('COM_MCPASK_FILES_COUNT_SKIPPED', $skipped); ?></span>
 		</p>
 		<?php if ($group['error'] !== '') : ?>
@@ -259,7 +259,7 @@ Factory::getApplication()->getDocument()->getWebAssetManager()->addInlineStyle('
 									<?php echo $fileSize($file['size']); ?>
 									<?php if ($file['folder'] !== '') : ?>· <?php echo $e($file['folder']); ?><?php endif; ?>
 									· #<?php echo (int) $file['id']; ?>
-									<?php if ($file['given']) : ?><span class="badge bg-info text-dark"><?php echo Text::_('COM_MCPASK_FILES_HAS_TEXT'); ?></span><?php endif; ?>
+									<?php if ($file['given']) : ?><span class="badge bg-info"><?php echo Text::_('COM_MCPASK_FILES_HAS_TEXT'); ?></span><?php endif; ?>
 								</div>
 								<?php if ($doc && (int) $doc->chunks) : ?>
 									<details data-passages="<?php echo $e(Route::_('index.php?option=com_mcpask&task=pages.passages&format=raw&id=' . (int) $doc->id . '&' . Session::getFormToken() . '=1', false)); ?>">
@@ -292,7 +292,7 @@ Factory::getApplication()->getDocument()->getWebAssetManager()->addInlineStyle('
 								<?php endif; ?>
 							</td>
 							<td>
-								<span class="badge bg-<?php echo $state[0]; ?><?php echo $state[0] === 'warning' ? ' text-dark' : ''; ?>"><?php echo $e($state[1]); ?></span>
+								<span class="badge bg-<?php echo $state[0]; ?>"><?php echo $e($state[1]); ?></span>
 								<?php if ($doc) : ?><div class="small text-muted text-nowrap"><?php echo HTMLHelper::_('date', $doc->checked, Text::_('DATE_FORMAT_LC5')); ?></div><?php endif; ?>
 								<?php if ($doc && $doc->status !== 'ok' && $doc->message !== '') : ?><div class="small text-danger"><?php echo $e($doc->message); ?></div><?php endif; ?>
 							</td>

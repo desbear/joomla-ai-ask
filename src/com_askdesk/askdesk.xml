@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<extension type="component" method="upgrade">
+	<name>com_askdesk</name>
+	<author>GSS</author>
+	<creationDate>2026-10</creationDate>
+	<copyright>(C) 2026 GSS</copyright>
+	<license>GNU General Public License version 2 or later; see LICENSE</license>
+	<version>0.1.0</version>
+	<description>COM_ASKDESK_XML_DESCRIPTION</description>
+	<namespace path="src">Gss\Component\Askdesk</namespace>
+
+	<install>
+		<sql>
+			<file driver="mysql" charset="utf8">sql/install.mysql.utf8.sql</file>
+			<file driver="postgresql" charset="utf8">sql/install.postgresql.utf8.sql</file>
+		</sql>
+	</install>
+	<uninstall>
+		<sql>
+			<file driver="mysql" charset="utf8">sql/uninstall.mysql.utf8.sql</file>
+			<file driver="postgresql" charset="utf8">sql/uninstall.postgresql.utf8.sql</file>
+		</sql>
+	</uninstall>
+	<update>
+		<schemas>
+			<schemapath type="mysql">sql/updates/mysql</schemapath>
+			<schemapath type="postgresql">sql/updates/postgresql</schemapath>
+		</schemas>
+	</update>
+
+	<files folder="site">
+		<folder>src</folder>
+		<folder>tmpl</folder>
+	</files>
+	<languages folder="site/language">
+		<language tag="en-GB">en-GB/com_askdesk.ini</language>
+		<language tag="zh-TW">zh-TW/com_askdesk.ini</language>
+	</languages>
+
+	<media destination="com_askdesk" folder="media">
+		<filename>joomla.asset.json</filename>
+		<filename>recorder.html</filename>
+		<folder>css</folder>
+		<folder>js</folder>
+		<folder>vendor</folder>
+	</media>
+
+	<administration>
+		<menu img="class:headset">COM_ASKDESK</menu>
+		<submenu>
+			<menu link="option=com_askdesk&amp;view=dashboard">COM_ASKDESK_SUBMENU_DASHBOARD</menu>
+			<menu link="option=com_askdesk&amp;view=staff">COM_ASKDESK_SUBMENU_STAFF</menu>
+			<menu link="option=com_askdesk&amp;view=files">COM_ASKDESK_SUBMENU_FILES</menu>
+			<menu link="option=com_askdesk&amp;view=stickers">COM_ASKDESK_SUBMENU_STICKERS</menu>
+		</submenu>
+		<files folder="administrator">
+			<filename>access.xml</filename>
+			<filename>config.xml</filename>
+			<folder>forms</folder>
+			<folder>services</folder>
+			<folder>sql</folder>
+			<folder>src</folder>
+			<folder>tmpl</folder>
+		</files>
+		<languages folder="administrator/language">
+			<language tag="en-GB">en-GB/com_askdesk.ini</language>
+			<language tag="en-GB">en-GB/com_askdesk.sys.ini</language>
+			<language tag="zh-TW">zh-TW/com_askdesk.ini</language>
+			<language tag="zh-TW">zh-TW/com_askdesk.sys.ini</language>
+		</languages>
+	</administration>
+</extension>

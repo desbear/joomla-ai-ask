@@ -1,0 +1,3349 @@
+/**
+ * @package     AI Ask Desk for Joomla
+ * @subpackage  com_askdesk
+ *
+ * @copyright   (C) 2026 GSS
+ * @license     GNU General Public License version 2 or later; see LICENSE
+ */
+
+// The console of the people answering: the chats waiting and answered, one chat open, one's
+// status and language. It asks the desk what is new every two seconds while in view, less often
+// when not; a new chat or message rings and, when allowed, shows a notification.
+((window, document) => {
+  'use strict';
+
+  const root = document.querySelector('[data-askdesk]');
+
+  if (!root) {
+    return;
+  }
+
+  let config;
+
+  try {
+    config = JSON.parse(root.dataset.askdesk);
+  } catch (error) {
+    return;
+  }
+
+  const t = config.strings || {};
+  const locale = document.documentElement.lang || undefined;
+
+  const el = (tag, className, text) => {
+    const node = document.createElement(tag);
+
+    if (className) {
+      node.className = className;
+    }
+
+    if (text !== undefined) {
+      node.textContent = text;
+    }
+
+    return node;
+  };
+
+  const button = (className, text, onClick) => {
+    const node = el('button', className, text);
+
+    node.type = 'button';
+    node.addEventListener('click', onClick);
+
+    return node;
+  };
+
+  const post = async (url, body) => {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-CSRF-Token': config.token },
+      body: JSON.stringify(body || {}),
+      credentials: 'same-origin',
+    });
+    const data = await response.json().catch(() => null);
+
+    if (!data) {
+      throw new Error(t.error);
+    }
+
+    return data;
+  };
+
+  const timeOf = (iso) => {
+    const date = new Date(iso);
+
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+
+    const today = new Date().toDateString() === date.toDateString();
+
+    return new Intl.DateTimeFormat(locale, today ? { hour: '2-digit', minute: '2-digit' } : { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date);
+  };
+
+  // Plain text, with addresses as links
+  const linked = (text) => {
+    const box = el('div', 'askdesk-text');
+    const parts = String(text || '').split(/(https?:\/\/[^\s<>"']+)/g);
+
+    parts.forEach((part, index) => {
+      if (index % 2) {
+        const link = el('a', '', part);
+
+        link.href = part;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        box.append(link);
+      } else {
+        box.append(document.createTextNode(part));
+      }
+    });
+
+    return box;
+  };
+
+  // Outline icons, drawn with the text's colour
+  const ICONS = {
+    headset: 'M4 14v-3a8 8 0 0 1 16 0v3M4 14a2 2 0 0 0 2 2h1v-5H6a2 2 0 0 0-2 2zm16 0a2 2 0 0 1-2 2h-1v-5h1a2 2 0 0 1 2 2zm-3 2v1a3 3 0 0 1-3 3h-2',
+    send: 'M10 14L21 3M21 3l-6.5 18a.55.55 0 0 1-1 0L10 14l-7-3.5a.55.55 0 0 1 0-1L21 3',
+    link: 'M9 15l6-6M11 6l.5-.5a5 5 0 0 1 7 7l-.5.5M13 18l-.5.5a5 5 0 0 1-7-7l.5-.5',
+    sparkles: 'M16 18a2 2 0 0 1 2 2 2 2 0 0 1 2-2 2 2 0 0 1-2-2 2 2 0 0 1-2 2zm0-12a2 2 0 0 1 2 2 2 2 0 0 1 2-2 2 2 0 0 1-2-2 2 2 0 0 1-2 2zM9 18a6 6 0 0 1 6-6 6 6 0 0 1-6-6 6 6 0 0 1-6 6 6 6 0 0 1 6 6z',
+    language: 'M4 5h7M9 3v2c0 4.4-2.2 8-5 8M5 9c0 2.1 2.9 3.9 6.6 4M12 20l4-9 4 9M19.1 18h-6.2',
+    sidebar: 'M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM9 4v16',
+    bulb: 'M3 12h1m8-9v1m8 8h1M5.6 5.6l.7.7m12.1-.7l-.7.7M9 16a5 5 0 1 1 6 0 3.5 3.5 0 0 0-1 3 2 2 0 0 1-4 0 3.5 3.5 0 0 0-1-3M9.7 17h4.6',
+    history: 'M12 8v4l2 2M3.05 11a9 9 0 1 1 .5 4m-.5 5v-5h5',
+    external: 'M12 6H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6M11 13l9-9M15 4h5v5',
+    up: 'M12 19V5M5 12l7-7 7 7',
+    enter: 'M9 10l-5 5 5 5M20 4v7a4 4 0 0 1-4 4H4',
+    down: 'M6 9l6 6 6-6',
+    globe: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3.6 9h16.8M3.6 15h16.8M11.5 3a17 17 0 0 0 0 18M12.5 3a17 17 0 0 1 0 18',
+    panel: 'M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM15 4v16M11 10l-2 2 2 2',
+    clip: 'M15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13',
+    file: 'M14 3v4a1 1 0 0 0 1 1h4M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z',
+    download: 'M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2M7 11l5 5 5-5M12 4v12',
+    bell: 'M10 5a2 2 0 1 1 4 0 7 7 0 0 1 4 6v3a4 4 0 0 0 2 3H4a4 4 0 0 0 2-3v-3a7 7 0 0 1 4-6M9 17v1a3 3 0 0 0 6 0v-1',
+    folder: 'M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2',
+    photo: 'M15 8h.01M3 6a3 3 0 0 1 3-3h12a3 3 0 0 1 3 3v12a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zm0 10l5-5c.9-.9 2.1-.9 3 0l5 5m-2-2l1-1c.9-.9 2.1-.9 3 0l2 2',
+    video: 'M15 10l4.6-2.3A1 1 0 0 1 21 8.6v6.8a1 1 0 0 1-1.4.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
+    check: 'M5 12l5 5L20 7',
+    alert: 'M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z',
+    chat: 'M8 9h8M8 13h6M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-5l-5 3v-3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z',
+  };
+
+  const icon = (name) => {
+    const box = el('span', 'askdesk-icon');
+
+    box.setAttribute('aria-hidden', 'true');
+    box.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="${ICONS[name]}"/></svg>`;
+
+    return box;
+  };
+
+  const pill = (text, kind = 'wait') => el('span', `askdesk-pill askdesk-pill--${kind}`, text);
+
+  // ---------- Opening and closing, eased ----------
+
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
+
+  // A <details> opens and closes by growing and shrinking, its content fading; its state
+  // (data-state) changes at once, so the arrow turns with it
+  const smooth = (details) => {
+    const summary = details.querySelector(':scope > summary');
+    let moving = null;
+
+    details.dataset.state = details.open ? 'open' : 'closed';
+
+    summary.addEventListener('click', (event) => {
+      event.preventDefault();
+
+      const opening = details.dataset.state !== 'open';
+      const from = details.getBoundingClientRect().height;
+
+      details.dataset.state = opening ? 'open' : 'closed';
+
+      if (moving) {
+        moving.cancel();
+      }
+
+      details.open = true;
+
+      if (reduced.matches) {
+        details.open = opening;
+
+        return;
+      }
+
+      // Where it ends: whole (within its own limits), or the summary alone
+      const to = opening ? details.getBoundingClientRect().height : summary.getBoundingClientRect().height + (details.offsetHeight - details.clientHeight);
+
+      details.style.overflow = 'hidden';
+      moving = details.animate([{ height: `${from}px` }, { height: `${to}px` }], { duration: opening ? 260 : 200, easing: EASE });
+
+      // What is inside fades in as it opens, out as it closes
+      [...details.children].filter((child) => child !== summary).forEach((child) => {
+        const fade = child.animate([{ opacity: opening ? 0 : 1 }, { opacity: opening ? 1 : 0 }], { duration: opening ? 320 : 160, easing: EASE, fill: 'both' });
+
+        fade.finished.then(() => fade.cancel(), () => {});
+      });
+
+      const current = moving;
+
+      current.finished.then(() => {
+        details.open = opening;
+        details.style.overflow = '';
+        moving = null;
+      }, () => {
+        // Turned the other way meanwhile: the next movement ends it
+      });
+    });
+
+    return details;
+  };
+
+  // Something that comes into view on a click rises and fades in
+  const rise = (node) => {
+    if (!reduced.matches && node && node.animate) {
+      node.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: EASE });
+    }
+
+    return node;
+  };
+
+  // One text for another (the original, the translation) in the same bubble: the bubble eases to
+  // its new size while the new words fade in
+  const swap = (box, before, after) => {
+    const from = box.getBoundingClientRect();
+
+    before.replaceWith(after);
+
+    if (reduced.matches) {
+      return;
+    }
+
+    const to = box.getBoundingClientRect();
+
+    box.animate([{ height: `${from.height}px`, width: `${from.width}px` }, { height: `${to.height}px`, width: `${to.width}px` }], { duration: 240, easing: EASE });
+    after.animate([{ opacity: 0, filter: 'blur(2px)' }, { opacity: 1, filter: 'none' }], { duration: 280, easing: EASE });
+  };
+
+  // ---------- Layout ----------
+
+  const bar = el('header', 'askdesk-bar');
+  const title = el('h1', 'askdesk-bar__title', document.title);
+  const statusSelect = el('select', 'askdesk-select');
+  const languageSelect = el('select', 'askdesk-select');
+  // Notifications: a bell, lit once they may be shown
+  const notify = button('askdesk-bell', '', () => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then(paintNotify);
+    }
+  });
+  const presence = el('p', 'askdesk-bar__staff');
+
+  ['online', 'busy', 'away'].forEach((status) => {
+    const option = el('option', '', t[status]);
+
+    option.value = status;
+    statusSelect.append(option);
+  });
+
+  (config.languages || []).forEach((language) => {
+    const option = el('option', '', language.name);
+
+    option.value = language.tag;
+    languageSelect.append(option);
+  });
+
+  statusSelect.setAttribute('aria-label', t.online);
+  languageSelect.setAttribute('aria-label', t.language);
+  languageSelect.hidden = !config.translate;
+
+  const paintNotify = () => {
+    const on = 'Notification' in window && Notification.permission === 'granted';
+
+    notify.hidden = !('Notification' in window) || Notification.permission === 'denied';
+    notify.classList.toggle('askdesk-bell--on', on);
+    notify.title = on ? t.notifyOn : t.notify;
+    notify.setAttribute('aria-label', notify.title);
+  };
+
+  paintNotify();
+
+  const tile = el('span', 'askdesk-tile');
+  const heading = el('div', 'askdesk-bar__heading');
+
+  tile.append(icon('headset'));
+  heading.append(title, presence);
+
+  // At the top of the side: the desk's card, as a logo would be
+  const brand = el('div', 'askdesk-brand');
+
+  brand.append(tile, heading);
+
+  // In the bar, at the far end: who one is
+  // In the bar, at the far end: who one is; a click to change how one shows oneself
+  const meFace = button('askdesk-me', '', () => openProfile());
+
+  const paintMeFace = (name, src) => {
+    meFace.replaceChildren();
+    meFace.title = `${name || ''} · ${t.profile}`;
+    meFace.setAttribute('aria-label', meFace.title);
+
+    if (src && /^(https?:|\/)/.test(src)) {
+      const picture = el('img', '');
+
+      picture.src = src;
+      picture.alt = '';
+      meFace.append(picture);
+    } else {
+      meFace.textContent = Array.from(String(name || '?').trim() || '?')[0].toUpperCase();
+    }
+  };
+
+  paintMeFace(config.meName, config.meFace);
+
+  notify.append(icon('bell'));
+  const main = el('div', 'askdesk-main');
+  const stage = el('div', 'askdesk-stage');
+  const inbox = el('nav', 'askdesk-inbox');
+  const splitter = el('div', 'askdesk-splitter');
+  const pane = el('section', 'askdesk-room');
+  const empty = el('p', 'askdesk-room__empty', t.pick);
+  const opener = button('askdesk-button askdesk-button--text askdesk-bar__inbox', '', () => setSide(state.lastSide || SIDE_DEFAULT));
+
+  opener.append(icon('sidebar'));
+  opener.setAttribute('aria-label', t.showInbox);
+  opener.title = t.showInbox;
+  // AI search of the site's pages, for the people answering: at the top of the side panel, the
+  // answers below it
+  const search = el('form', 'askdesk-search');
+  const searchField = el('input', 'askdesk-search__field');
+  const results = el('div', 'askdesk-search__results');
+
+  searchField.type = 'search';
+  searchField.placeholder = t.searchPlaceholder;
+  searchField.setAttribute('aria-label', t.search);
+  search.setAttribute('role', 'search');
+  search.append(icon('sparkles'), searchField);
+  results.hidden = true;
+  // Whether visitors asking for a person get a chat now, and why not (hours, a day closed, no one online)
+  const reach = el('span', 'askdesk-reach');
+
+  reach.hidden = true;
+  reach.setAttribute('role', 'status');
+  // One's own status: a large pill, its colour the status's, that opens a menu of the statuses
+  const presenceButton = el('div', 'askdesk-presence');
+  const presenceText = el('span', 'askdesk-presence__text', t.online);
+  const presenceTrigger = button('askdesk-presence__button', '', () => {});
+
+  // A list to choose from, drawn here: a button, and below it a menu that grows down, the current one
+  // ticked (the list kept, unseen, as the value: its change is what happens on a choice)
+  const dropdown = (host, trigger, select, decorate = () => {}) => {
+    const menu = el('div', 'askdesk-menu');
+
+    menu.setAttribute('role', 'menu');
+    trigger.setAttribute('aria-haspopup', 'menu');
+    trigger.setAttribute('aria-expanded', 'false');
+    select.hidden = true;
+    host.classList.add('askdesk-dropdown');
+
+    const close = () => {
+      host.classList.remove('askdesk-dropdown--open');
+      trigger.setAttribute('aria-expanded', 'false');
+    };
+
+    const open = () => {
+      menu.replaceChildren();
+      [...select.options].forEach((option) => {
+        const current = option.value === select.value;
+        const item = button(`askdesk-menu__item${current ? ' askdesk-menu__item--on' : ''}`, '', () => {
+          close();
+          trigger.focus({ preventScroll: true });
+
+          if (!current) {
+            select.value = option.value;
+            select.dispatchEvent(new Event('change'));
+          }
+        });
+
+        item.setAttribute('role', 'menuitemradio');
+        item.setAttribute('aria-checked', String(current));
+        decorate(item, option);
+        item.append(el('span', 'askdesk-menu__label', option.textContent), icon('check'));
+        menu.append(item);
+      });
+
+      host.classList.add('askdesk-dropdown--open');
+      trigger.setAttribute('aria-expanded', 'true');
+      (menu.querySelector('.askdesk-menu__item--on') || menu.firstChild)?.focus({ preventScroll: true });
+    };
+
+    trigger.addEventListener('click', () => (host.classList.contains('askdesk-dropdown--open') ? close() : open()));
+
+    document.addEventListener('pointerdown', (event) => {
+      if (!host.contains(event.target)) {
+        close();
+      }
+    });
+
+    host.addEventListener('keydown', (event) => {
+      const items = [...menu.querySelectorAll('.askdesk-menu__item')];
+      const at = items.indexOf(document.activeElement);
+
+      if (event.key === 'Escape' && host.classList.contains('askdesk-dropdown--open')) {
+        close();
+        trigger.focus();
+      } else if (host.classList.contains('askdesk-dropdown--open') && (event.key === 'ArrowDown' || event.key === 'ArrowUp') && items.length) {
+        event.preventDefault();
+        items[(at + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length].focus();
+      }
+    });
+
+    host.append(menu, select);
+  };
+
+  // The language: a globe
+  const globe = el('div', 'askdesk-globe');
+  const globeButton = button('askdesk-globe__button', '', () => {});
+
+  presenceTrigger.append(el('i', 'askdesk-presence__dot'), presenceText, icon('down'));
+  presenceButton.append(presenceTrigger);
+  // Each status in the menu with its own coloured dot
+  dropdown(presenceButton, presenceTrigger, statusSelect, (item, option) => {
+    item.append(el('i', `askdesk-menu__dot askdesk-menu__dot--${option.value}`));
+  });
+  globeButton.append(icon('globe'));
+  globe.append(globeButton);
+  dropdown(globe, globeButton, languageSelect);
+  globe.hidden = !config.translate;
+
+  const paintPresence = (status) => {
+    const option = [...statusSelect.options].find((each) => each.value === status);
+
+    presenceButton.dataset.status = status;
+    root.dataset.status = status;
+    presenceText.textContent = option ? option.textContent : status;
+  };
+
+  const paintLanguage = () => {
+    const option = languageSelect.options[languageSelect.selectedIndex];
+
+    globeButton.title = option ? `${t.language}: ${option.textContent}` : t.language;
+    globeButton.setAttribute('aria-label', globeButton.title);
+  };
+
+  paintPresence('online');
+  paintLanguage();
+
+  // Behind the side, a deep wash of the status's colours drifting slowly (soft gradients moved as a
+  // whole, nothing redrawn); the work beside it stays white
+  const wash = el('span', 'askdesk__wash');
+
+  wash.setAttribute('aria-hidden', 'true');
+  // Whether visitors can chat now, said beside one's status
+  // The status switch is part of the desk's card at the top of the side; with the side folded away it
+  // comes to the start of the bar, where the card was
+  brand.append(presenceButton);
+  bar.append(opener, reach, el('span', 'askdesk-bar__space'), globe, notify, meFace);
+
+  const paintReach = (visitors) => {
+    if (!visitors || !Array.isArray(visitors.agents)) {
+      reach.hidden = true;
+
+      return;
+    }
+
+    const agents = visitors.agents;
+    const why = [];
+
+    if (!agents.length) {
+      why.push(t.reachNoAgent);
+    } else if (!agents.some((agent) => agent.hours)) {
+      agents.forEach((agent) => why.push((agent.closedToday ? t.reachClosedDay : t.reachOutside).replace('%1$s', agent.title).replace('%2$s', `${agent.now} ${agent.zone}`)));
+    }
+
+    if (!visitors.online) {
+      why.push(t.reachNoOne);
+    }
+
+    const open = !why.length;
+    const text = open ? t.reachOpen : t.reachAway;
+
+    reach.hidden = false;
+    reach.className = `askdesk-reach askdesk-reach--${open ? 'open' : 'away'}`;
+    reach.title = open ? agents.map((agent) => `${agent.title} · ${agent.now} ${agent.zone}`).join('\n') : why.join('\n');
+
+    if (reach.dataset.text !== `${text}|${reach.title}`) {
+      reach.dataset.text = `${text}|${reach.title}`;
+      reach.replaceChildren(el('i', ''), el('span', '', text), ...(open ? [] : [el('small', '', why[0])]));
+    }
+  };
+
+  splitter.tabIndex = 0;
+  splitter.setAttribute('role', 'separator');
+  splitter.setAttribute('aria-orientation', 'vertical');
+  splitter.setAttribute('aria-label', t.resize);
+  splitter.title = t.resize;
+
+  pane.append(empty);
+  stage.append(bar, pane);
+
+  // What scrolls fades at an edge only where there is more beyond it: at the top once scrolled down,
+  // at the bottom until the end is reached
+  const fades = (box) => {
+    const paint = () => {
+      box.classList.toggle('askdesk-fade--top', box.scrollTop > 2);
+      box.classList.toggle('askdesk-fade--bottom', box.scrollTop + box.clientHeight < box.scrollHeight - 2);
+    };
+
+    box.addEventListener('scroll', paint, { passive: true });
+
+    if ('ResizeObserver' in window) {
+      new ResizeObserver(paint).observe(box);
+    }
+
+    new MutationObserver(() => window.requestAnimationFrame(paint)).observe(box, { childList: true, subtree: true });
+    paint();
+  };
+
+  fades(inbox);
+  main.append(wash, inbox, splitter, stage);
+  root.replaceChildren(main);
+
+  // The console is the whole window, like an application
+  document.documentElement.classList.add('askdesk-app');
+
+  // ---------- State ----------
+
+  const state = {
+    lastSide: 0,
+    me: null,
+    rooms: [],
+    open: 0,
+    after: 0,
+    detail: null,
+    messages: [],
+    unread: 0,
+    heard: new Set(),
+    first: true,
+  };
+
+  // ---------- The inbox's width: dragged, at most 30% of the window; narrower than 100px it folds away ----------
+
+  const SIDE = 'askdesk:side';
+  const SIDE_DEFAULT = 280;
+  const SIDE_MIN = 100;
+
+  const setSide = (width, keep = true) => {
+    const max = Math.max(SIDE_MIN, Math.round(main.clientWidth * 0.3));
+    const folded = width < SIDE_MIN;
+    const size = folded ? 0 : Math.min(Math.round(width), max);
+
+    if (!folded) {
+      state.lastSide = size;
+    }
+
+    main.style.setProperty('--askdesk-side', `${size}px`);
+    main.classList.toggle('askdesk-main--folded', folded);
+    opener.hidden = !folded;
+
+    if (folded && presenceButton.parentElement !== bar) {
+      opener.after(presenceButton);
+    } else if (!folded && presenceButton.parentElement !== brand) {
+      brand.append(presenceButton);
+    }
+    splitter.setAttribute('aria-valuenow', String(size));
+    splitter.setAttribute('aria-valuemax', String(max));
+
+    if (keep) {
+      try {
+        window.localStorage.setItem(SIDE, String(size));
+      } catch (error) {
+        // Not remembered
+      }
+    }
+  };
+
+  splitter.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    splitter.setPointerCapture(event.pointerId);
+    root.classList.add('askdesk--dragging');
+
+    const move = (moved) => setSide(moved.clientX - main.getBoundingClientRect().left, false);
+    const stop = (ended) => {
+      splitter.removeEventListener('pointermove', move);
+      splitter.removeEventListener('pointerup', stop);
+      splitter.removeEventListener('pointercancel', stop);
+      root.classList.remove('askdesk--dragging');
+      setSide(ended.clientX - main.getBoundingClientRect().left);
+    };
+
+    splitter.addEventListener('pointermove', move);
+    splitter.addEventListener('pointerup', stop);
+    splitter.addEventListener('pointercancel', stop);
+  });
+
+  splitter.addEventListener('keydown', (event) => {
+    const now = inbox.getBoundingClientRect().width;
+
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.preventDefault();
+      setSide(now + (event.key === 'ArrowLeft' ? -24 : 24));
+    }
+  });
+
+  window.addEventListener('resize', () => {
+    if (!main.classList.contains('askdesk-main--folded')) {
+      setSide(state.lastSide || SIDE_DEFAULT, false);
+    }
+  });
+
+  (() => {
+    let kept = SIDE_DEFAULT;
+
+    try {
+      const stored = window.localStorage.getItem(SIDE);
+
+      kept = stored === null ? SIDE_DEFAULT : Number(stored);
+    } catch (error) {
+      // The default
+    }
+
+    state.lastSide = kept >= SIDE_MIN ? kept : SIDE_DEFAULT;
+    setSide(Number.isFinite(kept) ? kept : SIDE_DEFAULT, false);
+  })();
+
+  // From the next frame on, folding eases (not as the page opens)
+  window.requestAnimationFrame(() => window.requestAnimationFrame(() => root.classList.add('askdesk--ready')));
+
+  let timer = 0;
+  let polling = false;
+
+  const later = (soon = false) => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(poll, soon ? 200 : document.hidden ? 8000 : 2000);
+  };
+
+  // ---------- Ringing ----------
+
+  let audio = null;
+
+  const ring = () => {
+    if (!config.sound) {
+      return;
+    }
+
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+
+      const tone = audio.createOscillator();
+      const gain = audio.createGain();
+
+      tone.frequency.value = 880;
+      gain.gain.setValueAtTime(0.0001, audio.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.2, audio.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.4);
+      tone.connect(gain).connect(audio.destination);
+      tone.start();
+      tone.stop(audio.currentTime + 0.45);
+    } catch (error) {
+      // No sound here
+    }
+  };
+
+  // Browsers let a page make sounds once it was touched
+  document.addEventListener('pointerdown', () => {
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+
+      if (audio.state === 'suspended') {
+        audio.resume();
+      }
+    } catch (error) {
+      // No sound here
+    }
+  }, { once: true });
+
+  const tell = (text) => {
+    ring();
+
+    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+      try {
+        const note = new Notification(document.title, { body: text, tag: 'askdesk' });
+
+        note.onclick = () => {
+          window.focus();
+          note.close();
+        };
+      } catch (error) {
+        // Not shown
+      }
+    }
+  };
+
+  const paintTitle = () => {
+    const count = state.rooms.reduce((sum, room) => sum + (room.status === 'waiting' ? 1 : 0) + (room.staff === config.me || !room.staff ? room.unread : 0), 0);
+
+    document.title = (count ? `(${count}) ` : '') + title.textContent;
+  };
+
+  // ---------- The inbox ----------
+
+  const groups = [
+    ['waiting', (room) => room.status === 'waiting'],
+    ['mine', (room) => room.status === 'active' && room.staff === config.me],
+    ['active', (room) => room.status === 'active' && room.staff !== config.me],
+    ['message', (room) => room.status === 'message'],
+    ['closed', (room) => room.status === 'closed'],
+  ];
+
+  // How long a visitor has waited for an answer
+  const waited = (iso) => {
+    const minutes = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
+
+    if (!iso || minutes < 1) {
+      return t.justNow;
+    }
+
+    return minutes < 60 ? t.minutes.replace('%s', minutes) : t.hours.replace('%s', Math.floor(minutes / 60));
+  };
+
+  // The inbox shows everything, or only the visitors waiting for an answer, longest first
+  const FILTER = 'askdesk:filter';
+
+  state.filter = (() => {
+    try {
+      return window.localStorage.getItem(FILTER) === 'awaiting' ? 'awaiting' : 'all';
+    } catch (error) {
+      return 'all';
+    }
+  })();
+
+  const setFilter = (filter) => {
+    // The white pill behind the tabs slides from the one left to the one chosen
+    state.pillFrom = state.filter;
+    state.filter = filter;
+
+    try {
+      window.localStorage.setItem(FILTER, filter);
+    } catch (error) {
+      // Not remembered
+    }
+
+    paintInbox();
+
+    if (!reduced.matches) {
+      inbox.querySelectorAll('.askdesk-item').forEach((item, index) => {
+        item.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 240, delay: Math.min(index, 8) * 30, easing: EASE, fill: 'backwards' });
+      });
+    }
+  };
+
+  // Which chats were waiting at the last look, so a new one lights up once (none on the first look);
+  // when each new one came, and when the count last rang
+  let knownWaiting = null;
+  const lit = new Map();
+  let rangAt = 0;
+
+  // The chats that ended: folded away unless opened, remembered
+  const ENDED = 'askdesk:ended';
+
+  state.endedOpen = (() => {
+    try {
+      return window.localStorage.getItem(ENDED) === '1';
+    } catch (error) {
+      return false;
+    }
+  })();
+
+  const paintInbox = () => {
+    inbox.replaceChildren(brand);
+
+    const awaiting = state.rooms.filter((room) => room.awaiting);
+    const waitingNow = new Set(awaiting.filter((room) => room.status !== 'closed').map((room) => `${room.id}|${room.since}`));
+    const fresh = knownWaiting ? new Set([...waitingNow].filter((key) => !knownWaiting.has(key))) : new Set();
+    const now = Date.now();
+
+    knownWaiting = waitingNow;
+
+    // The list is drawn again at every look: what is still playing goes on from where it was
+    fresh.forEach((key) => lit.set(key, now));
+    lit.forEach((at, key) => {
+      if (now - at > 2600 || !waitingNow.has(key)) {
+        lit.delete(key);
+      }
+    });
+
+    if (fresh.size) {
+      rangAt = now;
+    }
+
+    const ringFor = now - rangAt < 2400 ? now - rangAt : -1;
+
+    // The rows new this time, to slide in once they are in place
+    const arrived = [];
+    const filters = el('div', 'askdesk-filters');
+    const slider = el('span', `askdesk-filters__pill askdesk-filters__pill--${state.pillFrom || state.filter}`);
+
+    slider.setAttribute('aria-hidden', 'true');
+    filters.setAttribute('role', 'tablist');
+    filters.append(slider);
+
+    if (state.pillFrom && state.pillFrom !== state.filter) {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+        slider.className = `askdesk-filters__pill askdesk-filters__pill--${state.filter}`;
+      }));
+    }
+
+    state.pillFrom = '';
+
+    [['all', t.all, state.rooms.length], ['awaiting', t.awaiting, awaiting.length]].forEach(([name, label, count]) => {
+      const chip = button(`askdesk-filter${state.filter === name ? ' askdesk-filter--on' : ''}${name === 'awaiting' && count ? ' askdesk-filter--alert' : ''}`, '', () => setFilter(name));
+
+      chip.setAttribute('role', 'tab');
+      chip.setAttribute('aria-selected', String(state.filter === name));
+      const total = el('b', '', String(count));
+
+      chip.append(el('span', '', label), total);
+
+      // Someone new waiting: the count grows with a bell beside it that swings, then eases back.
+      // Drawn as a layer over the count, so nothing beside it moves
+      if (name === 'awaiting' && ringFor >= 0 && !reduced.matches) {
+        const ring = el('span', 'askdesk-filter__ring');
+        const bell = el('span', 'askdesk-filter__bell');
+
+        ring.setAttribute('aria-hidden', 'true');
+        bell.append(icon('bell'));
+        ring.append(bell, el('span', '', String(count)));
+        [ring, bell, bell.firstChild].forEach((part) => {
+          part.style.animationDelay = `-${ringFor}ms`;
+        });
+        total.append(ring);
+        total.classList.add('askdesk-filter__total--ringing');
+        ring.addEventListener('animationend', (event) => {
+          if (event.target === ring) {
+            ring.remove();
+            total.classList.remove('askdesk-filter__total--ringing');
+          }
+        });
+      }
+      filters.append(chip);
+    });
+
+    inbox.append(filters);
+
+    const visible = state.filter === 'awaiting'
+      ? [['awaiting', () => true, [...awaiting].sort((a, b) => String(a.since).localeCompare(String(b.since)))]]
+      : groups.map(([name, test]) => [name, test, state.rooms]);
+
+    visible.forEach(([name, test, pool]) => {
+      const rooms = pool.filter(test);
+
+      if (!rooms.length && name !== 'waiting' && name !== 'awaiting') {
+        return;
+      }
+
+      const section = el('section', `askdesk-group askdesk-group--${name}`);
+      const heading = el('h2', 'askdesk-group__title', name === 'awaiting' ? t.awaitingNote : `${t[name]} · ${rooms.length}`);
+      // Nobody waiting to be taken: the heading alone, with its nought
+      const empty = !rooms.length && name === 'waiting';
+
+      if (name === 'closed') {
+        // The ended ones, folded: what needs doing comes first
+        const fold = button(`askdesk-group__fold${state.endedOpen ? ' askdesk-group__fold--open' : ''}`, '', () => {
+          state.endedOpen = !state.endedOpen;
+
+          try {
+            window.localStorage.setItem(ENDED, state.endedOpen ? '1' : '0');
+          } catch (error) {
+            // Not remembered
+          }
+
+          paintInbox();
+        });
+
+        fold.setAttribute('aria-expanded', String(state.endedOpen));
+        fold.append(el('span', '', `${t[name]} · ${rooms.length}`), icon('down'));
+        heading.replaceChildren(fold);
+      } else if (empty) {
+        heading.textContent = t[name];
+        heading.append(el('span', 'askdesk-group__count', '0'));
+      }
+
+      section.append(heading);
+
+      if (name === 'closed' && !state.endedOpen) {
+        inbox.append(section);
+
+        return;
+      }
+
+      rooms.forEach((room) => {
+        // Waiting for an answer: a red light by the face, and a new one lights the whole row up once
+        const ringing = room.awaiting && room.status !== 'closed';
+        const litAt = lit.get(`${room.id}|${room.since}`);
+        const isNew = ringing && litAt !== undefined && !reduced.matches;
+        const item = button(`askdesk-item${room.id === state.open ? ' askdesk-item--open' : ''}${ringing ? ' askdesk-item--ringing' : ''}${isNew ? ' askdesk-item--fresh' : ''}`, '', () => openRoom(room.id));
+
+        if (isNew) {
+          item.style.animationDelay = `-${now - litAt}ms`;
+
+          // Slid in only the first time it is drawn
+          if (litAt === now) {
+            arrived.push(item);
+          }
+        }
+        const top = el('span', 'askdesk-item__top');
+        const name = el('strong', 'askdesk-item__name', room.name || `${t.visitor} #${room.id}`);
+
+        if (room.company) {
+          name.title = room.company;
+        }
+
+        // Right of the name: how long they have waited, or when it last moved
+        const when = el('time', `askdesk-item__time${ringing ? ' askdesk-item__time--wait' : ''}`, ringing ? `${t.awaiting} · ${waited(room.since)}` : timeOf(room.modified));
+
+        top.append(name, when);
+
+        // A face for each visitor, as the items of a menu have their icon
+        const face = el('span', `askdesk-item__face${room.member ? ' askdesk-item__face--member' : ''}`, Array.from((room.name || '').trim() || '#')[0].toUpperCase());
+        const words = el('span', 'askdesk-item__words');
+
+        face.setAttribute('aria-hidden', 'true');
+
+        if (ringing) {
+          face.append(el('span', 'askdesk-item__light'));
+        }
+
+        // Then what was said last; then, quietly, in a line of small words, the rest
+        const line = el('span', 'askdesk-item__line');
+        const meta = el('span', 'askdesk-item__meta');
+        const facts = [
+          state.filter === 'awaiting' ? (room.status === 'message' ? t.message : t[groups.find(([, test]) => test(room))?.[0] || ''] || '') : '',
+          room.language,
+          room.member ? t.member : '',
+          room.status === 'active' && room.staff !== config.me && room.staffName ? t.answeredBy.replace('%s', room.staffName) : '',
+        ].filter(Boolean);
+
+        line.append(el('span', 'askdesk-item__preview', room.preview || (room.status === 'waiting' ? t.newChat : '')));
+
+        if (room.awaiting && room.status === 'closed') {
+          meta.append(pill(t.endedUnanswered, 'wait'));
+        }
+
+        meta.append(el('span', '', facts.join(' · ')));
+        words.append(top, line, meta);
+        item.append(face, words);
+
+        if (room.unread && (room.staff === config.me || !room.staff)) {
+          item.append(el('span', 'askdesk-badge', String(room.unread)));
+        }
+
+        // A chat waiting: taken from the list at once, without opening it first
+        if (room.status === 'waiting') {
+          const row = el('div', 'askdesk-item-row');
+          const take = button('askdesk-button askdesk-button--primary askdesk-item__take', t.take, async () => {
+            take.disabled = true;
+            openRoom(room.id);
+
+            try {
+              const data = await post(config.urls.take, { room: room.id });
+
+              if (data.error) {
+                window.alert(data.error);
+              } else {
+                field.focus();
+              }
+            } catch (error) {
+              window.alert(t.error);
+            }
+
+            later(true);
+          });
+
+          row.append(item, take);
+          section.append(row);
+
+          return;
+        }
+
+        section.append(item);
+      });
+
+      inbox.append(section);
+    });
+
+    // The blue bar by the chat open: one bar for the inbox, sliding from where it was to the chat now
+    // open (in place at once when the list is merely drawn again)
+    const open = inbox.querySelector('.askdesk-item--open');
+    const bar = el('span', 'askdesk-inbox__bar');
+
+    bar.setAttribute('aria-hidden', 'true');
+    inbox.append(bar);
+
+    if (open) {
+      const where = () => {
+        const box = open.getBoundingClientRect();
+        const frame = inbox.getBoundingClientRect();
+
+        return { top: box.top - frame.top + inbox.scrollTop + 8, height: Math.max(0, box.height - 16) };
+      };
+      const to = where();
+      const from = state.barAt && state.barAt.open !== state.open ? state.barAt : null;
+
+      bar.style.transform = `translateY(${(from || to).top}px)`;
+      bar.style.blockSize = `${(from || to).height}px`;
+      bar.classList.add('askdesk-inbox__bar--on');
+
+      if (from && !reduced.matches) {
+        window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+          bar.classList.add('askdesk-inbox__bar--moving');
+          bar.style.transform = `translateY(${to.top}px)`;
+          bar.style.blockSize = `${to.height}px`;
+        }));
+      }
+
+      state.barAt = { ...to, open: state.open };
+    } else {
+      state.barAt = null;
+    }
+
+    // A new one makes room for itself and slides in from the side (its red then fades, in CSS)
+    arrived.forEach((item) => {
+      const node = item.parentElement && item.parentElement.classList.contains('askdesk-item-row') ? item.parentElement : item;
+      const height = node.offsetHeight;
+      const after = getComputedStyle(node).marginBlockEnd;
+
+      node.animate([
+        { blockSize: '0px', marginBlockEnd: '0px', opacity: 0, transform: 'translateX(-24px)', overflow: 'hidden' },
+        { blockSize: `${height}px`, marginBlockEnd: after, opacity: 1, transform: 'none', overflow: 'hidden' },
+      ], { duration: 500, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1.05)' });
+    });
+
+    paintTitle();
+  };
+
+  // ---------- One chat ----------
+
+  // The head across; below it the conversation, a column in the middle, with what came before at
+  // its top and the box to write in at its foot; beside it, room for suggested replies
+  const head = el('header', 'askdesk-room__head');
+  const body = el('div', 'askdesk-room__body');
+  const column = el('div', 'askdesk-room__column');
+  const log = el('div', 'askdesk-log');
+  const thread = el('div', 'askdesk-thread');
+  const intro = el('div', 'askdesk-intro');
+  const list = el('div', 'askdesk-list');
+  const aside = el('aside', 'askdesk-room__aside');
+  // What scrolls in the side is a layer within it: its fading edges are cut there, while the side
+  // itself keeps its corners and its shadow
+  const asideScroll = el('div', 'askdesk-room__aside-scroll');
+
+  aside.append(asideScroll);
+  fades(asideScroll);
+  const composer = el('form', 'askdesk-composer');
+  const box = el('div', 'askdesk-composer__box');
+  const field = el('textarea', 'askdesk-composer__field');
+  const send = el('button', 'askdesk-send');
+  const sendLabel = el('span', 'askdesk-send__label', t.send);
+  const note = el('p', 'askdesk-composer__note');
+
+  // The line under the box: what came of sending, rising in when it says something new
+  const say = (text) => {
+    const changed = note.textContent !== text;
+
+    note.textContent = text;
+
+    if (text && changed) {
+      rise(note);
+    }
+  };
+
+  field.rows = 1;
+  field.placeholder = t.placeholder;
+  send.type = 'submit';
+  send.setAttribute('aria-label', t.send);
+  // At rest only the Enter key's sign; pointed at, the blue button with its arrow and its word
+  const sendRest = icon('enter');
+  const sendGo = icon('up');
+
+  sendRest.classList.add('askdesk-send__rest');
+  sendGo.classList.add('askdesk-send__go');
+  send.append(sendRest, sendGo, sendLabel);
+  // A file to send: pictures (1 MB), videos and documents (10 MB), kept 30 days
+  const attach = button('askdesk-attach', '', () => attachInput.click());
+  const attachInput = el('input');
+
+  attach.append(icon('clip'));
+  attach.title = t.attach;
+  attach.setAttribute('aria-label', t.attach);
+  attachInput.type = 'file';
+  attachInput.hidden = true;
+  attachInput.accept = 'image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip';
+  // Stickers: the packs of the site, asked for when first opened
+  const stickerButton = button('askdesk-attach askdesk-sticker-button', '', () => toggleStickers());
+  const stickerMenu = el('div', 'askdesk-sticker-menu');
+  let stickerPacks = null;
+
+  stickerButton.append(el('span', 'askdesk-icon'));
+  stickerButton.firstChild.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 18 0 9 9 0 1 0-18 0M9 10h.01M15 10h.01M9.5 15a3.5 3.5 0 0 0 5 0"/></svg>';
+  stickerButton.title = t.stickers;
+  stickerButton.setAttribute('aria-label', t.stickers);
+  stickerButton.setAttribute('aria-expanded', 'false');
+  stickerMenu.hidden = true;
+  stickerMenu.setAttribute('role', 'dialog');
+  stickerMenu.setAttribute('aria-label', t.stickers);
+  box.append(attach, attachInput, stickerButton, field, send, stickerMenu);
+
+  const closeStickers = () => {
+    stickerMenu.hidden = true;
+    stickerButton.setAttribute('aria-expanded', 'false');
+  };
+
+  const paintStickers = (index = 0) => {
+    if (!stickerPacks.length) {
+      stickerMenu.replaceChildren(el('p', 'askdesk-panel__hint', t.noStickers));
+
+      return;
+    }
+
+    const pack = stickerPacks[index] || stickerPacks[0];
+    const tabs = el('div', 'askdesk-sticker-menu__tabs');
+    const grid = el('div', 'askdesk-sticker-menu__grid');
+
+    stickerPacks.forEach((each, at) => {
+      const tab = button('askdesk-library__tab', each.pack, () => paintStickers(at));
+
+      tab.setAttribute('aria-pressed', String(each === pack));
+      tabs.append(tab);
+    });
+
+    pack.stickers.forEach((sticker) => {
+      const pick = button('askdesk-sticker-menu__pick', '', async () => {
+        closeStickers();
+
+        try {
+          const data = await post(config.urls.send, { room: state.open, sticker: sticker.id });
+
+          say(data.error || '');
+        } catch (error) {
+          say(t.error);
+        }
+
+        later(true);
+      });
+      const picture = el('img', '');
+
+      pick.title = sticker.title;
+      pick.setAttribute('aria-label', sticker.title);
+      picture.src = sticker.url;
+      picture.alt = '';
+      picture.loading = 'lazy';
+      pick.append(picture);
+      grid.append(pick);
+    });
+
+    stickerMenu.replaceChildren(...(stickerPacks.length > 1 ? [tabs] : []), grid);
+  };
+
+  async function toggleStickers() {
+    if (!stickerMenu.hidden) {
+      closeStickers();
+
+      return;
+    }
+
+    stickerMenu.hidden = false;
+    stickerButton.setAttribute('aria-expanded', 'true');
+    rise(stickerMenu);
+
+    if (stickerPacks === null) {
+      stickerMenu.replaceChildren(skeleton(2));
+
+      try {
+        const data = await post(config.urls.stickers, {});
+
+        stickerPacks = (data.packs || []).filter((pack) => (pack.stickers || []).some((item) => item.url)).map((pack) => ({ ...pack, stickers: pack.stickers.filter((item) => item.url) }));
+      } catch (error) {
+        stickerMenu.replaceChildren(el('p', 'askdesk-panel__hint', t.error));
+
+        return;
+      }
+    }
+
+    paintStickers();
+  }
+
+  document.addEventListener('pointerdown', (event) => {
+    if (!stickerMenu.hidden && !stickerMenu.contains(event.target) && !stickerButton.contains(event.target)) {
+      closeStickers();
+    }
+  });
+
+  stickerMenu.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      closeStickers();
+      stickerButton.focus();
+    }
+  });
+  composer.append(box, note);
+  composer.addEventListener('animationend', (event) => {
+    if (event.target === box) {
+      composer.classList.remove('askdesk-composer--enter');
+    }
+  });
+  list.setAttribute('aria-live', 'polite');
+  thread.append(intro, list);
+  log.append(thread);
+  column.append(log, composer);
+  body.append(column, aside);
+
+  const atBottom = () => log.scrollHeight - log.scrollTop - log.clientHeight < 80;
+  const toBottom = (eased = false) => {
+    log.scrollTo({ top: log.scrollHeight, behavior: eased && !reduced.matches ? 'smooth' : 'auto' });
+  };
+
+  // The visitor's page now, and, folded below it, the pages they went through during the chat
+  const pageView = (room) => {
+    if (!room.page) {
+      return null;
+    }
+
+    const box = el('div', 'askdesk-room__pages');
+    const page = el('p', 'askdesk-room__page');
+    const link = el('a', '', room.page);
+    const pages = (room.pages || []).filter((item) => item && /^https?:\/\//i.test(item.url));
+
+    link.href = room.page;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    page.append(icon('link'), link);
+    page.title = t.page;
+    box.append(page);
+
+    if (pages.length > 1) {
+      const trail = el('details', 'askdesk-room__trail');
+      const summary = el('summary', '', t.pagesVisited.replace('%s', pages.length));
+      const list = el('ol', '');
+
+      [...pages].reverse().forEach((item) => {
+        const row = el('li', '');
+        const go = el('a', '', item.title || item.url);
+
+        go.href = item.url;
+        go.title = item.url;
+        go.target = '_blank';
+        go.rel = 'noopener noreferrer';
+        row.append(go, el('time', '', timeOf(item.at)));
+        list.append(row);
+      });
+
+      trail.append(summary, list);
+      box.append(trail);
+    }
+
+    box.dataset.page = room.page;
+    box.dataset.count = String(pages.length);
+
+    return box;
+  };
+
+  const paintHead = () => {
+    const room = state.detail;
+
+    head.replaceChildren();
+    intro.replaceChildren();
+    state.shape = room ? `${room.status}|${room.staff}|${room.rating ? 1 : 0}` : '';
+
+    if (!room) {
+      return;
+    }
+
+    const back = button('askdesk-button askdesk-button--text askdesk-room__back', t.back, () => {
+      main.classList.remove('askdesk-main--room');
+    });
+    const who = el('div', 'askdesk-room__who');
+    const line = el('div', 'askdesk-room__name');
+
+    line.append(el('strong', '', room.name || `${t.visitor} #${room.id}`));
+
+    if (room.company) {
+      line.append(el('span', 'askdesk-room__company', room.company));
+    }
+
+    if (room.language) {
+      line.append(pill(room.language, 'blue'));
+    }
+
+    line.append(pill(room.member ? t.member : t.guest, room.member ? 'ok' : 'wait'));
+    who.append(line);
+
+    if (room.email) {
+      const mail = el('a', 'askdesk-room__mail', room.email);
+
+      mail.href = `mailto:${room.email}`;
+      who.append(mail);
+    }
+
+    const actions = el('div', 'askdesk-room__actions');
+
+    if (room.status === 'waiting' && !room.staff) {
+      actions.append(button('askdesk-button askdesk-button--primary askdesk-button--lg', t.take, () => act('take')));
+    }
+
+    if (room.status !== 'closed' && (room.staff === config.me || !room.staff)) {
+      // A message left is just dealt with; a chat ends for the visitor too, so it is asked once more
+      if (room.status === 'message') {
+        // A button with a tick: pressed, it fills green and the tick bounces, then the message is dealt with
+        const done = button('askdesk-button askdesk-button--done', '', () => {
+          if (done.classList.contains('askdesk-button--done-on')) {
+            return;
+          }
+
+          done.classList.add('askdesk-button--done-on');
+          window.setTimeout(() => act('close'), reduced.matches ? 0 : 650);
+        });
+
+        done.append(icon('check'), el('span', '', t.done));
+        actions.append(done);
+      } else {
+        const end = button('askdesk-button askdesk-button--alarm askdesk-room__end', t.close, () => confirmEnd(end));
+
+        ['pointerenter', 'focus'].forEach((type) => end.addEventListener(type, () => endCheck().catch(() => {}), { once: true }));
+
+        actions.append(end);
+      }
+    }
+
+    if (room.status === 'active' && room.staff !== config.me && room.staffName) {
+      actions.append(pill(t.answeredBy.replace('%s', room.staffName), 'blue'));
+    }
+
+    // On a narrower screen the side panel opens over the chat
+    // An icon at the end: a panel pulled out from the right; open, the icon turns about to put it back
+    const refer = button('askdesk-icon-button askdesk-room__refer', '', () => {
+      refer.setAttribute('aria-expanded', String(body.classList.toggle('askdesk-room__body--aside')));
+    });
+
+    refer.append(icon('panel'));
+    refer.title = t.reference;
+    refer.setAttribute('aria-label', t.reference);
+    refer.setAttribute('aria-expanded', String(body.classList.contains('askdesk-room__body--aside')));
+    actions.append(refer);
+    head.append(back, who, actions);
+
+    // Where the visitor is now (it follows them from page to page), and the pages they went through
+    state.pageNode = pageView(room);
+
+    if (state.pageNode) {
+      head.append(state.pageNode);
+    }
+
+    // How the visitor rated the chat that ended
+    if (room.rating && room.rating.ratings) {
+      const rated = el('div', 'askdesk-rated');
+      const values = el('div', 'askdesk-rated__values');
+
+      rated.append(el('strong', '', t.rated));
+
+      Object.values(room.rating.ratings).forEach((item) => {
+        const shown = item.type === 'stars'
+          ? `${'★'.repeat(Number(item.value))}${'☆'.repeat(5 - Number(item.value))}`
+          : item.type === 'thumbs' ? (Number(item.value) > 0 ? t.helpful : t.notHelpful) : String(item.value);
+        const kind = item.type === 'thumbs' ? (Number(item.value) > 0 ? 'ok' : 'warn')
+          : item.type === 'stars' ? (Number(item.value) >= 4 ? 'ok' : Number(item.value) <= 2 ? 'warn' : 'blue')
+            : item.type === 'scale' ? (Number(item.value) >= 9 ? 'ok' : Number(item.value) <= 6 ? 'warn' : 'blue') : 'blue';
+
+        values.append(pill(`${item.label} ${shown}`, kind));
+      });
+
+      rated.append(values);
+
+      if (room.rating.comment) {
+        rated.append(el('p', 'askdesk-rated__comment', room.rating.comment));
+      }
+
+      intro.append(rise(rated));
+    }
+
+    const entry = room.entry || {};
+
+    if ((entry.conversation && entry.conversation.length) || entry.question) {
+      const before = el('details', 'askdesk-before');
+
+      const summary = el('summary', '');
+
+      summary.append(icon('sparkles'), el('span', '', `${t.before} · ${(entry.conversation || []).length || 1}`));
+      before.append(summary);
+      smooth(before);
+
+      (entry.conversation && entry.conversation.length ? entry.conversation : [{ role: 'user', text: entry.question }]).forEach((turn) => {
+        const line = el('div', `askdesk-before__turn askdesk-before__turn--${turn.role === 'user' ? 'visitor' : 'ai'}`);
+
+        line.append(el('span', 'askdesk-before__who', turn.role === 'user' ? t.visitor : t.ai), linked(turn.text));
+        before.append(line);
+      });
+
+      if (entry.report) {
+        const report = el('a', '', t.report);
+
+        report.href = entry.report;
+        report.target = '_blank';
+        report.rel = 'noopener noreferrer';
+        before.append(report);
+      }
+
+      intro.append(before);
+    }
+
+    const mine = room.status === 'active' && room.staff === config.me;
+    // A message left is answered by e-mail: written here, translated, sent from one's own mail program
+    const email = room.status === 'message' && (!room.staff || room.staff === config.me) && Boolean(room.email);
+
+    if (email) {
+      const how = el('p', 'askdesk-room__note');
+
+      how.append(icon('send'), el('span', '', t.replyNote));
+      intro.append(how);
+    }
+
+    const wasHidden = composer.hidden;
+
+    composer.hidden = !mine && !email;
+
+    // Coming into view (a chat taken): its glow rises first, then the box floats up into it
+    if (wasHidden && !composer.hidden) {
+      composer.classList.remove('askdesk-composer--enter');
+      void composer.offsetWidth;
+      composer.classList.add('askdesk-composer--enter');
+    }
+
+    composer.dataset.mode = email ? 'email' : 'chat';
+    field.placeholder = email ? t.replyPlaceholder : t.placeholder;
+    attach.hidden = email;
+    stickerButton.hidden = email;
+    sendLabel.textContent = email ? t.replySend : t.send;
+    send.setAttribute('aria-label', sendLabel.textContent);
+
+    // Suggestions go into the box only when there is one
+    root.querySelectorAll('.askdesk-suggest__use').forEach((use) => {
+      use.disabled = composer.hidden;
+    });
+    // Files from the library only into one's own chat
+    root.querySelectorAll('.askdesk-library__send').forEach((use) => {
+      use.disabled = !mine;
+    });
+  };
+
+  const sizeOf = (bytes) => (bytes >= 1048576 ? `${(bytes / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
+
+  // How long a file is kept still
+  const expiry = (iso) => {
+    const days = Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000));
+
+    return t.expiresIn.replace('%s', days);
+  };
+
+  // A picture to open whole, a video to play, a document to download; with its size and its days
+  const fileView = (file) => {
+    const view = el('div', `askdesk-file askdesk-file--${file.kind}`);
+
+    if (file.gone || !file.url) {
+      view.classList.add('askdesk-file--gone');
+      view.append(icon('file'), el('span', '', `${file.name} · ${t.expired}`));
+
+      return view;
+    }
+
+    if (file.kind === 'image') {
+      const picture = el('img', 'askdesk-file__image');
+
+      picture.src = file.url;
+      picture.alt = file.name;
+      picture.loading = 'lazy';
+      picture.addEventListener('click', () => showLightbox(file.url, file.name));
+      view.append(picture);
+    } else if (file.kind === 'video') {
+      const video = el('video', 'askdesk-file__video');
+
+      // From its first moment, so a frame shows rather than black
+      video.src = `${file.url}#t=0.1`;
+      video.controls = true;
+      video.preload = 'metadata';
+      view.append(video);
+    } else {
+      const card = el('a', 'askdesk-file__doc');
+      const words = el('span', 'askdesk-file__words');
+
+      card.href = file.url;
+      card.setAttribute('download', file.name);
+      words.append(el('strong', '', file.name), el('span', '', sizeOf(file.size)));
+      card.append(icon('file'), words, icon('download'));
+      card.title = t.download;
+      view.append(card);
+    }
+
+    return view;
+  };
+
+  // A file of the chat kept in one's library or the shared one: a small choice, then a word that it is
+  function keepButton(file) {
+    const box = el('span', 'askdesk-keep');
+    const open = button('askdesk-keep__open', '', () => {
+      choices.hidden = !choices.hidden;
+
+      if (!choices.hidden) {
+        rise(choices);
+      }
+    });
+    const choices = el('span', 'askdesk-keep__choices');
+    const keep = async (folder, chosen) => {
+      choices.querySelectorAll('button').forEach((node) => { node.disabled = true; });
+
+      try {
+        const data = await post(config.urls.libraryKeep, { file: file.id, folder });
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        box.replaceChildren(rise(el('span', 'askdesk-keep__done', data.kept || t.kept)));
+        library.data = null;
+
+        if (libraryPanel.open) {
+          library.which = folder;
+          loadLibrary();
+        }
+      } catch (error) {
+        chosen.after(rise(el('span', 'askdesk-keep__error', error.message || t.error)));
+        choices.querySelectorAll('button').forEach((node) => { node.disabled = false; });
+      }
+    };
+
+    open.append(icon('folder'));
+    open.title = t.keepMine;
+    open.setAttribute('aria-label', t.keepMine);
+    choices.hidden = true;
+    [['mine', t.keepMine], ['shared', t.keepShared]].forEach(([folder, label]) => {
+      const choice = button('askdesk-keep__choice', label, () => keep(folder, choice));
+
+      choices.append(choice);
+    });
+    box.append(open, choices);
+
+    return box;
+  }
+
+  // A picture, whole, over the console
+  function showLightbox(src, name) {
+    const shade = el('div', 'askdesk-lightbox');
+    const picture = el('img', '');
+
+    picture.src = src;
+    picture.alt = name;
+    shade.append(picture, el('span', '', name));
+    shade.addEventListener('click', () => shade.remove());
+    document.addEventListener('keydown', function escape(event) {
+      if (event.key === 'Escape') {
+        shade.remove();
+        document.removeEventListener('keydown', escape);
+      }
+    });
+    root.append(shade);
+  }
+
+  // The browser's own translation (Chrome's, on the computer, nothing sent anywhere), for a message
+  // the AI is still translating: a first translation for the moment. Only where the browser has the
+  // two languages already; nothing is downloaded for it
+  const browserCode = (tag) => {
+    const lower = String(tag || '').toLowerCase();
+
+    if (lower === 'zh-tw' || lower === 'zh-hk' || lower === 'zh-hant') {
+      return 'zh-Hant';
+    }
+
+    return lower.split('-')[0];
+  };
+  const browserTranslators = {};
+
+  // Each step of it given a moment at most: a browser that does not answer must hold nothing up
+  const inTime = (promise, ms = 1500) => Promise.race([promise, new Promise((resolve, reject) => { window.setTimeout(() => reject(new Error('time')), ms); })]);
+
+  const browserTranslate = async (text, from, to) => {
+    if (!config.browser || !('Translator' in window) || !to || !text) {
+      return '';
+    }
+
+    let pair = '';
+
+    try {
+      let source = browserCode(from);
+
+      if (!source && 'LanguageDetector' in window && (await inTime(window.LanguageDetector.availability())) === 'available') {
+        const found = await inTime((await inTime(window.LanguageDetector.create())).detect(text));
+
+        source = found && found[0] && found[0].confidence > 0.6 ? found[0].detectedLanguage : '';
+      }
+
+      const target = browserCode(to);
+
+      if (!source || source === target) {
+        return '';
+      }
+
+      pair = `${source}>${target}`;
+
+      if (browserTranslators[pair] === false) {
+        return '';
+      }
+
+      if (!browserTranslators[pair]) {
+        if ((await inTime(window.Translator.availability({ sourceLanguage: source, targetLanguage: target }))) !== 'available') {
+          browserTranslators[pair] = false;
+
+          return '';
+        }
+
+        browserTranslators[pair] = window.Translator.create({ sourceLanguage: source, targetLanguage: target });
+      }
+
+      return String(await inTime((await inTime(browserTranslators[pair])).translate(text), 2500) || '');
+    } catch (error) {
+      if (pair) {
+        browserTranslators[pair] = false;
+      }
+
+      return '';
+    }
+  };
+
+  const showMessage = (item) => {
+    if (item.author === 'system') {
+      const note = el('p', 'askdesk-msg askdesk-msg--system');
+
+      note.append(pill(`${item.text} · ${timeOf(item.time)}`));
+      list.append(note);
+      item.node = note;
+
+      if (item.fresh) {
+        rise(note);
+        item.fresh = false;
+      }
+
+      return note;
+    }
+
+    const visitor = item.author === 'visitor';
+    const node = el('article', `askdesk-msg askdesk-msg--${visitor ? 'visitor' : 'staff'}${item.pending ? ' askdesk-msg--pending' : ''}`);
+    const bubble = el('div', 'askdesk-msg__bubble');
+    const meta = el('div', 'askdesk-msg__meta');
+
+    // Who wrote it: their face, as visitors see it
+    if (!visitor && item.face && /^https?:|^\//.test(item.face.src || '')) {
+      const face = el('img', 'askdesk-msg__face');
+
+      face.src = reduced.matches && item.face.still ? item.face.still : item.face.src;
+      face.alt = '';
+      face.decoding = 'async';
+      meta.append(face);
+    }
+
+    meta.append(el('span', '', [visitor ? '' : item.name, timeOf(item.time)].filter(Boolean).join(' · ')));
+
+    // A sticker: the picture alone
+    if (item.sticker) {
+      node.classList.add('askdesk-msg--sticker');
+
+      if (item.sticker.url) {
+        const picture = el('img', 'askdesk-sticker');
+
+        picture.src = item.sticker.url;
+        picture.alt = item.sticker.title;
+        picture.title = item.sticker.title;
+        bubble.append(picture);
+      } else {
+        bubble.append(el('span', 'askdesk-sticker askdesk-sticker--gone', item.sticker.title));
+      }
+
+      node.append(bubble, meta);
+      list.append(node);
+      item.node = node;
+
+      if (item.fresh || item.pending) {
+        node.classList.add('askdesk-msg--pop');
+        item.fresh = false;
+      }
+
+      return node;
+    }
+
+    // A file: the file itself, and how long it is kept
+    if (item.file) {
+      node.classList.add('askdesk-msg--file');
+      bubble.append(fileView(item.file));
+
+      if (!item.file.gone && item.file.expires) {
+        meta.append(pill(expiry(item.file.expires), 'wait'));
+      }
+
+      // Kept in the library (Dropfiles), to send again after its days
+      if (!item.file.gone && item.file.id && config.library) {
+        meta.append(keepButton(item.file));
+      }
+
+      node.append(bubble, meta);
+      list.append(node);
+      item.node = node;
+
+      if (item.fresh || item.pending) {
+        node.classList.add('askdesk-msg--pop');
+        item.fresh = false;
+      }
+
+      return node;
+    }
+
+    let text = linked(item.text);
+
+    bubble.append(text);
+
+    // The visitor's words still being translated: said so, and the browser's first translation below
+    if (visitor && item.translating) {
+      const busy = pill(t.translating, 'blue');
+
+      busy.classList.add('askdesk-pill--busy');
+      meta.append(busy);
+      // The AI slow: the server's quick translation (Google's); else the browser's own, if it has one
+      const draftLine = (label, words) => {
+        const line = el('p', 'askdesk-msg__draft');
+
+        line.append(el('small', '', label), el('span', '', words));
+        bubble.append(line);
+        rise(line);
+      };
+
+      if (item.draft) {
+        draftLine(t.quick, item.draft);
+      } else {
+        browserTranslate(item.text, item.from, item.to).then((draft) => {
+          if (draft && item.node === node) {
+            draftLine(t.draft, draft);
+          }
+        });
+      }
+    }
+
+    // One's own words on their way to the visitor's language, or not translated after all
+    if (!visitor && item.mine && item.translating) {
+      const busy = pill(t.translating, 'blue');
+
+      busy.classList.add('askdesk-pill--busy');
+      meta.append(busy);
+    } else if (!visitor && item.mine && item.failed) {
+      meta.append(pill(t.untranslatedSent, 'warn'));
+    }
+
+    if (visitor && item.original) {
+      // Translated for us: the words the visitor wrote, a click away
+      let original = false;
+      const toggle = button('askdesk-button askdesk-button--text askdesk-msg__toggle', t.original, () => {
+        original = !original;
+
+        const next = linked(original ? item.original : item.text);
+
+        swap(bubble, text, next);
+        text = next;
+        toggle.textContent = original ? t.translation : t.original;
+      });
+
+      meta.append(toggle);
+    }
+
+    if (visitor && item.foreign && config.translate) {
+      const mineButton = button('askdesk-button askdesk-button--text askdesk-msg__toggle', t.translateMine, async () => {
+        mineButton.disabled = true;
+
+        try {
+          const data = await post(config.urls.translate, { room: state.open, message: item.id });
+
+          if (data.text) {
+            const next = linked(data.text);
+
+            swap(bubble, text, next);
+            text = next;
+            mineButton.remove();
+          } else {
+            mineButton.disabled = false;
+          }
+        } catch (error) {
+          mineButton.disabled = false;
+        }
+      });
+
+      meta.append(mineButton);
+    }
+
+    // The articles linked, as the visitor sees them (below the message)
+    let linkCards = null;
+
+    if (!visitor && Array.isArray(item.links) && item.links.length) {
+      const cards = el('div', 'askdesk-linkcards');
+
+      item.links.forEach((link) => {
+        if (!/^https?:\/\//.test(link.url || '')) {
+          return;
+        }
+
+        const card = el('a', 'askdesk-linkcard');
+        const words = el('span', 'askdesk-linkcard__words');
+
+        card.href = link.url;
+        card.target = '_blank';
+        card.rel = 'noopener noreferrer';
+
+        if (link.image && /^\/(?!\/)/.test(link.image)) {
+          const picture = el('img', 'askdesk-linkcard__image');
+
+          picture.src = link.image;
+          picture.alt = '';
+          picture.loading = 'lazy';
+          card.append(picture);
+        }
+
+        words.append(el('strong', '', link.title || link.url));
+
+        if (link.excerpt) {
+          words.append(el('span', '', link.excerpt));
+        }
+
+        card.append(words);
+        cards.append(card);
+      });
+
+      linkCards = cards;
+    }
+
+    if (!visitor && item.translation) {
+      // What the visitor reads, a click away
+      const shown = el('details', 'askdesk-msg__translation');
+      const summary = el('summary', '');
+
+      summary.append(icon('language'), t.translatedTo.replace('%s', item.translatedTo || ''));
+      shown.append(summary, linked(item.translation));
+      smooth(shown);
+      meta.append(shown);
+    }
+
+    if (item.warning) {
+      bubble.append(el('p', 'askdesk-msg__warning', item.warning));
+    }
+
+    node.append(bubble, meta);
+
+    if (linkCards) {
+      node.append(linkCards);
+    }
+
+    list.append(node);
+    item.node = node;
+
+    // Just written or just come: it pops in from its corner, once
+    if (item.fresh || item.pending) {
+      node.classList.add('askdesk-msg--pop');
+      item.fresh = false;
+    }
+
+    return node;
+  };
+
+  // ---------- Beside the chat: suggested replies, and the visitor's history ----------
+
+  const side = { for: -1, loading: false, items: null, failed: '' };
+  const suggestList = el('div', 'askdesk-suggest');
+  const historyList = el('div', 'askdesk-history');
+
+  // A part of the side panel, that folds
+  const panel = (title, iconName, content) => {
+    const details = el('details', 'askdesk-panel');
+    const summary = el('summary', 'askdesk-panel__title');
+
+    summary.append(icon(iconName), el('span', '', title));
+    details.open = true;
+    details.append(summary, content);
+
+    return smooth(details);
+  };
+
+  // The library in Dropfiles: one's own files and the shared ones, to send in the chat
+  const library = { which: 'mine', data: null, loading: false };
+  const libraryBox = el('div', 'askdesk-library');
+  const libraryTabs = el('div', 'askdesk-library__tabs');
+  const libraryList = el('div', 'askdesk-library__list');
+  const libraryInput = el('input');
+  const libraryAdd = button('askdesk-button askdesk-button--text askdesk-library__add', '', () => libraryInput.click());
+
+  libraryInput.type = 'file';
+  libraryInput.hidden = true;
+  libraryInput.accept = 'image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime,video/webm,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.zip';
+  libraryAdd.append(icon('up'), el('span', '', t.libraryAdd));
+  ['mine', 'shared'].forEach((which) => {
+    const tab = button('askdesk-library__tab', which === 'mine' ? t.libraryMine : t.libraryShared, () => {
+      library.which = which;
+      paintLibrary(true);
+    });
+
+    tab.dataset.which = which;
+    tab.setAttribute('aria-pressed', String(which === library.which));
+    libraryTabs.append(tab);
+  });
+  libraryTabs.append(libraryAdd, libraryInput);
+  libraryBox.append(libraryTabs, libraryList);
+
+  const libraryPanel = panel(t.library, 'folder', libraryBox);
+
+  libraryPanel.open = false;
+  libraryPanel.dataset.state = 'closed';
+  libraryPanel.addEventListener('toggle', () => {
+    if (libraryPanel.open && !library.data && !library.loading) {
+      loadLibrary();
+    }
+  });
+
+  // The suggested replies, the visitor's history and the library: one card, parted by lines
+  const panels = el('div', 'askdesk-panels');
+
+  panels.append(panel(t.suggestions, 'bulb', suggestList), panel(t.history, 'history', historyList), libraryPanel);
+  asideScroll.append(search, results, panels);
+
+  const skeleton = (lines = 2) => {
+    const box = el('div', 'askdesk-skeleton');
+
+    for (let index = 0; index < lines; index += 1) {
+      box.append(el('span', ''));
+    }
+
+    return box;
+  };
+
+  // A suggestion into the box, ready to change before it is sent: the reply, and the page's address
+  const useReply = (item) => {
+    field.value = [item.reply, item.url].filter(Boolean).join('\n');
+    field.focus();
+    field.setSelectionRange(field.value.length, field.value.length);
+    body.classList.remove('askdesk-room__body--aside');
+
+    if (!reduced.matches) {
+      box.animate([{ boxShadow: '0 0 0 4px rgba(14, 134, 254, 0.35)' }, { boxShadow: '0 0 0 0 rgba(14, 134, 254, 0)' }], { duration: 700, easing: EASE });
+    }
+  };
+
+  // A page that answers: its picture and title (to open), how well it answers, a reply drawn from
+  // it, and the button that puts the reply in the box
+  const answerCard = (item, index, arrived) => {
+    const card = el('article', 'askdesk-suggest__card');
+    const top = el('div', 'askdesk-suggest__top');
+    const page = el('a', 'askdesk-suggest__page');
+    const use = button('askdesk-button askdesk-button--text askdesk-suggest__use', t.useReply, () => useReply(item));
+
+    page.href = item.url;
+    page.target = '_blank';
+    page.rel = 'noopener noreferrer';
+    page.title = t.openPage;
+
+    if (item.image && /^\/(?!\/)/.test(item.image)) {
+      const picture = el('img', 'askdesk-suggest__image');
+
+      picture.src = item.image;
+      picture.alt = '';
+      picture.loading = 'lazy';
+      picture.addEventListener('error', () => picture.remove());
+      card.append(picture);
+    }
+
+    page.append(el('span', '', item.title), icon('external'));
+    top.append(page, pill(t.relevance.replace('%s', `${item.score}%`), 'ok'));
+    card.append(top);
+
+    if (item.heading) {
+      card.append(el('p', 'askdesk-suggest__heading', item.heading));
+    }
+
+    card.append(el('p', 'askdesk-suggest__reply', item.reply), use);
+    use.disabled = composer.hidden;
+
+    if (arrived && !reduced.matches) {
+      card.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 300, delay: index * 70, easing: EASE, fill: 'backwards' });
+    }
+
+    return card;
+  };
+
+  const paintSuggestions = (arrived = false) => {
+    suggestList.replaceChildren();
+
+    if (side.loading) {
+      suggestList.append(el('p', 'askdesk-panel__hint', t.suggesting), skeleton(3), skeleton(2));
+
+      return;
+    }
+
+    if (side.failed) {
+      suggestList.append(el('p', 'askdesk-panel__hint', side.failed));
+
+      return;
+    }
+
+    if (side.items === null) {
+      return;
+    }
+
+    if (!side.items.length) {
+      suggestList.append(arrived ? rise(el('p', 'askdesk-panel__hint', t.noSuggestion)) : el('p', 'askdesk-panel__hint', t.noSuggestion));
+
+      return;
+    }
+
+    side.items.forEach((item, index) => suggestList.append(answerCard(item, index, arrived)));
+  };
+
+  // Asked for each new message of the visitor (the desk keeps what it found with the message)
+  const suggestNow = async () => {
+    const last = [...state.messages].reverse().find((item) => item.author === 'visitor' && item.id);
+    const room = state.open;
+
+    if (!state.detail || side.loading) {
+      return;
+    }
+
+    if (!last) {
+      side.items = null;
+      paintSuggestions();
+
+      return;
+    }
+
+    if (side.for === last.id) {
+      return;
+    }
+
+    side.loading = true;
+    side.for = last.id;
+    side.failed = '';
+    paintSuggestions();
+
+    try {
+      const data = await post(config.urls.suggest, { room });
+
+      if (room === state.open) {
+        side.items = Array.isArray(data.items) ? data.items : [];
+        side.failed = data.error && !side.items.length ? data.error : '';
+      }
+    } catch (error) {
+      side.failed = t.error;
+      side.for = -1;
+    }
+
+    side.loading = false;
+
+    if (room === state.open) {
+      paintSuggestions(true);
+    } else {
+      side.for = -1;
+    }
+  };
+
+  const transcript = (data) => {
+    const box = el('div', 'askdesk-history__transcript');
+
+    (data.messages || []).forEach((item) => {
+      const line = el('p', `askdesk-history__line askdesk-history__line--${item.author}`);
+
+      if (item.author !== 'system') {
+        line.append(el('b', '', item.author === 'visitor' ? t.visitor : item.name || ''));
+      }
+
+      line.append(el('span', '', item.text));
+      box.append(line);
+    });
+
+    return box;
+  };
+
+  const paintHistory = (data) => {
+    historyList.replaceChildren();
+
+    if (!data.chats.length && !data.questions.length) {
+      historyList.append(el('p', 'askdesk-panel__hint', t.noHistory));
+
+      return;
+    }
+
+    if (data.chats.length) {
+      historyList.append(el('h3', 'askdesk-history__title', t.pastChats));
+
+      data.chats.forEach((chat) => {
+        const item = el('details', 'askdesk-history__chat');
+        const summary = el('summary', '');
+        const content = el('div', 'askdesk-history__content', '…');
+        const meta = el('span', 'askdesk-history__meta', [timeOf(chat.time), chat.staffName, t.messages.replace('%s', chat.messages)].filter(Boolean).join(' · '));
+
+        summary.append(el('span', 'askdesk-history__preview', chat.preview || `#${chat.id}`), meta);
+        item.append(summary, content);
+        smooth(item);
+
+        // Read when first opened
+        item.addEventListener('toggle', async () => {
+          if (!item.open || item.dataset.loaded) {
+            return;
+          }
+
+          item.dataset.loaded = '1';
+
+          try {
+            const next = transcript(await post(config.urls.past, { room: chat.id }));
+
+            content.replaceWith(next);
+            rise(next);
+          } catch (error) {
+            content.textContent = t.error;
+            delete item.dataset.loaded;
+          }
+        });
+
+        historyList.append(item);
+      });
+    }
+
+    if (data.questions.length) {
+      historyList.append(el('h3', 'askdesk-history__title', t.pastQuestions));
+
+      data.questions.forEach((question) => {
+        const item = el('div', 'askdesk-history__question');
+        const meta = el('div', 'askdesk-history__meta');
+
+        meta.append(el('span', '', timeOf(question.time)), pill(question.answered ? t.answered : t.notAnswered, question.answered ? 'blue' : 'warn'));
+
+        if (question.rating) {
+          meta.append(pill(question.rating > 0 ? t.helpful : t.notHelpful, question.rating > 0 ? 'ok' : 'warn'));
+        }
+
+        item.append(meta, el('p', 'askdesk-history__asked', question.question));
+
+        if (question.answer) {
+          item.append(el('p', 'askdesk-history__answer', question.answer));
+        }
+
+        historyList.append(item);
+      });
+    }
+
+    rise(historyList);
+  };
+
+  // Once for each chat opened: only signed-in visitors have a history
+  const loadHistory = async () => {
+    const room = state.open;
+
+    if (!state.detail.member) {
+      historyList.replaceChildren(el('p', 'askdesk-panel__hint', t.guestHistory));
+
+      return;
+    }
+
+    historyList.replaceChildren(skeleton(2), skeleton(2));
+
+    try {
+      const data = await post(config.urls.history, { room });
+
+      if (room === state.open) {
+        paintHistory({ chats: data.chats || [], questions: data.questions || [] });
+      }
+    } catch (error) {
+      historyList.replaceChildren(el('p', 'askdesk-panel__hint', t.error));
+    }
+  };
+
+  const kindIcon = (kind) => icon(kind === 'image' ? 'photo' : (kind === 'video' ? 'video' : 'file'));
+
+  function paintLibrary(moved = false) {
+    libraryTabs.querySelectorAll('.askdesk-library__tab').forEach((tab) => {
+      tab.setAttribute('aria-pressed', String(tab.dataset.which === library.which));
+    });
+
+    if (!library.data) {
+      return;
+    }
+
+    if (!library.data.available) {
+      libraryTabs.hidden = true;
+      libraryList.replaceChildren(el('p', 'askdesk-panel__hint', library.data.error || t.libraryNone));
+
+      return;
+    }
+
+    const files = library.data[library.which] || [];
+    const open = state.detail && state.detail.status === 'active' && state.detail.staff === config.me;
+
+    libraryList.replaceChildren();
+
+    if (!files.length) {
+      libraryList.append(el('p', 'askdesk-panel__hint', t.libraryEmpty));
+    }
+
+    files.forEach((file) => {
+      const item = el('div', `askdesk-library__item askdesk-library__item--${file.kind}`);
+      const words = el('span', 'askdesk-library__words');
+      const sendIt = button('askdesk-button askdesk-button--text askdesk-library__send', t.librarySend, async () => {
+        sendIt.disabled = true;
+        say(t.uploading);
+
+        try {
+          const data = await post(config.urls.librarySend, { room: state.open, file: file.id });
+
+          say(data.error || '');
+        } catch (error) {
+          say(t.error);
+        }
+
+        sendIt.disabled = composer.hidden || composer.dataset.mode === 'email';
+        later(true);
+      });
+
+      words.append(el('strong', '', file.name), el('span', '', [sizeOf(file.size), file.by, timeOf(file.added)].filter(Boolean).join(' · ')));
+      words.title = file.name;
+      sendIt.disabled = !open;
+      item.append(kindIcon(file.kind), words, sendIt);
+      libraryList.append(item);
+    });
+
+    if (moved) {
+      rise(libraryList);
+    }
+  }
+
+  async function loadLibrary() {
+    library.loading = true;
+    libraryList.replaceChildren(skeleton(2), skeleton(2));
+
+    try {
+      library.data = await post(config.urls.library, {});
+    } catch (error) {
+      library.data = null;
+      libraryList.replaceChildren(el('p', 'askdesk-panel__hint', t.error));
+    }
+
+    library.loading = false;
+    paintLibrary(true);
+  }
+
+  libraryInput.addEventListener('change', async () => {
+    const file = libraryInput.files[0];
+
+    libraryInput.value = '';
+
+    if (!file) {
+      return;
+    }
+
+    const image = /^image\//.test(file.type);
+
+    if (file.size > (image ? 1048576 : 10485760)) {
+      libraryList.prepend(rise(el('p', 'askdesk-panel__hint askdesk-library__error', image ? t.imageTooLarge : t.tooLarge)));
+
+      return;
+    }
+
+    const form = new FormData();
+
+    form.append('folder', library.which);
+    form.append('file', file);
+    libraryAdd.disabled = true;
+    libraryList.prepend(el('p', 'askdesk-panel__hint', t.uploading));
+
+    try {
+      const response = await fetch(config.urls.libraryAdd, { method: 'POST', body: form, headers: { 'X-CSRF-Token': config.token, Accept: 'application/json' }, credentials: 'same-origin' });
+      const data = await response.json();
+
+      if (data.error) {
+        libraryList.firstChild.remove();
+        libraryList.prepend(rise(el('p', 'askdesk-panel__hint askdesk-library__error', data.error)));
+      } else {
+        await loadLibrary();
+      }
+    } catch (error) {
+      libraryList.firstChild.remove();
+      libraryList.prepend(rise(el('p', 'askdesk-panel__hint askdesk-library__error', t.error)));
+    }
+
+    libraryAdd.disabled = false;
+  });
+
+  const paintRoom = () => {
+    if (!state.detail) {
+      pane.replaceChildren(empty);
+
+      return;
+    }
+
+    pane.replaceChildren(head, body);
+    paintHead();
+    list.replaceChildren();
+
+    if (!reduced.matches) {
+      pane.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: EASE });
+    }
+    state.messages.forEach(showMessage);
+    toBottom();
+
+    // Beside it, for this chat
+    side.for = -1;
+    side.items = null;
+    side.failed = '';
+    paintSuggestions();
+    loadHistory();
+    suggestNow();
+  };
+
+  const openRoom = (id) => {
+    if (state.open !== id) {
+      state.open = id;
+      state.after = 0;
+      state.detail = null;
+      state.messages = [];
+      pane.replaceChildren(el('p', 'askdesk-room__empty', '…'));
+    }
+
+    main.classList.add('askdesk-main--room');
+    paintInbox();
+    later(true);
+  };
+
+  const heardRoom = (room) => {
+    if (!room || room.id !== state.open) {
+      return;
+    }
+
+    const fresh = !state.detail;
+    const stay = atBottom();
+
+    state.detail = fresh ? room : { ...state.detail, status: room.status, staff: room.staff, staffName: room.staffName, rating: room.rating, ...(room.page ? { page: room.page, pages: room.pages || [] } : {}) };
+
+    // Messages sent from here wait for their copy from the desk
+    const incoming = (room.messages || []).filter((item) => item.id > state.after);
+
+    if (incoming.length) {
+      // What was sent from here comes back from the desk: it takes the place of its copy, quietly
+      const echoes = state.messages.filter((item) => item.pending && incoming.some((other) => other.author === 'staff' && other.mine && other.text === item.text));
+
+      echoes.forEach((item) => item.node && item.node.remove());
+      incoming.forEach((item) => {
+        item.fresh = !fresh && !echoes.some((echo) => item.mine && echo.text === item.text);
+      });
+      state.after = incoming[incoming.length - 1].id;
+      state.messages = state.messages.filter((item) => !echoes.includes(item));
+      state.messages.push(...incoming);
+    }
+
+    // Translated since: each takes the place of its untranslated self
+    (room.updates || []).forEach((update) => {
+      const index = state.messages.findIndex((item) => item.id === update.id);
+
+      if (index < 0) {
+        return;
+      }
+
+      const before = state.messages[index];
+
+      // The same quick translation again: nothing to show anew
+      if (update.translating && update.draft === before.draft) {
+        return;
+      }
+
+      state.messages[index] = update;
+
+      if (before.node && before.node.isConnected) {
+        const node = showMessage(update);
+
+        before.node.replaceWith(node);
+        rise(node);
+      }
+    });
+
+    if (fresh) {
+      paintRoom();
+    } else {
+      // The head again only when the chat changed hands or state: an open list of what came before stays open
+      const shape = `${room.status}|${room.staff}|${room.rating ? 1 : 0}`;
+
+      if (shape !== state.shape) {
+        paintHead();
+      } else if (room.page && state.pageNode && (state.pageNode.dataset.page !== room.page || state.pageNode.dataset.count !== String((room.pages || []).length))) {
+        // The visitor went to another page: the line changes in place, with a glow
+        const open = state.pageNode.querySelector('details[open]');
+        const next = pageView(room);
+
+        if (open && next.querySelector('details')) {
+          next.querySelector('details').open = true;
+        }
+
+        state.pageNode.replaceWith(next);
+        state.pageNode = next;
+
+        if (!reduced.matches) {
+          next.querySelector('.askdesk-room__page').classList.add('askdesk-room__page--moved');
+        }
+      }
+
+      if (incoming.length) {
+        reveal(incoming, stay);
+      } else if (!revealing) {
+        showTyping(Boolean(room.typing));
+      }
+    }
+  };
+
+  // ---------- The visitor writing: dots, and their messages a moment after ----------
+
+  let typingNode = null;
+  let revealing = false;
+  let staffTyped = 0;
+  let staffTypingSent = 0;
+  const pause = (ms) => new Promise((resolve) => { window.setTimeout(resolve, reduced.matches ? 0 : ms); });
+
+  function showTyping(on) {
+    if (!on) {
+      if (typingNode) {
+        const leaving = typingNode;
+
+        typingNode = null;
+        leaving.classList.add('askdesk-msg--leaving');
+        window.setTimeout(() => leaving.remove(), reduced.matches ? 0 : 160);
+      }
+
+      return;
+    }
+
+    if (!typingNode) {
+      typingNode = el('article', 'askdesk-msg askdesk-msg--visitor askdesk-msg--typing askdesk-msg--pop');
+
+      const bubble = el('div', 'askdesk-msg__bubble');
+
+      bubble.append(el('span', 'askdesk-dots'));
+      bubble.firstChild.append(el('i'), el('i'), el('i'));
+      typingNode.append(bubble);
+    }
+
+    list.append(typingNode);
+  }
+
+  // What the visitor wrote comes in after a moment of dots; the rest at once
+  async function reveal(items, stay) {
+    const room = state.open;
+
+    revealing = true;
+
+    for (const item of items) {
+      if (item.author === 'visitor') {
+        showTyping(true);
+
+        if (stay) {
+          toBottom(true);
+        }
+
+        await pause(500);
+        showTyping(false);
+      }
+
+      if (room !== state.open) {
+        break;
+      }
+
+      showMessage(item);
+
+      if (stay) {
+        toBottom(true);
+      }
+    }
+
+    revealing = false;
+    suggestNow();
+  }
+
+  // Ending a chat: asked once more beside the button, the visitor told what follows
+  let confirming = null;
+
+  const closeConfirm = () => {
+    if (!confirming) {
+      return;
+    }
+
+    const leaving = confirming;
+
+    confirming = null;
+
+    if (reduced.matches) {
+      leaving.remove();
+    } else {
+      leaving.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-4px) scale(0.97)' }], { duration: 140, easing: 'ease-in' }).finished.then(() => leaving.remove(), () => leaving.remove());
+    }
+  };
+
+  // The check, asked as soon as the button is pointed at (it takes a while), kept until the chat moves on
+  let endChecked = null;
+
+  const endCheck = () => {
+    const room = state.open;
+    const after = state.after;
+
+    if (!endChecked || endChecked.room !== room || endChecked.after !== after) {
+      endChecked = { room, after, answer: post(config.urls.endCheck, { room }) };
+      endChecked.answer.catch(() => { endChecked = null; });
+    }
+
+    return endChecked.answer;
+  };
+
+  function confirmEnd(anchor) {
+    if (confirming) {
+      closeConfirm();
+
+      return;
+    }
+
+    const box = el('div', 'askdesk-confirm');
+    const actions = el('div', 'askdesk-confirm__actions');
+    const yes = button('askdesk-button askdesk-button--alarm', t.close, () => {
+      closeConfirm();
+      act('close');
+    });
+
+    // AI reads the chat meanwhile: done, the button turns calm; something left, it stays alarming
+    const check = el('div', 'askdesk-confirm__check askdesk-confirm__check--busy');
+    const room = state.open;
+
+    check.setAttribute('role', 'status');
+    check.append(el('span', 'askdesk-confirm__dot'), el('span', '', t.endChecking));
+    box.setAttribute('role', 'alertdialog');
+    box.setAttribute('aria-label', t.confirmEnd);
+    actions.append(button('askdesk-button askdesk-button--text', t.cancel, closeConfirm), yes);
+    box.append(el('strong', '', t.confirmEnd), el('p', '', t.confirmEndNote), check, actions);
+    anchor.parentElement.append(box);
+    confirming = box;
+    yes.focus();
+
+    endCheck().then((data) => {
+      if (confirming !== box || state.open !== room) {
+        return;
+      }
+
+      const words = el('span', '');
+
+      check.className = 'askdesk-confirm__check';
+
+      if (data.error) {
+        check.classList.add('askdesk-confirm__check--failed');
+        words.textContent = data.error;
+      } else if (data.ok) {
+        check.classList.add('askdesk-confirm__check--ok');
+        words.textContent = data.reason || t.endOk;
+        yes.className = 'askdesk-button askdesk-button--primary';
+      } else {
+        check.classList.add('askdesk-confirm__check--wait');
+        words.append(el('strong', '', t.endWait), document.createTextNode(` ${data.reason || ''}`));
+        yes.textContent = t.endAnyway;
+      }
+
+      check.replaceChildren(icon(data.ok && !data.error ? 'check' : 'alert'), words);
+      rise(check);
+    }).catch(() => {
+      if (confirming === box) {
+        check.className = 'askdesk-confirm__check askdesk-confirm__check--failed';
+        check.replaceChildren(el('span', '', t.endCheckFailed));
+      }
+    });
+
+    if (!reduced.matches) {
+      box.animate([{ opacity: 0, transform: 'translateY(-6px) scale(0.96)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1.2)' });
+    }
+  }
+
+  document.addEventListener('pointerdown', (event) => {
+    if (confirming && !confirming.contains(event.target) && !event.target.closest('.askdesk-room__end')) {
+      closeConfirm();
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeConfirm();
+    }
+  });
+
+  const act = async (what) => {
+    try {
+      const data = await post(config.urls[what], { room: state.open });
+
+      if (data.error) {
+        window.alert(data.error);
+      }
+
+      if (what === 'take' && !data.error) {
+        field.focus();
+      }
+    } catch (error) {
+      window.alert(t.error);
+    }
+
+    later(true);
+  };
+
+  composer.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const text = field.value.trim();
+
+    if (!text || !state.open) {
+      return;
+    }
+
+    if (composer.dataset.mode === 'email') {
+      await replyByEmail(text);
+
+      return;
+    }
+
+    const pending = { id: 0, author: 'staff', mine: true, name: '', text, time: new Date().toISOString(), pending: true };
+
+    field.value = '';
+    state.messages.push(pending);
+    showMessage(pending);
+    toBottom(true);
+    say('');
+
+    try {
+      const data = await post(config.urls.send, { room: state.open, text });
+
+      if (data.error) {
+        state.messages.splice(state.messages.indexOf(pending), 1);
+        field.value = text;
+        say(data.error);
+        paintRoom();
+      } else if (data.warning) {
+        say(data.warning);
+      }
+    } catch (error) {
+      state.messages.splice(state.messages.indexOf(pending), 1);
+      field.value = text;
+      say(t.error);
+      paintRoom();
+    }
+
+    later(true);
+  });
+
+  // A picture made smaller before it is sent: 1920 pixels at most on its longer side, as WebP (JPEG
+  // where the browser cannot write WebP), smaller still until under 1 MB. Moving GIFs, and pictures
+  // that would not get smaller, are sent as they are
+  const shrinkPicture = async (file) => {
+    if (!/^image\/(?:jpeg|png|webp)$/.test(file.type) || !window.createImageBitmap) {
+      return file;
+    }
+
+    let bitmap;
+
+    try {
+      bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    } catch (error) {
+      return file;
+    }
+
+    const encode = (canvas, type, quality) => new Promise((resolve) => { canvas.toBlob(resolve, type, quality); });
+    let scale = Math.min(1, 1920 / Math.max(bitmap.width, bitmap.height));
+    let made = null;
+
+    for (let round = 0; round < 5 && !made; round += 1) {
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+
+      for (const quality of [0.82, 0.68]) {
+        let blob = await encode(canvas, 'image/webp', quality);
+
+        if (!blob || blob.type !== 'image/webp') {
+          // JPEG has no transparency: on white
+          context.globalCompositeOperation = 'destination-over';
+          context.fillStyle = '#fff';
+          context.fillRect(0, 0, canvas.width, canvas.height);
+          blob = await encode(canvas, 'image/jpeg', quality);
+        }
+
+        if (blob && blob.size <= 1048576) {
+          made = blob;
+          break;
+        }
+      }
+
+      scale *= 0.75;
+    }
+
+    if (bitmap.close) {
+      bitmap.close();
+    }
+
+    if (!made || (made.size >= file.size && file.size <= 1048576)) {
+      return file;
+    }
+
+    const base = (file.name || 'picture').replace(/\.[^.]+$/, '') || 'picture';
+
+    return new File([made], `${base}.${made.type === 'image/webp' ? 'webp' : 'jpg'}`, { type: made.type });
+  };
+
+  // A file sent in one's chat: the attach button, dropped on the chat, or a picture pasted in the box
+  async function sendFile(given) {
+    if (!given || !state.open) {
+      return;
+    }
+
+    attach.disabled = true;
+    say(t.uploading);
+
+    const file = await shrinkPicture(given);
+    const image = /^image\//.test(file.type);
+
+    if (file.size > (image ? 1048576 : 10485760)) {
+      say(image ? t.imageTooLarge : t.tooLarge);
+      attach.disabled = false;
+
+      return;
+    }
+
+    const form = new FormData();
+
+    form.append('room', String(state.open));
+    form.append('file', file);
+
+    try {
+      const response = await fetch(config.urls.upload, { method: 'POST', body: form, headers: { 'X-CSRF-Token': config.token, Accept: 'application/json' }, credentials: 'same-origin' });
+      const data = await response.json();
+
+      say(data.error || '');
+    } catch (error) {
+      say(t.error);
+    }
+
+    attach.disabled = false;
+    later(true);
+  }
+
+  const sendFiles = async (files) => {
+    for (const file of files.slice(0, 5)) {
+      await sendFile(file);
+    }
+  };
+
+  attachInput.addEventListener('change', () => {
+    const file = attachInput.files[0];
+
+    attachInput.value = '';
+    sendFile(file);
+  });
+
+  // Only into one's own chat, while it goes on
+  const takesFiles = () => !composer.hidden && composer.dataset.mode === 'chat' && !attach.hidden;
+  let dragDepth = 0;
+
+  pane.dataset.drop = t.dropHere;
+  pane.addEventListener('dragenter', (event) => {
+    if (takesFiles() && [...event.dataTransfer.types].includes('Files')) {
+      dragDepth += 1;
+      pane.classList.add('askdesk-dropping');
+    }
+  });
+  pane.addEventListener('dragover', (event) => {
+    if (takesFiles() && [...event.dataTransfer.types].includes('Files')) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+    }
+  });
+  pane.addEventListener('dragleave', () => {
+    dragDepth = Math.max(0, dragDepth - 1);
+
+    if (!dragDepth) {
+      pane.classList.remove('askdesk-dropping');
+    }
+  });
+  pane.addEventListener('drop', (event) => {
+    dragDepth = 0;
+    pane.classList.remove('askdesk-dropping');
+
+    if (takesFiles() && event.dataTransfer.files.length) {
+      event.preventDefault();
+      sendFiles([...event.dataTransfer.files]);
+    }
+  });
+  field.addEventListener('paste', (event) => {
+    const files = [...((event.clipboardData && event.clipboardData.files) || [])];
+
+    if (takesFiles() && files.length) {
+      event.preventDefault();
+      sendFiles(files);
+    }
+  });
+
+  // The reply, translated, opens in one's own mail program, addressed and with a subject; it is kept
+  // with the message. Nothing is sent from the site.
+  async function replyByEmail(text) {
+    send.disabled = true;
+    say('');
+
+    try {
+      const data = await post(config.urls.reply, { room: state.open, text });
+
+      if (data.error) {
+        say(data.error);
+      } else {
+        const mail = el('a');
+
+        mail.href = `mailto:${encodeURIComponent(data.email)}?subject=${encodeURIComponent(data.subject)}&body=${encodeURIComponent(data.body)}`;
+        mail.click();
+        field.value = '';
+        say(data.warning || t.replyOpened);
+        note.classList.toggle('askdesk-composer__note--ok', !data.warning);
+      }
+    } catch (error) {
+      say(t.error);
+    }
+
+    send.disabled = false;
+    later(true);
+  }
+
+  // An address of one of the site's articles, however long, ends at its number
+  // (index.php?option=com_content&view=article&id=12:alias, or with the option left out as a menu
+  // item supplies it: /tw/?view=article&id=12). Addresses as the address bar shows them are made
+  // short by the desk when the message is sent
+  const ARTICLE = new RegExp(`${(config.root || window.location.origin).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?:/[^\\s?#]*)?\\?[^\\s]*?\\bview=article&(?:amp;)?id=(\\d+)[^\\s]*`, 'g');
+  const shortArticle = (found, id) => {
+    // A full stop or bracket after the address stays where it was
+    const tail = (found.match(/[.,;:!?)\]}」』。，、！？]+$/) || [''])[0];
+
+    return !/[?&](?:amp;)?option=/.test(found) || /\boption=com_content\b/.test(found)
+      ? `${config.root || window.location.origin}/index.php?option=com_content&view=article&id=${id}${tail}`
+      : found;
+  };
+
+  field.addEventListener('input', () => {
+    staffTyped = Date.now();
+
+    // Told soon, not only at the next turn of asking
+    if (field.value.trim() && Date.now() - staffTypingSent > 3000) {
+      later(true);
+    }
+
+    const short = field.value.replace(ARTICLE, shortArticle);
+
+    if (short !== field.value) {
+      const end = field.value.length - field.selectionEnd;
+
+      field.value = short;
+      field.setSelectionRange(short.length - end, short.length - end);
+    }
+  });
+
+  field.addEventListener('keydown', (event) => {
+    // Enter confirms a candidate while composing Chinese or Japanese, so it must not send; in an
+    // e-mail it starts a new line
+    if (composer.dataset.mode !== 'email' && event.key === 'Enter' && !event.shiftKey && !event.isComposing && event.keyCode !== 229) {
+      event.preventDefault();
+      composer.requestSubmit();
+    }
+  });
+
+  // ---------- AI search ----------
+
+  let searching = 0;
+
+  const closeResults = () => {
+    if (results.hidden) {
+      return;
+    }
+
+    if (reduced.matches) {
+      results.hidden = true;
+
+      return;
+    }
+
+    results.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-6px)' }], { duration: 150, easing: EASE }).finished.then(() => {
+      results.hidden = true;
+    }, () => {});
+  };
+
+  const openResults = (...nodes) => {
+    const was = results.hidden;
+
+    results.replaceChildren(...nodes);
+    results.hidden = false;
+
+    if (was && !reduced.matches) {
+      results.animate([{ opacity: 0, transform: 'translateY(-6px) scale(0.98)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: EASE });
+    }
+  };
+
+  search.addEventListener('submit', async (event) => {
+    event.preventDefault();
+
+    const text = searchField.value.trim();
+    const mine = ++searching;
+
+    if (text.length < 2) {
+      return;
+    }
+
+    openResults(el('p', 'askdesk-panel__hint', t.searching), skeleton(3), skeleton(2));
+
+    try {
+      const data = await post(config.urls.search, { text });
+
+      if (mine !== searching) {
+        return;
+      }
+
+      const items = Array.isArray(data.items) ? data.items : [];
+
+      openResults(...(items.length
+        ? items.map((item, index) => answerCard(item, index, true))
+        : [rise(el('p', 'askdesk-panel__hint', data.error || t.noResults))]));
+    } catch (error) {
+      if (mine === searching) {
+        openResults(el('p', 'askdesk-panel__hint', t.error));
+      }
+    }
+  });
+
+  searchField.addEventListener('focus', () => {
+    if (results.childElementCount && searchField.value.trim()) {
+      openResults(...results.childNodes);
+    }
+  });
+
+  searchField.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeResults();
+    }
+  });
+
+  // Cleared: the answers go
+  searchField.addEventListener('input', () => {
+    if (!searchField.value.trim()) {
+      searching += 1;
+      closeResults();
+    }
+  });
+
+  // ---------- Status and language ----------
+
+  const paintMe = () => {
+    if (state.me) {
+      statusSelect.value = state.me.status;
+      statusSelect.dataset.status = state.me.status;
+      languageSelect.value = state.me.language;
+      paintPresence(state.me.status);
+      paintLanguage();
+    }
+  };
+
+  // ---------- How one shows oneself: a name, and a pet that bows or a picture of one's own ----------
+
+  let profileBox = null;
+
+  const closeProfile = () => {
+    if (!profileBox) {
+      return;
+    }
+
+    const leaving = profileBox;
+
+    profileBox = null;
+    leaving.classList.add('askdesk-profile--leaving');
+    window.setTimeout(() => leaving.remove(), reduced.matches ? 0 : 160);
+  };
+
+  async function openProfile() {
+    if (profileBox) {
+      closeProfile();
+
+      return;
+    }
+
+    let data;
+
+    try {
+      data = await post(config.urls.profile, {});
+    } catch (error) {
+      return;
+    }
+
+    if (!data || data.error) {
+      return;
+    }
+
+    const box = el('form', 'askdesk-profile');
+    const preview = el('span', 'askdesk-me askdesk-profile__face');
+    const nameField = el('input', 'askdesk-profile__name');
+    const pets = el('div', 'askdesk-profile__pets');
+    const picture = el('input');
+    const thanks = el('input');
+    const problem = el('p', 'askdesk-profile__problem');
+    const actions = el('div', 'askdesk-confirm__actions');
+    const clear = el('input');
+    let chosen = data.avatar || '';
+
+    const paintPreview = (src) => {
+      preview.replaceChildren();
+
+      if (src) {
+        const img = el('img', '');
+
+        img.src = src;
+        img.alt = '';
+        preview.append(img);
+      } else {
+        preview.textContent = Array.from(String(nameField.value || data.account || '?').trim() || '?')[0].toUpperCase();
+      }
+    };
+
+    nameField.type = 'text';
+    nameField.maxLength = 100;
+    nameField.value = data.display || '';
+    nameField.placeholder = data.account || '';
+    nameField.setAttribute('aria-label', t.displayName);
+    picture.type = 'file';
+    picture.accept = 'image/png,image/jpeg,image/webp,image/gif';
+    thanks.type = 'file';
+    thanks.accept = picture.accept;
+    clear.type = 'hidden';
+    clear.name = 'clear';
+    clear.value = '0';
+
+    // The pets: those that can bow to choose, the others shown, not to be chosen
+    const choose = (id, chip) => {
+      chosen = id;
+      pets.querySelectorAll('.askdesk-profile__pet').forEach((item) => item.classList.toggle('askdesk-profile__pet--on', item === chip));
+      paintPreview(id ? (data.pets.find((pet) => pet.id === id) || {}).thumb : (data.picture || ''));
+    };
+
+    const none = button('askdesk-profile__pet', t.noPet, () => choose('', none));
+
+    pets.append(none);
+
+    (data.pets || []).forEach((pet) => {
+      const chip = button('askdesk-profile__pet', '', () => choose(pet.id, chip));
+
+      if (pet.thumb) {
+        const img = el('img', '');
+
+        img.src = pet.thumb;
+        img.alt = '';
+        chip.append(img);
+      }
+
+      chip.append(el('span', '', pet.title));
+      chip.disabled = !pet.thanks;
+      chip.title = pet.thanks ? pet.title : t.petNoThanks;
+      chip.classList.toggle('askdesk-profile__pet--on', chosen === pet.id);
+      pets.append(chip);
+    });
+
+    none.classList.toggle('askdesk-profile__pet--on', chosen === '');
+
+    picture.addEventListener('change', () => {
+      const file = picture.files[0];
+
+      if (file) {
+        if (file.size > 1024 * 1024) {
+          problem.textContent = t.imageTooLarge;
+          picture.value = '';
+
+          return;
+        }
+
+        choose('', none);
+        paintPreview(URL.createObjectURL(file));
+      }
+    });
+
+    const label = (text, control) => {
+      const row = el('label', 'askdesk-profile__row');
+
+      row.append(el('span', '', text), control);
+
+      return row;
+    };
+
+    // A picture to upload, as a tile: what there is now (or the one chosen), its name and size, a
+    // button to choose or change it; a picture dropped on it is taken too
+    const tile = (title, hint, input, current) => {
+      const box = el('label', 'askdesk-upload');
+      const thumb = el('span', 'askdesk-upload__thumb');
+      const words = el('span', 'askdesk-upload__words');
+      const note = el('small', '', hint);
+      const action = el('span', 'askdesk-upload__action', current ? t.change : t.choosePicture);
+      const show = (src) => {
+        thumb.replaceChildren();
+
+        if (src) {
+          const picture = el('img', '');
+
+          picture.src = src;
+          picture.alt = '';
+          thumb.append(picture);
+        } else {
+          thumb.append(icon('photo'));
+        }
+      };
+
+      words.append(el('strong', '', title), note);
+      box.append(thumb, words, action, input);
+      show(current);
+
+      input.addEventListener('change', () => {
+        const file = input.files[0];
+
+        if (!file) {
+          return;
+        }
+
+        show(URL.createObjectURL(file));
+        note.textContent = `${file.name} · ${sizeOf(file.size)}`;
+        action.textContent = t.change;
+        box.classList.add('askdesk-upload--chosen');
+        rise(thumb);
+      });
+
+      box.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        box.classList.add('askdesk-upload--over');
+      });
+      box.addEventListener('dragleave', () => box.classList.remove('askdesk-upload--over'));
+      box.addEventListener('drop', (event) => {
+        event.preventDefault();
+        box.classList.remove('askdesk-upload--over');
+
+        const file = [...event.dataTransfer.files].find((item) => /^image\//.test(item.type));
+
+        if (file) {
+          const chosen = new DataTransfer();
+
+          chosen.items.add(file);
+          input.files = chosen.files;
+          input.dispatchEvent(new Event('change'));
+        }
+      });
+
+      return box;
+    };
+
+    const uploads = el('div', 'askdesk-upload-pair');
+
+    uploads.append(
+      tile(t.faceTile, t.faceHint, picture, data.picture || ''),
+      tile(t.thanksTile, t.thanksHint, thanks, data.thanksPicture || ''),
+    );
+
+    actions.append(
+      button('askdesk-button askdesk-button--text', t.clearFace, () => {
+        clear.value = '1';
+        choose('', none);
+        data.picture = '';
+        paintPreview('');
+      }),
+      el('span', 'askdesk-bar__space'),
+      button('askdesk-button askdesk-button--text', t.cancel, closeProfile),
+    );
+
+    const save = el('button', 'askdesk-button askdesk-button--primary', t.save);
+
+    save.type = 'submit';
+    actions.append(save);
+    box.append(el('strong', '', t.profile), preview, label(t.displayName, nameField), el('span', 'askdesk-profile__label', t.pet), pets, el('span', 'askdesk-profile__label', t.uploadOwn), uploads, clear, problem, actions);
+    paintPreview(data.face ? data.face.src : '');
+    bar.append(box);
+    profileBox = box;
+    nameField.focus();
+
+    if (!reduced.matches) {
+      box.animate([{ opacity: 0, transform: 'translateY(-6px) scale(0.97)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'cubic-bezier(0.2, 0.9, 0.3, 1.2)' });
+    }
+
+    box.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      save.disabled = true;
+      problem.textContent = '';
+
+      const form = new FormData();
+
+      form.append('display_name', nameField.value.trim());
+      form.append('avatar', chosen);
+      form.append('clear', clear.value);
+
+      if (picture.files[0]) {
+        form.append('picture', picture.files[0]);
+      }
+
+      if (thanks.files[0]) {
+        form.append('thanks', thanks.files[0]);
+      }
+
+      try {
+        const response = await fetch(config.urls.saveProfile, { method: 'POST', body: form, headers: { 'X-CSRF-Token': config.token, Accept: 'application/json' }, credentials: 'same-origin' });
+        const saved = await response.json();
+
+        if (saved.error) {
+          problem.textContent = saved.error;
+          save.disabled = false;
+
+          return;
+        }
+
+        config.meName = saved.name;
+        paintMeFace(saved.name, saved.face ? saved.face.src : '');
+        closeProfile();
+      } catch (error) {
+        problem.textContent = t.error;
+        save.disabled = false;
+      }
+    });
+  }
+
+  document.addEventListener('pointerdown', (event) => {
+    if (profileBox && !profileBox.contains(event.target) && !meFace.contains(event.target)) {
+      closeProfile();
+    }
+  });
+
+  const setMe = async (values) => {
+    try {
+      const data = await post(config.urls.status, values);
+
+      if (data.me) {
+        state.me = data.me;
+        paintMe();
+      }
+    } catch (error) {
+      // Shown as it was
+    }
+  };
+
+  statusSelect.addEventListener('change', () => {
+    paintPresence(statusSelect.value);
+    setMe({ status: statusSelect.value });
+  });
+  // Another language: the console comes again in it (its words are the server's)
+  languageSelect.addEventListener('change', async () => {
+    languageSelect.disabled = true;
+    await setMe({ language: languageSelect.value });
+    window.location.reload();
+  });
+
+  // ---------- Asking what is new ----------
+
+  const heardRooms = (rooms) => {
+    const before = new Map(state.rooms.map((room) => [room.id, room]));
+
+    // Rung for: a chat that starts waiting, a visitor writing in one's own chat
+    if (!state.first) {
+      rooms.forEach((room) => {
+        const was = before.get(room.id);
+
+        if (room.status === 'waiting' && (!was || was.status !== 'waiting')) {
+          tell(`${t.waiting}: ${room.name || `${t.visitor} #${room.id}`}`);
+        } else if (room.status === 'message' && !was) {
+          tell(`${t.message}: ${room.name || `${t.visitor} #${room.id}`}`);
+        } else if (was && room.staff === config.me && room.unread > was.unread && !(room.id === state.open && !document.hidden)) {
+          tell(room.preview);
+        }
+      });
+    }
+
+    state.first = false;
+    state.rooms = rooms;
+    paintInbox();
+  };
+
+  async function poll() {
+    if (polling) {
+      return;
+    }
+
+    polling = true;
+
+    try {
+      // Writing in one's own chat just now: the visitor sees dots
+      const typing = !composer.hidden && composer.dataset.mode === 'chat' && Boolean(field.value.trim()) && Date.now() - staffTyped < 4000;
+
+      if (typing) {
+        staffTypingSent = Date.now();
+      }
+
+      // Messages seen still being translated, to have them again once they are
+      const pending = state.messages.filter((item) => item.translating).map((item) => item.id).slice(-50);
+      const data = await post(config.urls.poll, { room: state.open, after: state.after, typing, pending });
+
+      if (data.error) {
+        if (data.signedOut || data.expired) {
+          root.replaceChildren(el('p', 'askdesk-denied', data.signedOut ? t.signedOut : t.expired));
+          polling = false;
+
+          return;
+        }
+      } else {
+        if (!state.me && data.me) {
+          state.me = data.me;
+          paintMe();
+
+          // Opening the console means being there, the first time
+          if (data.me.status === 'away' && !window.sessionStorage.getItem('askdesk:away')) {
+            setMe({ status: 'online' });
+          }
+        }
+
+        paintReach(data.visitors);
+        presence.textContent = (data.staff || []).length ? `${t.staffNow}: ${(data.staff || []).map((person) => person.name).join(', ')}` : '';
+        heardRooms(Array.isArray(data.rooms) ? data.rooms : []);
+        heardRoom(data.room);
+      }
+    } catch (error) {
+      // Asked again in a moment
+    }
+
+    polling = false;
+    later();
+  }
+
+  // Set away on purpose: not set online again on the next page
+  statusSelect.addEventListener('change', () => {
+    try {
+      if (statusSelect.value === 'away') {
+        window.sessionStorage.setItem('askdesk:away', '1');
+      } else {
+        window.sessionStorage.removeItem('askdesk:away');
+      }
+    } catch (error) {
+      // Not remembered
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      later(true);
+    }
+  });
+
+  poll();
+})(window, document);

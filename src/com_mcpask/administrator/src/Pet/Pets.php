@@ -42,6 +42,8 @@ final class Pets
         'confused' => 2,
         'sleep'    => 0,
         'wake'     => 1,
+        // Bowing to say thank you, when a visitor rates a chat with a person (AI Ask Desk, 0.20.0)
+        'thanks'   => 2.5,
     ];
 
     /**

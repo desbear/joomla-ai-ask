@@ -1,0 +1,4713 @@
+/**
+ * @package     AI Ask Desk for Joomla
+ * @subpackage  com_askdesk
+ *
+ * @copyright   (C) 2026 GSS
+ * @license     GNU General Public License version 2 or later; see LICENSE
+ */
+
+/*
+ * The console: the inbox beside the open chat; on a phone, one after the other.
+ * Every colour, radius and shadow is a custom property below: a site sets its own on .askdesk.
+ */
+.askdesk {
+  /* Its own sans-serif, whatever the site's is: a site's font for Chinese alone left English in a serif */
+  --askdesk-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  --askdesk-text: #232332;
+  --askdesk-muted: rgba(35, 35, 50, 0.55);
+  --askdesk-faint: rgba(35, 35, 50, 0.4);
+  --askdesk-surface: #fff;
+  --askdesk-canvas: #f5f7fa;
+  --askdesk-soft: rgba(35, 35, 50, 0.03);
+  --askdesk-line: rgba(35, 35, 50, 0.08);
+  --askdesk-line-strong: rgba(35, 35, 50, 0.15);
+  --askdesk-accent: #0e86fe;
+  --askdesk-accent-hover: #419ffe;
+  --askdesk-accent-soft: #ebf5ff;
+  --askdesk-on-accent: #fff;
+  --askdesk-primary: linear-gradient(45deg, #33cfff 0%, #0e86fe 100%);
+  --askdesk-primary-shadow: 0 6px 10px rgba(14, 134, 254, 0.3);
+  --askdesk-primary-shadow-active: 0 2px 4px rgba(14, 134, 254, 0.4);
+  --askdesk-focus: 0 0 0 2px #a6d2ff;
+  --askdesk-ok: #0f6e3a;
+  --askdesk-ok-soft: #e6f5ec;
+  --askdesk-warn: #b35c00;
+  --askdesk-warn-soft: #fff1e0;
+  --askdesk-danger: #a32d2d;
+  --askdesk-alarm: #eb5000;
+  --askdesk-danger-soft: #fce4e4;
+  --askdesk-wait: #5f6368;
+  --askdesk-wait-soft: #f1f3f4;
+  --askdesk-radius: 16px;
+  --askdesk-radius-sm: 12px;
+
+  --askdesk-ai: #1a5bff;
+  --askdesk-ai-2: #7f65ff;
+  --askdesk-ai-3: #00d4ff;
+  --askdesk-column: 760px;
+
+  /* The whole window, over the site's template, like an application */
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  background: var(--askdesk-surface);
+  color: var(--askdesk-text);
+  font-family: var(--askdesk-font);
+  font-size: 14px;
+  line-height: 1.5;
+
+  [hidden] {
+    display: none !important;
+  }
+
+  strong,
+  b {
+    font-weight: 500;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .askdesk {
+    --askdesk-text: #e6ebf3;
+    --askdesk-muted: rgba(230, 235, 243, 0.65);
+    --askdesk-faint: rgba(230, 235, 243, 0.45);
+    --askdesk-surface: #161b26;
+    --askdesk-canvas: #10141c;
+    --askdesk-soft: rgba(255, 255, 255, 0.04);
+    --askdesk-line: rgba(255, 255, 255, 0.08);
+    --askdesk-line-strong: rgba(255, 255, 255, 0.16);
+    --askdesk-accent: #419ffe;
+    --askdesk-accent-hover: #73b9fe;
+    --askdesk-accent-soft: rgba(14, 134, 254, 0.18);
+    --askdesk-ok: #7ddba8;
+    --askdesk-ok-soft: rgba(43, 205, 134, 0.16);
+    --askdesk-warn: #ffc266;
+    --askdesk-warn-soft: rgba(255, 167, 0, 0.16);
+    --askdesk-danger: #ff9b8a;
+    --askdesk-danger-soft: rgba(235, 80, 0, 0.18);
+    --askdesk-wait: rgba(230, 235, 243, 0.7);
+    --askdesk-wait-soft: rgba(255, 255, 255, 0.07);
+  }
+}
+
+html.askdesk-app,
+html.askdesk-app body {
+  overflow: hidden;
+}
+
+.askdesk--dragging {
+  cursor: col-resize;
+  user-select: none;
+}
+
+.askdesk-icon {
+  display: inline-flex;
+  flex: none;
+  inline-size: 1.15em;
+  block-size: 1.15em;
+
+  svg {
+    inline-size: 100%;
+    block-size: 100%;
+  }
+}
+
+/* ---------- Buttons: primary (gradient), text; md 30px, lg 32px lifted ---------- */
+
+.askdesk-button {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  block-size: 30px;
+  padding: 0 16px;
+  overflow: hidden;
+  border: 1px solid var(--askdesk-line-strong);
+  border-radius: 15px;
+  background: var(--askdesk-surface);
+  color: var(--askdesk-text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+
+  /* A wash over any background, gradients included */
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: rgba(35, 35, 50, 0.03);
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  &:hover::before {
+    opacity: 1;
+  }
+
+  &:active::before {
+    background: rgba(35, 35, 50, 0.08);
+    opacity: 1;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--askdesk-focus);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .askdesk-icon {
+    inline-size: 14px;
+    block-size: 14px;
+  }
+}
+
+.askdesk-button--primary {
+  border: 0;
+  background: var(--askdesk-primary);
+  color: var(--askdesk-on-accent);
+}
+
+.askdesk-button--lg {
+  block-size: 32px;
+  border-radius: 16px;
+  font-size: 16px;
+
+  &.askdesk-button--primary {
+    box-shadow: var(--askdesk-primary-shadow);
+
+    &:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    &:active:not(:disabled) {
+      transform: none;
+      box-shadow: var(--askdesk-primary-shadow-active);
+    }
+  }
+}
+
+.askdesk-button--icon {
+  inline-size: 32px;
+  block-size: 32px;
+  padding: 0;
+  border-radius: 16px;
+
+  &.askdesk-button--primary {
+    box-shadow: var(--askdesk-primary-shadow);
+
+    &:active:not(:disabled) {
+      box-shadow: var(--askdesk-primary-shadow-active);
+    }
+  }
+}
+
+.askdesk-button--text {
+  block-size: 28px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--askdesk-accent);
+
+  &::before {
+    display: none;
+  }
+
+  &:hover {
+    color: var(--askdesk-accent-hover);
+  }
+}
+
+/* Ending something for the visitor: red words on white, and a red button to confirm it */
+.askdesk-button--danger {
+  border-color: var(--askdesk-line-strong);
+  color: var(--askdesk-alarm);
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--askdesk-alarm) 45%, transparent);
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 2px #ffae85;
+  }
+}
+
+.askdesk-button--alarm {
+  border: 0;
+  background: var(--askdesk-alarm);
+  box-shadow: 0 6px 10px rgba(235, 80, 0, 0.3);
+  color: #fff;
+
+  &:active:not(:disabled) {
+    box-shadow: 0 2px 4px rgba(235, 80, 0, 0.4);
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 2px #ffae85, 0 6px 10px rgba(235, 80, 0, 0.3);
+  }
+}
+
+.askdesk-room__actions {
+  position: relative;
+}
+
+.askdesk-confirm {
+  position: absolute;
+  inset-block-start: calc(100% + 8px);
+  inset-inline-end: 0;
+  z-index: 30;
+  display: grid;
+  gap: 6px;
+  inline-size: 280px;
+  padding: 14px 16px;
+  border: 0.5px solid var(--askdesk-line-strong);
+  border-radius: var(--askdesk-radius);
+  background: var(--askdesk-surface);
+  box-shadow: 0 6px 32px -4px rgba(35, 35, 50, 0.25);
+  transform-origin: top right;
+
+  strong {
+    font-size: 14px;
+  }
+
+  p {
+    margin: 0;
+    color: var(--askdesk-muted);
+    font-size: 12px;
+  }
+}
+
+.askdesk-confirm__actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+  margin-block-start: 6px;
+}
+
+/* ---------- Pills: one meaning each ---------- */
+
+.askdesk-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--askdesk-wait-soft);
+  color: var(--askdesk-wait);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 18px;
+  white-space: nowrap;
+}
+
+.askdesk-pill--blue {
+  background: var(--askdesk-accent-soft);
+  color: var(--askdesk-accent);
+}
+
+.askdesk-pill--ok {
+  background: var(--askdesk-ok-soft);
+  color: var(--askdesk-ok);
+}
+
+.askdesk-pill--warn {
+  background: var(--askdesk-warn-soft);
+  color: var(--askdesk-warn);
+}
+
+/* ---------- The bar ---------- */
+
+.askdesk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 16px;
+  border-block-end: 0.5px solid var(--askdesk-line-strong);
+}
+
+.askdesk-tile {
+  display: grid;
+  place-items: center;
+  inline-size: 40px;
+  block-size: 40px;
+  border-radius: var(--askdesk-radius-sm);
+  background: var(--askdesk-accent-soft);
+  color: var(--askdesk-accent);
+
+  .askdesk-icon {
+    inline-size: 22px;
+    block-size: 22px;
+  }
+}
+
+.askdesk-bar__heading {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.askdesk-bar__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.askdesk-bar__staff {
+  margin: 0;
+  overflow: hidden;
+  color: var(--askdesk-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* AI search of the site's pages, at the top of the side panel; the answers below it */
+.askdesk-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-block-end: 12px;
+  padding: 0 4px 0 14px;
+  border-radius: 20px;
+  background:
+    radial-gradient(80% 160% at 100% 0%, color-mix(in srgb, var(--askdesk-ai-2) 14%, transparent), transparent 70%),
+    var(--askdesk-soft);
+  box-shadow: 0 0 0 1px var(--askdesk-line);
+  transition: box-shadow 0.2s, background 0.2s;
+
+  > .askdesk-icon {
+    color: var(--askdesk-ai-2);
+  }
+
+  &:focus-within {
+    background: var(--askdesk-surface);
+    box-shadow:
+      0 0 0 1.5px var(--askdesk-accent),
+      0 8px 24px -8px color-mix(in srgb, var(--askdesk-accent) 30%, transparent);
+  }
+}
+
+.askdesk-search__field {
+  flex: 1;
+  min-inline-size: 0;
+  block-size: 40px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  outline: 0;
+
+  &::placeholder {
+    color: var(--askdesk-faint);
+  }
+}
+
+.askdesk-search__results {
+  display: grid;
+  gap: 10px;
+  margin-block-end: 12px;
+  transform-origin: top center;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+/* Status and language: quiet pills */
+.askdesk-select {
+  block-size: 30px;
+  padding: 0 28px 0 12px;
+  border: 1px solid var(--askdesk-line-strong);
+  border-radius: 15px;
+  background: var(--askdesk-surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8f98' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center / 12px;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  appearance: none;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--askdesk-focus);
+  }
+
+  &[data-status="online"] {
+    border-color: transparent;
+    background-color: var(--askdesk-ok-soft);
+    color: var(--askdesk-ok);
+  }
+
+  &[data-status="busy"] {
+    border-color: transparent;
+    background-color: var(--askdesk-warn-soft);
+    color: var(--askdesk-warn);
+  }
+
+  &[data-status="away"] {
+    border-color: transparent;
+    background-color: var(--askdesk-wait-soft);
+    color: var(--askdesk-wait);
+  }
+}
+
+/* ---------- The inbox ---------- */
+
+.askdesk-main {
+  display: grid;
+  grid-template-columns: var(--askdesk-side, 280px) 0 minmax(0, 1fr);
+  min-block-size: 0;
+}
+
+/* Folding and opening the inbox eases; dragging follows the pointer at once */
+.askdesk--ready .askdesk-main {
+  transition: grid-template-columns 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.askdesk--dragging .askdesk-main {
+  transition: none;
+}
+
+.askdesk-inbox {
+  transition:
+    opacity 0.2s,
+    visibility 0s;
+}
+
+.askdesk-inbox {
+  overflow-y: auto;
+  padding: 8px;
+  border-inline-end: 0.5px solid var(--askdesk-line-strong);
+  background: var(--askdesk-canvas);
+}
+
+/* The edge between the inbox and the chat, to drag: a wide grip over a thin line */
+.askdesk-splitter {
+  position: relative;
+  z-index: 2;
+  inline-size: 0;
+  outline: none;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: -5px;
+    inline-size: 10px;
+    cursor: col-resize;
+  }
+
+  /* The handle: a small rounded bar in the middle of the edge, on the work's side */
+  &::after {
+    content: "";
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-start: 6px;
+    inline-size: 4px;
+    block-size: 20px;
+    border-radius: 2px;
+    background: rgba(35, 35, 50, 0.18);
+    transform: translateY(-50%);
+    transition:
+      background 0.15s,
+      block-size 0.2s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  }
+
+  &:hover::after,
+  &:focus-visible::after,
+  .askdesk--dragging &::after {
+    block-size: 36px;
+    background: var(--askdesk-accent);
+  }
+}
+
+/* Folded away: a button in the bar opens it again */
+.askdesk-main--folded {
+  grid-template-columns: 0 0 minmax(0, 1fr);
+
+  .askdesk-inbox {
+    visibility: hidden;
+    opacity: 0;
+    padding: 0;
+    border: 0;
+    transition:
+      opacity 0.15s,
+      visibility 0s 0.28s;
+  }
+}
+
+.askdesk-bar__inbox:not([hidden]) {
+  animation: askdesk-fade 0.25s ease both;
+}
+
+@keyframes askdesk-fade {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+}
+
+/* The translation of one's message, its words fading in as the pill opens */
+.askdesk-msg__translation .askdesk-text {
+  transform-origin: top right;
+}
+
+.askdesk-bar__inbox .askdesk-icon {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+/* All, or only the visitors awaiting an answer */
+.askdesk-filters {
+  display: flex;
+  gap: 4px;
+  margin: 2px 2px 10px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--askdesk-line);
+}
+
+.askdesk-filter {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  block-size: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--askdesk-muted);
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    box-shadow 0.2s;
+
+  b {
+    min-inline-size: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--askdesk-line);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 18px;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--askdesk-focus);
+  }
+}
+
+.askdesk-filter--on {
+  background: var(--askdesk-surface);
+  box-shadow: 0 1px 4px rgba(35, 35, 50, 0.12);
+  color: var(--askdesk-text);
+  font-weight: 500;
+}
+
+/* Someone is waiting: the count in red */
+.askdesk-filter--alert b {
+  position: relative;
+  background: #d9363e;
+  color: #fff;
+}
+
+/* Someone new: over the count, a red capsule with a bell grows, the bell swings, then the bell narrows
+   away and the capsule eases back to the count's own size */
+.askdesk-filter__total--ringing {
+  background: transparent !important;
+  color: transparent !important;
+}
+
+.askdesk-filter__ring {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 50%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  block-size: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #d9363e;
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+  white-space: nowrap;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: askdesk-ring-grow 2.4s both;
+}
+
+.askdesk-filter__bell {
+  display: inline-flex;
+  max-inline-size: 0;
+  overflow: hidden;
+  opacity: 0;
+  animation: askdesk-ring-bell 2.4s both;
+
+  .askdesk-icon {
+    inline-size: 12px;
+    block-size: 12px;
+    margin-inline-end: 3px;
+    transform-origin: 50% 10%;
+    animation: askdesk-ring-swing 2.4s ease-in-out both;
+  }
+}
+
+@keyframes askdesk-ring-grow {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    animation-timing-function: cubic-bezier(0.2, 0.9, 0.3, 1.3);
+  }
+
+  16% {
+    transform: translate(-50%, -50%) scale(1.7);
+    animation-timing-function: ease-out;
+  }
+
+  24% {
+    transform: translate(-50%, -50%) scale(1.6);
+  }
+
+  66% {
+    transform: translate(-50%, -50%) scale(1.6);
+    animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1);
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+}
+
+@keyframes askdesk-ring-bell {
+  0% {
+    max-inline-size: 0;
+    opacity: 0;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  14% {
+    max-inline-size: 18px;
+    opacity: 1;
+  }
+
+  62% {
+    max-inline-size: 18px;
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.45, 0, 0.25, 1);
+  }
+
+  88%,
+  100% {
+    max-inline-size: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes askdesk-ring-swing {
+  0%,
+  16% {
+    transform: rotate(0);
+  }
+
+  23% {
+    transform: rotate(24deg);
+  }
+
+  30% {
+    transform: rotate(-22deg);
+  }
+
+  37% {
+    transform: rotate(16deg);
+  }
+
+  44% {
+    transform: rotate(-11deg);
+  }
+
+  51% {
+    transform: rotate(6deg);
+  }
+
+  58%,
+  100% {
+    transform: rotate(0);
+  }
+}
+
+.askdesk-group--awaiting .askdesk-group__title {
+  line-height: 1.4;
+}
+
+.askdesk-group--awaiting .askdesk-item {
+  border-color: color-mix(in srgb, var(--askdesk-warn) 40%, transparent);
+  background: var(--askdesk-surface);
+}
+
+.askdesk-group + .askdesk-group {
+  margin-block-start: 8px;
+}
+
+.askdesk-group__title {
+  margin: 6px 8px;
+  color: var(--askdesk-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.askdesk-group__none {
+  margin: 4px 8px 8px;
+  color: var(--askdesk-faint);
+  font-size: 12px;
+}
+
+.askdesk-item {
+  position: relative;
+  display: grid;
+  gap: 2px;
+  inline-size: 100%;
+  margin-block-end: 6px;
+  padding: 10px 12px;
+  border: 0.5px solid transparent;
+  border-radius: var(--askdesk-radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: var(--askdesk-surface);
+    border-color: var(--askdesk-line-strong);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--askdesk-focus);
+  }
+}
+
+/* A chat waiting stands out; the open one is tinted */
+.askdesk-group--waiting .askdesk-item {
+  border-color: var(--askdesk-accent);
+  background: var(--askdesk-surface);
+}
+
+.askdesk-item--open,
+.askdesk-item--open:hover {
+  border-color: transparent;
+  background: var(--askdesk-accent-soft);
+}
+
+.askdesk-item__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  min-inline-size: 0;
+}
+
+/* Room for the unread count, where the time would be */
+.askdesk-item:has(.askdesk-badge) .askdesk-item__time {
+  margin-inline-end: 32px;
+}
+
+.askdesk-item__name {
+  flex: 0 1 auto;
+  min-inline-size: 3em;
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.askdesk-item__time {
+  margin-inline-start: auto;
+  color: var(--askdesk-faint);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.askdesk-item__preview,
+.askdesk-item__by {
+  overflow: hidden;
+  color: var(--askdesk-muted);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.askdesk-badge {
+  position: absolute;
+  inset-block-start: 10px;
+  inset-inline-end: 10px;
+  min-inline-size: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--askdesk-danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* ---------- One chat ---------- */
+
+.askdesk-room {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-block-size: 0;
+}
+
+/* The conversation, and beside it the suggested replies (to come) */
+.askdesk-room__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-block-size: 0;
+}
+
+.askdesk-room__column {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+  min-block-size: 0;
+}
+
+.askdesk-room__aside {
+  box-sizing: border-box;
+  inline-size: 340px;
+  overflow-y: auto;
+  padding: 12px;
+  border-inline-start: 0.5px solid var(--askdesk-line-strong);
+  background: var(--askdesk-canvas);
+}
+
+/* Its parts: suggested replies, the visitor's history; each folds */
+.askdesk-panel {
+  margin-block-end: 12px;
+  overflow: hidden;
+  border: 0.5px solid var(--askdesk-line-strong);
+  border-radius: var(--askdesk-radius);
+  background: var(--askdesk-surface);
+
+  > :not(summary) {
+    padding: 0 14px 14px;
+  }
+}
+
+.askdesk-panel__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  list-style: none;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+
+  &:focus {
+    outline: none;
+  }
+
+  &:focus-visible {
+    box-shadow: inset var(--askdesk-focus);
+  }
+
+  .askdesk-icon {
+    color: var(--askdesk-accent);
+  }
+
+  &::after {
+    content: "";
+    inline-size: 7px;
+    block-size: 7px;
+    margin-inline-start: auto;
+    border-inline-end: 1.5px solid var(--askdesk-faint);
+    border-block-end: 1.5px solid var(--askdesk-faint);
+    transform: rotate(45deg) translateY(-2px);
+    transition: transform 0.2s;
+  }
+
+  [data-state="open"] > &::after {
+    transform: rotate(-135deg) translateY(-2px);
+  }
+}
+
+.askdesk-panel__hint {
+  margin: 0;
+  color: var(--askdesk-muted);
+  font-size: 12px;
+}
+
+/* Waiting for what the AI finds: soft bars that shimmer */
+.askdesk-skeleton {
+  display: grid;
+  gap: 6px;
+  margin-block-start: 10px;
+
+  span {
+    block-size: 10px;
+    border-radius: 5px;
+    background: linear-gradient(90deg, var(--askdesk-soft) 0%, var(--askdesk-line) 50%, var(--askdesk-soft) 100%) 0 0 / 200% 100%;
+    animation: askdesk-shimmer 1.4s ease-in-out infinite;
+  }
+
+  span:first-child {
+    inline-size: 60%;
+  }
+}
+
+@keyframes askdesk-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.askdesk-suggest {
+  display: grid;
+  gap: 10px;
+}
+
+.askdesk-suggest__card {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 0.5px solid var(--askdesk-line-strong);
+  border-radius: var(--askdesk-radius-sm);
+  background:
+    radial-gradient(80% 120% at 100% 0%, color-mix(in srgb, var(--askdesk-ai-2) 10%, transparent), transparent 70%),
+    var(--askdesk-surface);
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--askdesk-accent) 40%, transparent);
+    box-shadow: 0 6px 16px -6px rgba(14, 134, 254, 0.25);
+  }
+}
+
+.askdesk-suggest__image {
+  inline-size: 100%;
+  max-block-size: 120px;
+  border-radius: 8px;
+  background: var(--askdesk-soft);
+  object-fit: cover;
+}
+
+.askdesk-suggest__top {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+
+  .askdesk-pill {
+    margin-inline-start: auto;
+  }
+}
+
+.askdesk-suggest__page {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 4px;
+  min-inline-size: 0;
+  color: var(--askdesk-text);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+
+  .askdesk-icon {
+    inline-size: 13px;
+    block-size: 13px;
+    margin-block-start: 3px;
+    color: var(--askdesk-accent);
+  }
+
+  &:hover {
+    color: var(--askdesk-accent);
+  }
+}
+
+.askdesk-suggest__heading {
+  margin: 0;
+  color: var(--askdesk-muted);
+  font-size: 11px;
+}
+
+.askdesk-suggest__reply {
+  margin: 0;
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+
+.askdesk-suggest__use {
+  justify-self: start;
+  block-size: 24px;
+  font-size: 12px;
+
+  &:disabled {
+    color: var(--askdesk-faint);
+  }
+}
+
+/* The visitor's history */
+.askdesk-history {
+  display: grid;
+  gap: 8px;
+}
+
+.askdesk-history__title {
+  margin: 6px 0 0;
+  color: var(--askdesk-muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.askdesk-history__chat {
+  border: 0.5px solid var(--askdesk-line-strong);
+  border-radius: var(--askdesk-radius-sm);
+
+  summary {
+    display: grid;
+    gap: 2px;
+    padding: 8px 10px;
+    cursor: pointer;
+    list-style: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &:focus {
+      outline: none;
+    }
+  }
+}
+
+.askdesk-history__preview {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.askdesk-history__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  color: var(--askdesk-faint);
+  font-size: 11px;
+}
+
+.askdesk-history__content,
+.askdesk-history__transcript {
+  display: grid;
+  gap: 4px;
+  padding: 0 10px 10px;
+  font-size: 12px;
+}
+
+.askdesk-history__line {
+  margin: 0;
+
+  b {
+    margin-inline-end: 6px;
+    color: var(--askdesk-muted);
+    font-weight: 500;
+  }
+}
+
+.askdesk-history__line--system {
+  color: var(--askdesk-faint);
+  font-size: 11px;
+}
+
+.askdesk-history__question {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px;
+  border-radius: var(--askdesk-radius-sm);
+  background: var(--askdesk-soft);
+}
+
+.askdesk-history__asked {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.askdesk-history__answer {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--askdesk-muted);
+  font-size: 12px;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+/* The button for the side panel, only where it does not fit beside the chat */
+.askdesk-room__refer {
+  display: none;
+}
+
+@media (max-width: 1180px) {
+  .askdesk-room__body {
+    position: relative;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .askdesk-room__refer {
+    display: inline-flex;
+  }
+
+  .askdesk-room__aside {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-end: 0;
+    z-index: 3;
+    inline-size: min(360px, 92%);
+    box-shadow: 0 6px 32px -4px rgba(35, 35, 50, 0.25);
+    transform: translateX(105%);
+    visibility: hidden;
+    transition:
+      transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+      visibility 0s 0.3s;
+  }
+
+  .askdesk-room__body--aside .askdesk-room__aside {
+    transform: none;
+    visibility: visible;
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+}
+
+/* One column in the middle, room to spare on either side */
+.askdesk-thread {
+  box-sizing: border-box;
+  inline-size: 100%;
+  max-inline-size: calc(var(--askdesk-column) + 48px);
+  margin-inline: auto;
+  padding: 20px 24px;
+}
+
+.askdesk-intro {
+  display: grid;
+  gap: 10px;
+  margin-block-end: 16px;
+
+  &:empty {
+    display: none;
+  }
+}
+
+/* The visitor's rating of a chat that ended */
+.askdesk-rated {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 0.5px solid color-mix(in srgb, #ffb400 45%, transparent);
+  border-radius: var(--askdesk-radius);
+  background: color-mix(in srgb, #ffb400 7%, var(--askdesk-surface));
+  font-size: 13px;
+}
+
+.askdesk-rated__values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.askdesk-rated__comment {
+  margin: 0;
+  color: var(--askdesk-muted);
+  white-space: pre-wrap;
+}
+
+.askdesk-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.askdesk-room__empty {
+  align-self: center;
+  margin: 0;
+  padding: 24px;
+  color: var(--askdesk-muted);
+  text-align: center;
+}
+
+.askdesk-room__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px 16px;
+  border-block-end: 0.5px solid var(--askdesk-line-strong);
+}
+
+.askdesk-room__who {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.askdesk-room__name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+
+  strong {
+    font-size: 15px;
+  }
+}
+
+.askdesk-room__company {
+  color: var(--askdesk-muted);
+  font-size: 14px;
+}
+
+.askdesk-room__mail {
+  color: var(--askdesk-accent);
+  font-size: 12px;
+}
+
+.askdesk-room__actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.askdesk-room__back {
+  display: none;
+}
+
+.askdesk-room__page {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-basis: 100%;
+  min-inline-size: 0;
+  margin: -4px 0 0;
+  color: var(--askdesk-muted);
+  font-size: 12px;
+
+  a {
+    overflow: hidden;
+    color: inherit;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* What came before: a card that opens */
+.askdesk-before {
+  max-block-size: 50vh;
+  overflow-y: auto;
+  border: 0.5px solid color-mix(in srgb, var(--askdesk-ai-2) 22%, transparent);
+  border-radius: var(--askdesk-radius);
+  /* AI Ask's own field: a cool white with a glow of each of its colours in the corners */
+  /* Of a fixed size from the top left, so that it looks the same closed (one line) or open */
+  background:
+    radial-gradient(60% 80% at 100% 0%, color-mix(in srgb, var(--askdesk-ai-2) 20%, transparent), transparent 72%) top left / 100% 320px no-repeat,
+    radial-gradient(60% 90% at 0% 100%, color-mix(in srgb, var(--askdesk-ai-3) 16%, transparent), transparent 72%) top left / 100% 320px no-repeat,
+    radial-gradient(50% 70% at 80% 100%, color-mix(in srgb, var(--askdesk-ai) 12%, transparent), transparent 72%) top left / 100% 320px no-repeat,
+    color-mix(in srgb, var(--askdesk-surface) 92%, var(--askdesk-ai-2));
+  font-size: 13px;
+
+  summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    color: var(--askdesk-accent);
+    font-weight: 500;
+    border-radius: inherit;
+    /* The colours fade to white at the far end, so that the blue arrow stands out */
+    background: linear-gradient(90deg, transparent calc(100% - 120px), color-mix(in srgb, var(--askdesk-surface) 90%, transparent) 100%);
+    cursor: pointer;
+    list-style: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    /* A ring for the keyboard only, not after a click */
+    &:focus {
+      outline: none;
+    }
+
+    &:focus-visible {
+      box-shadow: var(--askdesk-focus);
+    }
+
+    &::after {
+      content: "";
+      inline-size: 8px;
+      block-size: 8px;
+      margin-inline-start: auto;
+      border-inline-end: 1.5px solid currentColor;
+      border-block-end: 1.5px solid currentColor;
+      transform: rotate(45deg) translateY(-2px);
+      transition: transform 0.15s;
+    }
+  }
+
+  &[data-state="open"] summary::after {
+    transform: rotate(-135deg) translateY(-2px);
+  }
+
+  > :not(summary) {
+    margin-inline: 12px;
+  }
+
+  > :last-child {
+    margin-block-end: 10px;
+  }
+}
+
+.askdesk-before__turn {
+  display: grid;
+  grid-template-columns: 3.5em minmax(0, 1fr);
+  gap: 8px;
+  padding: 6px 0;
+  border-block-start: 0.5px solid color-mix(in srgb, var(--askdesk-ai-2) 14%, transparent);
+}
+
+.askdesk-before__who {
+  color: var(--askdesk-muted);
+  font-weight: 500;
+}
+
+/* ---------- Messages ---------- */
+
+.askdesk-log {
+  flex: 1;
+  min-block-size: 0;
+  overflow-y: auto;
+}
+
+.askdesk-msg {
+  display: grid;
+  gap: 4px;
+  max-inline-size: min(78%, 640px);
+  margin: 0;
+}
+
+.askdesk-msg__bubble {
+  display: grid;
+  gap: 4px;
+  padding: 8px 14px;
+  border-radius: 16px;
+}
+
+.askdesk-msg--visitor {
+  align-self: flex-start;
+
+  .askdesk-msg__bubble {
+    border-start-start-radius: 4px;
+    background: var(--askdesk-wait-soft);
+  }
+}
+
+.askdesk-msg--staff {
+  align-self: flex-end;
+  justify-items: end;
+
+  .askdesk-msg__bubble {
+    border-start-end-radius: 4px;
+    background: var(--askdesk-accent);
+    color: var(--askdesk-on-accent);
+
+    a {
+      color: inherit;
+    }
+  }
+
+  .askdesk-msg__meta {
+    justify-content: flex-end;
+  }
+}
+
+/* A message pops in from its corner with a little spring: the visitor's from beside its sharp
+   corner at the top left, one's own from the top right */
+.askdesk-msg--pop .askdesk-msg__bubble {
+  animation: askdesk-pop 0.5s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  transform-origin: top left;
+}
+
+.askdesk-msg--staff.askdesk-msg--pop .askdesk-msg__bubble {
+  transform-origin: top right;
+}
+
+.askdesk-msg--pop .askdesk-msg__meta,
+.askdesk-msg--pop .askdesk-linkcards {
+  animation: askdesk-fade-in 0.3s ease 0.2s both;
+}
+
+@keyframes askdesk-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.55) translateY(10px);
+  }
+
+  55% {
+    opacity: 1;
+    transform: scale(1.04);
+  }
+
+  78% {
+    transform: scale(0.985);
+  }
+
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes askdesk-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The visitor is writing: three dots in a bubble */
+.askdesk-msg--typing .askdesk-msg__bubble {
+  padding: 12px 16px;
+}
+
+.askdesk-msg--leaving {
+  opacity: 0;
+  transform: scale(0.7);
+  transform-origin: top left;
+  transition:
+    opacity 0.15s ease-in,
+    transform 0.15s ease-in;
+}
+
+.askdesk-dots {
+  display: inline-flex;
+  gap: 4px;
+
+  i {
+    inline-size: 7px;
+    block-size: 7px;
+    border-radius: 50%;
+    background: var(--askdesk-muted);
+    animation: askdesk-bounce 1.2s ease-in-out infinite;
+
+    &:nth-child(2) {
+      animation-delay: 0.15s;
+    }
+
+    &:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+  }
+}
+
+@keyframes askdesk-bounce {
+  0%,
+  60%,
+  100% {
+    opacity: 0.4;
+    transform: none;
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(-4px);
+  }
+}
+
+.askdesk-msg--pending {
+  opacity: 0.6;
+}
+
+.askdesk-msg--system {
+  align-self: center;
+  max-inline-size: 100%;
+}
+
+.askdesk-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.askdesk-msg__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+  color: var(--askdesk-faint);
+  font-size: 11px;
+
+  .askdesk-button--text {
+    block-size: auto;
+    font-size: 11px;
+    font-weight: 400;
+  }
+}
+
+/* What the visitor reads of one's message */
+.askdesk-msg__translation {
+  inline-size: 100%;
+
+  summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--askdesk-accent-soft);
+    color: var(--askdesk-accent);
+    font-weight: 500;
+    cursor: pointer;
+    list-style: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+  }
+
+  .askdesk-text {
+    margin-block-start: 4px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    background: var(--askdesk-soft);
+    color: var(--askdesk-muted);
+    font-size: 12px;
+    text-align: start;
+  }
+}
+
+/* The articles one linked to, as the visitor sees them */
+.askdesk-linkcards {
+  display: grid;
+  gap: 6px;
+  inline-size: min(100%, 360px);
+}
+
+.askdesk-linkcard {
+  display: flex;
+  gap: 10px;
+  padding: 6px;
+  border: 0.5px solid var(--askdesk-line-strong);
+  border-radius: var(--askdesk-radius-sm);
+  background: var(--askdesk-surface);
+  color: inherit;
+  text-align: start;
+  text-decoration: none;
+  transition: border-color 0.15s, transform 0.15s;
+
+  &:hover {
+    border-color: var(--askdesk-accent);
+    transform: translateY(-1px);
+  }
+
+  span {
+    display: grid;
+    align-content: center;
+    gap: 2px;
+    min-inline-size: 0;
+    font-size: 12px;
+
+    strong {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    span {
+      display: -webkit-box;
+      overflow: hidden;
+      color: var(--askdesk-muted);
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+  }
+}
+
+.askdesk-linkcard__image {
+  flex: none;
+  inline-size: 56px;
+  block-size: 56px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.askdesk-msg__face {
+  inline-size: 20px;
+  block-size: 20px;
+  border-radius: 50%;
+  background: var(--askdesk-accent-soft);
+  object-fit: contain;
+}
+
+.askdesk-msg__warning {
+  margin: 0;
+  font-size: 12px;
+}
+
+/* How a message left is answered */
+.askdesk-room__note {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: var(--askdesk-radius-sm);
+  background: var(--askdesk-warn-soft);
+  color: var(--askdesk-warn);
+  font-size: 12px;
+}
+
+/* ---------- Writing: one box with the send button inside, as in AI Ask ---------- */
+
+.askdesk-composer {
+  box-sizing: border-box;
+  inline-size: 100%;
+  max-inline-size: calc(var(--askdesk-column) + 48px);
+  margin-inline: auto;
+  padding: 8px 24px calc(16px + env(safe-area-inset-bottom));
+}
+
+.askdesk-composer__box {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 28px;
+  background: var(--askdesk-surface);
+  box-shadow:
+    0 0 0 1px var(--askdesk-line-strong),
+    0 6px 20px -2px rgba(35, 35, 50, 0.12);
+  transition: box-shadow 0.2s;
+
+  &:focus-within {
+    box-shadow:
+      0 0 0 1.5px var(--askdesk-accent),
+      0 12px 36px color-mix(in srgb, var(--askdesk-accent) 20%, transparent);
+  }
+}
+
+/* The paperclip, inside the box */
+.askdesk-attach {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 44px;
+  block-size: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--askdesk-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, transform 0.2s;
+
+  .askdesk-icon {
+    inline-size: 22px;
+    block-size: 22px;
+  }
+
+  &:hover {
+    background: var(--askdesk-accent-soft);
+    color: var(--askdesk-accent);
+    transform: rotate(-12deg);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+  }
+}
+
+/* Files in the conversation */
+.askdesk-msg--file .askdesk-msg__bubble {
+  /* As wide as the picture or video, no wider */
+  inline-size: fit-content;
+  max-inline-size: 100%;
+  padding: 4px;
+  background: var(--askdesk-surface) !important;
+  box-shadow: 0 0 0 0.5px var(--askdesk-line-strong);
+  color: var(--askdesk-text) !important;
+}
+
+.askdesk-file__image {
+  display: block;
+  max-inline-size: min(320px, 100%);
+  max-block-size: 260px;
+  border-radius: 12px;
+  cursor: zoom-in;
+  object-fit: cover;
+}
+
+.askdesk-file__video {
+  display: block;
+  inline-size: min(400px, 100%);
+  block-size: auto;
+  max-block-size: 60vh;
+  border-radius: 12px;
+  background: #000;
+}
+
+.askdesk-file__doc {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-inline-size: 220px;
+  padding: 8px 12px;
+  color: inherit;
+  text-decoration: none;
+
+  > .askdesk-icon:first-child {
+    inline-size: 28px;
+    block-size: 28px;
+    color: var(--askdesk-accent);
+  }
+
+  > .askdesk-icon:last-child {
+    margin-inline-start: auto;
+    color: var(--askdesk-muted);
+  }
+
+  &:hover > .askdesk-icon:last-child {
+    color: var(--askdesk-accent);
+  }
+}
+
+.askdesk-file__words {
+  display: grid;
+  min-inline-size: 0;
+
+  strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  span {
+    color: var(--askdesk-muted);
+    font-size: 12px;
+  }
+}
+
+.askdesk-file--gone {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  color: var(--askdesk-faint);
+}
+
+.askdesk-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 24px;
+  background: rgba(16, 20, 28, 0.82);
+  color: #fff;
+  cursor: zoom-out;
+  animation: askdesk-fade-in 0.2s ease both;
+
+  img {
+    max-inline-size: 92vw;
+    max-block-size: 84vh;
+    border-radius: 10px;
+    object-fit: contain;
+    animation: askdesk-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+  }
+}
+
+.askdesk-composer__field {
+  flex: 1;
+  field-sizing: content;
+  min-block-size: 44px;
+  max-block-size: 220px;
+  padding: 11px 14px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  resize: none;
+  outline: 0;
+
+  &::placeholder {
+    color: var(--askdesk-faint);
+  }
+}
+
+.askdesk-composer[data-mode="email"] .askdesk-composer__field {
+  min-block-size: 88px;
+}
+
+/* At rest a quiet Enter sign; pointed at, the round blue button comes up under it, the sign turns
+   into an arrow and the word slides out */
+.askdesk-send {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  block-size: 44px;
+  min-inline-size: 44px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 22px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--askdesk-muted);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    padding 0.2s,
+    gap 0.2s,
+    color 0.15s,
+    box-shadow 0.2s,
+    transform 0.15s;
+
+  /* The blue, faded in (a gradient cannot be eased itself) */
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--askdesk-primary);
+    opacity: 0;
+    transform: scale(0.85);
+    transition:
+      opacity 0.2s,
+      transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  }
+
+  .askdesk-icon {
+    inline-size: 20px;
+    block-size: 20px;
+    transition:
+      opacity 0.15s,
+      transform 0.2s;
+  }
+
+  .askdesk-send__go {
+    position: absolute;
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  &:hover:not(:disabled),
+  &:focus-visible {
+    gap: 6px;
+    padding-inline: 14px 18px;
+    box-shadow: var(--askdesk-primary-shadow);
+    color: var(--askdesk-on-accent);
+    transform: translateY(-1px);
+
+    &::before {
+      opacity: 1;
+      transform: none;
+    }
+
+    .askdesk-send__rest {
+      position: absolute;
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+
+    .askdesk-send__go {
+      position: static;
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  &:active:not(:disabled) {
+    transform: none;
+    box-shadow: var(--askdesk-primary-shadow-active);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--askdesk-focus), var(--askdesk-primary-shadow);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+}
+
+.askdesk-send__label {
+  display: inline-block;
+  max-inline-size: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition:
+    max-inline-size 0.25s,
+    opacity 0.2s;
+
+  .askdesk-send:hover:not(:disabled) &,
+  .askdesk-send:focus-visible & {
+    max-inline-size: 12em;
+    opacity: 1;
+  }
+}
+
+.askdesk-composer__note {
+  margin: 6px 16px 0;
+  color: var(--askdesk-danger);
+  font-size: 12px;
+
+  &:empty {
+    display: none;
+  }
+}
+
+.askdesk-composer__note--ok {
+  color: var(--askdesk-ok);
+}
+
+.askdesk-denied {
+  max-inline-size: 640px;
+  margin: 24px auto;
+  padding: 0 16px;
+}
+
+/* ---------- The look of an application: a sky down the side, a white bar over the work, the work
+   on a cool grey with cards on it, the conversation itself on light blue ---------- */
+
+.askdesk {
+  --askdesk-canvas: #f4f6fb;
+  --askdesk-sky:
+    radial-gradient(120% 22% at 10% 74%, rgba(186, 222, 240, 0.85), transparent 70%),
+    radial-gradient(90% 16% at 85% 84%, rgba(196, 226, 242, 0.8), transparent 70%),
+    radial-gradient(140% 20% at 30% 96%, rgba(178, 216, 236, 0.9), transparent 72%),
+    radial-gradient(80% 14% at 70% 62%, rgba(255, 255, 255, 0.85), transparent 70%),
+    radial-gradient(100% 12% at 20% 88%, rgba(255, 255, 255, 0.75), transparent 70%),
+    linear-gradient(180deg, #f2f6fb 0%, #e9f1f9 45%, #dcebf6 75%, #cfe4f2 100%);
+  /* White, with a faint glow of blue rising behind the box to write in, so the box stands apart */
+  --askdesk-chat-bg:
+    radial-gradient(85% 46% at 50% 100%, rgba(26, 91, 255, 0.1), rgba(127, 101, 255, 0.045) 50%, transparent 80%),
+    radial-gradient(130% 30% at 50% 100%, rgba(0, 212, 255, 0.07), transparent 82%),
+    #fff;
+
+  grid-template-rows: minmax(0, 1fr);
+  background: var(--askdesk-canvas);
+}
+
+@media (prefers-color-scheme: dark) {
+  .askdesk {
+    --askdesk-canvas: #10141c;
+    --askdesk-sky: linear-gradient(180deg, #151b27 0%, #142233 70%, #12304a 100%);
+    --askdesk-chat-bg: radial-gradient(85% 46% at 50% 100%, rgba(65, 159, 254, 0.15), transparent 80%), #161b26;
+  }
+}
+
+.askdesk-main {
+  block-size: 100%;
+}
+
+/* The side: the sky, its card on top, the chats as the items of a menu */
+.askdesk-inbox {
+  padding: 20px 14px;
+  border-inline-end: 0;
+  background: var(--askdesk-sky);
+  background-attachment: local;
+}
+
+.askdesk-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-block-end: 16px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--askdesk-surface) 82%, transparent);
+  box-shadow: 0 2px 8px rgba(35, 35, 50, 0.06);
+  backdrop-filter: blur(8px);
+
+  .askdesk-tile {
+    inline-size: 36px;
+    block-size: 36px;
+  }
+}
+
+.askdesk-bar__heading {
+  min-inline-size: 0;
+}
+
+.askdesk-filters {
+  background: color-mix(in srgb, var(--askdesk-surface) 55%, transparent);
+}
+
+.askdesk-group__title {
+  margin: 14px 10px 6px;
+  color: var(--askdesk-faint);
+}
+
+.askdesk-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-block-end: 2px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+
+  &:hover {
+    border: 0;
+    background: color-mix(in srgb, var(--askdesk-surface) 60%, transparent);
+  }
+}
+
+.askdesk-item__words {
+  display: grid;
+  gap: 2px;
+  flex: 1;
+  min-inline-size: 0;
+}
+
+.askdesk-item__face {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  margin-block-start: 1px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--askdesk-surface) 80%, transparent);
+  color: var(--askdesk-muted);
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: 0 0 0 1px var(--askdesk-line);
+}
+
+.askdesk-item__face--member {
+  color: var(--askdesk-ok);
+}
+
+.askdesk-item__line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-inline-size: 0;
+
+  .askdesk-item__preview {
+    flex: 1;
+    min-inline-size: 0;
+  }
+
+  .askdesk-item__time {
+    flex: none;
+    margin: 0;
+  }
+}
+
+/* Room for the count of unread messages */
+.askdesk-item:has(.askdesk-badge) .askdesk-item__top {
+  padding-inline-end: 26px;
+}
+
+/* The chat open: blue, a bar at the edge of the side */
+.askdesk-item--open,
+.askdesk-item--open:hover {
+  position: relative;
+  border: 0;
+  background: color-mix(in srgb, var(--askdesk-surface) 75%, transparent);
+
+  .askdesk-item__name {
+    color: var(--askdesk-accent);
+  }
+
+  .askdesk-item__face {
+    background: var(--askdesk-accent-soft);
+    color: var(--askdesk-accent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--askdesk-accent) 35%, transparent);
+  }
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset-block: 8px;
+    inset-inline-start: -14px;
+    inline-size: 3px;
+    border-radius: 0 3px 3px 0;
+    background: var(--askdesk-accent);
+  }
+}
+
+/* Waiting to be taken: a dot of colour, not a box */
+.askdesk-group--waiting .askdesk-item,
+.askdesk-group--awaiting .askdesk-item {
+  border: 0;
+  background: color-mix(in srgb, var(--askdesk-surface) 55%, transparent);
+
+  .askdesk-item__face {
+    box-shadow: 0 0 0 2px var(--askdesk-warn);
+  }
+}
+
+.askdesk-badge {
+  inset-block-start: 11px;
+}
+
+/* The work: a white bar over it, everything else on the cool grey */
+.askdesk-stage {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-inline-size: 0;
+  min-block-size: 0;
+  background: var(--askdesk-canvas);
+  /* A faint shadow cast over the side, to part the two */
+  box-shadow: -8px 0 24px -12px rgba(35, 35, 50, 0.22);
+}
+
+.askdesk-splitter {
+  z-index: 3;
+}
+
+.askdesk-bar {
+  flex-wrap: nowrap;
+  min-block-size: 64px;
+  padding: 0 24px;
+  border-block-end: 0.5px solid var(--askdesk-line);
+  background: var(--askdesk-surface);
+}
+
+.askdesk-bar__space {
+  flex: 1;
+}
+
+.askdesk-bell {
+  display: grid;
+  place-items: center;
+  inline-size: 36px;
+  block-size: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--askdesk-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  .askdesk-icon {
+    inline-size: 22px;
+    block-size: 22px;
+  }
+
+  &:hover {
+    background: var(--askdesk-soft);
+    color: var(--askdesk-text);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--askdesk-focus);
+  }
+}
+
+/* Notifications on: the bell in blue, with a dot */
+.askdesk-bell--on {
+  position: relative;
+  color: var(--askdesk-accent);
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset-block-start: 8px;
+    inset-inline-end: 8px;
+    inline-size: 7px;
+    block-size: 7px;
+    border: 1.5px solid var(--askdesk-surface);
+    border-radius: 50%;
+    background: var(--askdesk-ok);
+  }
+}
+
+.askdesk-me {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 40px;
+  block-size: 40px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--askdesk-soft);
+  color: var(--askdesk-accent);
+  font-weight: 500;
+
+  img {
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: contain;
+  }
+}
+
+button.askdesk-me {
+  padding: 0;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--askdesk-accent-soft), 0 0 0 4px color-mix(in srgb, var(--askdesk-accent) 35%, transparent);
+  }
+}
+
+/* How one shows oneself: a card below one's face */
+.askdesk-bar {
+  position: relative;
+}
+
+.askdesk-profile {
+  position: absolute;
+  inset-block-start: calc(100% + 8px);
+  inset-inline-end: 16px;
+  z-index: 40;
+  display: grid;
+  gap: 10px;
+  inline-size: min(360px, calc(100vw - 32px));
+  max-block-size: calc(100vh - 100px);
+  overflow-y: auto;
+  padding: 16px 18px;
+  border: 0.5px solid var(--askdesk-line-strong);
+  border-radius: var(--askdesk-radius);
+  background: var(--askdesk-surface);
+  box-shadow: 0 6px 32px -4px rgba(35, 35, 50, 0.25);
+  transform-origin: top right;
+  font-size: 13px;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.askdesk-profile--leaving {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.97);
+}
+
+.askdesk-profile__face {
+  justify-self: center;
+  inline-size: 72px;
+  block-size: 72px;
+  font-size: 28px;
+}
+
+.askdesk-profile__row {
+  display: grid;
+  gap: 4px;
+
+  > span {
+    color: var(--askdesk-muted);
+  }
+
+  input[type="text"] {
+    block-size: 34px;
+    padding: 0 12px;
+    border: 1px solid var(--askdesk-line-strong);
+    border-radius: 10px;
+    background: var(--askdesk-surface);
+    color: inherit;
+    font: inherit;
+
+    &:focus {
+      outline: none;
+      border-color: var(--askdesk-accent);
+      box-shadow: var(--askdesk-focus);
+    }
+  }
+}
+
+.askdesk-profile__label {
+  color: var(--askdesk-muted);
+}
+
+.askdesk-profile__pets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 6px;
+  margin-block-start: -4px;
+}
+
+.askdesk-profile__pet {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+  border: 1px solid var(--askdesk-line-strong);
+  border-radius: 10px;
+  background: var(--askdesk-surface);
+  color: var(--askdesk-muted);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+
+  img {
+    inline-size: 40px;
+    block-size: 40px;
+    object-fit: contain;
+  }
+
+  span {
+    overflow: hidden;
+    max-inline-size: 100%;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.askdesk-profile__pet--on {
+  border-color: var(--askdesk-accent);
+  background: var(--askdesk-accent-soft);
+  color: var(--askdesk-accent);
+}
+
+.askdesk-profile__problem {
+  margin: 0;
+  color: var(--askdesk-alarm);
+
+  &:empty {
+    display: none;
+  }
+}
+
+.askdesk-room {
+  background: none;
+}
+
+/* The chat's title, large, as a page's */
+.askdesk-room__head {
+  padding: 22px 28px 14px;
+  border: 0;
+  background: none;
+}
+
+.askdesk-room__name strong {
+  font-size: 22px;
+  letter-spacing: 0.01em;
+}
+
+.askdesk-room__body {
+  gap: 20px;
+  padding: 0 28px 24px;
+}
+
+/* The conversation: a card of light blue */
+.askdesk-room__column {
+  overflow: hidden;
+  border-radius: var(--askdesk-radius);
+  background: var(--askdesk-chat-bg);
+  box-shadow:
+    0 0 0 0.5px var(--askdesk-line),
+    0 6px 20px -4px rgba(35, 35, 50, 0.08);
+}
+
+.askdesk-room__aside {
+  /* Room for the rounded edges and shadows of what is in it, which the scrolling would cut */
+  margin: -6px -6px 0;
+  padding: 6px 6px 12px;
+  border: 0;
+  background: none;
+}
+
+.askdesk-panel,
+.askdesk-search {
+  box-shadow:
+    0 0 0 0.5px var(--askdesk-line),
+    0 6px 20px -6px rgba(35, 35, 50, 0.08);
+}
+
+.askdesk-panel {
+  border: 0;
+}
+
+.askdesk-search {
+  background:
+    radial-gradient(80% 160% at 100% 0%, color-mix(in srgb, var(--askdesk-ai-2) 12%, transparent), transparent 70%),
+    var(--askdesk-surface);
+}
+
+.askdesk-room__empty {
+  margin: auto;
+}
+
+.askdesk-composer__box {
+  box-shadow:
+    0 0 0 1px var(--askdesk-line-strong),
+    0 10px 30px -8px rgba(26, 91, 255, 0.18);
+}
+
+/* On a phone: the inbox, or the open chat */
+@media (max-width: 760px) {
+  .askdesk-main,
+  .askdesk-main--folded {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .askdesk-splitter,
+  .askdesk-bar__inbox {
+    display: none !important;
+  }
+
+  .askdesk-main--folded .askdesk-inbox {
+    visibility: visible;
+    padding: 8px;
+  }
+
+  .askdesk-thread {
+    padding: 16px;
+  }
+
+  .askdesk-composer {
+    padding-inline: 12px;
+  }
+
+  .askdesk-inbox {
+    border: 0;
+  }
+
+  .askdesk-main {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  /* The list: the bar above it (status, language), the chat away */
+  .askdesk-main:not(.askdesk-main--room) {
+    .askdesk-stage {
+      order: -1;
+      grid-template-rows: auto;
+    }
+
+    .askdesk-room {
+      display: none;
+    }
+  }
+
+  .askdesk-main--room {
+    grid-template-rows: minmax(0, 1fr);
+
+    .askdesk-inbox {
+      display: none;
+    }
+  }
+
+  .askdesk-bar {
+    min-block-size: 56px;
+    padding: 0 12px;
+  }
+
+  .askdesk-room__head {
+    padding: 14px 16px 10px;
+  }
+
+  .askdesk-room__body {
+    padding: 0 10px 10px;
+  }
+
+  .askdesk-main--room .askdesk-room {
+    animation: askdesk-in-right 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .askdesk-main:not(.askdesk-main--room) .askdesk-inbox {
+    animation: askdesk-in-left 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+
+  .askdesk-room__back {
+    display: inline-flex;
+  }
+
+  .askdesk-msg {
+    max-inline-size: 90%;
+  }
+}
+
+@keyframes askdesk-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@keyframes askdesk-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk *,
+  .askdesk *::before,
+  .askdesk *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* The library in Dropfiles: one's own files and the shared ones */
+.askdesk-library {
+  display: grid;
+  gap: 10px;
+}
+
+.askdesk-library__tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.askdesk-library__tab {
+  block-size: 26px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 13px;
+  background: none;
+  color: var(--askdesk-muted);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+
+  &:hover {
+    color: var(--askdesk-text);
+  }
+
+  &[aria-pressed="true"] {
+    background: var(--askdesk-accent-soft);
+    color: var(--askdesk-accent);
+    font-weight: 500;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--askdesk-focus);
+  }
+}
+
+.askdesk-library__add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-inline-start: auto;
+  block-size: 26px;
+  font-size: 12px;
+
+  .askdesk-icon {
+    inline-size: 14px;
+    block-size: 14px;
+  }
+}
+
+.askdesk-library__list {
+  display: grid;
+  gap: 6px;
+  max-block-size: 320px;
+  overflow-y: auto;
+}
+
+.askdesk-library__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 0.5px solid var(--askdesk-line-strong);
+  border-radius: var(--askdesk-radius-sm);
+  transition: border-color 0.15s;
+
+  &:hover {
+    border-color: color-mix(in srgb, var(--askdesk-accent) 40%, transparent);
+  }
+
+  > .askdesk-icon {
+    flex: none;
+    inline-size: 22px;
+    block-size: 22px;
+    color: var(--askdesk-accent);
+  }
+}
+
+.askdesk-library__words {
+  display: grid;
+  flex: 1;
+  min-inline-size: 0;
+
+  strong {
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  span {
+    overflow: hidden;
+    color: var(--askdesk-muted);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.askdesk-library__send {
+  flex: none;
+  block-size: 24px;
+  font-size: 12px;
+
+  &:disabled {
+    color: var(--askdesk-faint);
+  }
+}
+
+.askdesk-library__error {
+  color: var(--askdesk-alarm);
+}
+
+/* A file of the chat kept in the library: a small folder button, then mine or shared */
+.askdesk-keep {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.askdesk-keep__open {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 24px;
+  block-size: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--askdesk-muted);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+
+  .askdesk-icon {
+    inline-size: 15px;
+    block-size: 15px;
+  }
+
+  &:hover {
+    background: var(--askdesk-accent-soft);
+    color: var(--askdesk-accent);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--askdesk-focus);
+  }
+}
+
+.askdesk-keep__choices {
+  display: inline-flex;
+  gap: 4px;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.askdesk-keep__choice {
+  block-size: 22px;
+  padding: 0 10px;
+  border: 0.5px solid var(--askdesk-line-strong);
+  border-radius: 11px;
+  background: var(--askdesk-surface);
+  color: var(--askdesk-text);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+
+  &:hover {
+    border-color: var(--askdesk-accent);
+    color: var(--askdesk-accent);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+  }
+}
+
+.askdesk-keep__done {
+  color: var(--askdesk-ok);
+  font-size: 11px;
+}
+
+.askdesk-keep__error {
+  color: var(--askdesk-alarm);
+  font-size: 11px;
+}
+
+/* Ending a chat: the button alarming; asked once more while AI reads the chat, then calm when it
+   looks done, or still alarming with what is left */
+.askdesk-room__end {
+  transition: background-color 0.25s, box-shadow 0.25s, transform 0.15s;
+
+  &:hover {
+    filter: brightness(1.06);
+    transform: translateY(-1px);
+  }
+}
+
+.askdesk-confirm {
+  inline-size: 300px;
+
+  .askdesk-button {
+    transition: background 0.3s, box-shadow 0.3s, color 0.3s;
+  }
+}
+
+.askdesk-confirm__check {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-block-start: 4px;
+  padding: 8px 10px;
+  border-radius: var(--askdesk-radius-sm);
+  background: var(--askdesk-soft);
+  color: var(--askdesk-muted);
+  font-size: 12px;
+  line-height: 1.5;
+
+  .askdesk-icon {
+    flex: none;
+    inline-size: 16px;
+    block-size: 16px;
+    margin-block-start: 1px;
+  }
+
+  strong {
+    font-size: 12px;
+  }
+}
+
+.askdesk-confirm__check--busy {
+  align-items: center;
+}
+
+.askdesk-confirm__dot {
+  flex: none;
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  background: linear-gradient(45deg, var(--askdesk-ai-3), var(--askdesk-ai-2));
+  animation: askdesk-check-pulse 1s ease-in-out infinite;
+}
+
+.askdesk-confirm__check--ok {
+  background: var(--askdesk-ok-soft);
+  color: var(--askdesk-ok);
+}
+
+.askdesk-confirm__check--wait {
+  background: var(--askdesk-warn-soft);
+  color: var(--askdesk-warn);
+}
+
+.askdesk-confirm__check--failed {
+  background: var(--askdesk-wait-soft);
+  color: var(--askdesk-wait);
+}
+
+@keyframes askdesk-check-pulse {
+  50% {
+    opacity: 0.35;
+    transform: scale(0.8);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk-confirm__dot {
+    animation: none;
+  }
+}
+
+/* Files dragged over one's chat: where to drop them */
+.askdesk-room {
+  position: relative;
+}
+
+.askdesk-room.askdesk-dropping::after {
+  content: attr(data-drop);
+  position: absolute;
+  inset: 8px;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  border: 2px dashed var(--askdesk-accent);
+  border-radius: var(--askdesk-radius);
+  background: color-mix(in srgb, var(--askdesk-accent-soft) 85%, transparent);
+  backdrop-filter: blur(3px);
+  color: var(--askdesk-accent);
+  font-size: 17px;
+  font-weight: 500;
+  pointer-events: none;
+  animation: askdesk-drop-in 0.2s ease-out;
+}
+
+@keyframes askdesk-drop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+}
+
+/* Stickers: the picture alone, no bubble; and the picker above the box */
+.askdesk-composer__box {
+  position: relative;
+}
+
+.askdesk-msg--sticker .askdesk-msg__bubble {
+  padding: 0 !important;
+  background: none !important;
+  box-shadow: none !important;
+}
+
+.askdesk-sticker {
+  display: block;
+  inline-size: 120px;
+  block-size: 120px;
+  object-fit: contain;
+}
+
+.askdesk-msg--pop .askdesk-sticker {
+  animation: askdesk-sticker-in 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.35);
+}
+
+.askdesk-sticker--gone {
+  inline-size: auto;
+  block-size: auto;
+  padding: 8px 12px;
+  border-radius: var(--askdesk-radius-sm);
+  background: var(--askdesk-soft);
+  color: var(--askdesk-muted);
+  font-size: 12px;
+}
+
+.askdesk-sticker-menu {
+  position: absolute;
+  inset-block-end: calc(100% + 8px);
+  inset-inline-start: 0;
+  z-index: 30;
+  display: grid;
+  gap: 8px;
+  inline-size: min(380px, 100%);
+  max-block-size: 320px;
+  padding: 10px;
+  overflow-y: auto;
+  border-radius: var(--askdesk-radius);
+  background: var(--askdesk-surface);
+  box-shadow:
+    0 0 0 0.5px var(--askdesk-line-strong),
+    0 12px 32px -4px rgba(35, 35, 50, 0.22);
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.askdesk-sticker-menu__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.askdesk-sticker-menu__grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+}
+
+.askdesk-sticker-menu__pick {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  padding: 4px;
+  border: 0;
+  border-radius: var(--askdesk-radius-sm);
+  background: none;
+  cursor: pointer;
+  transition: background-color 0.15s, transform 0.15s;
+
+  img {
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: contain;
+  }
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    background: var(--askdesk-accent-soft);
+    transform: scale(1.06);
+  }
+}
+
+@keyframes askdesk-sticker-in {
+  0% {
+    opacity: 0;
+    transform: scale(0.4) rotate(-8deg);
+  }
+
+  70% {
+    opacity: 1;
+    transform: scale(1.08) rotate(2deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk-msg--pop .askdesk-sticker {
+    animation: none;
+  }
+}
+
+/* A picture or video in a message: its corners follow the bubble's, 4px inside */
+.askdesk-msg--file .askdesk-msg__bubble {
+  border-radius: 20px !important;
+}
+
+.askdesk-msg--visitor.askdesk-msg--file .askdesk-msg__bubble {
+  border-start-start-radius: 6px !important;
+}
+
+.askdesk-file__image,
+.askdesk-file__video {
+  border-radius: 16px;
+}
+
+.askdesk-msg--visitor .askdesk-file__image,
+.askdesk-msg--visitor .askdesk-file__video {
+  border-start-start-radius: 2px;
+}
+
+.askdesk-msg--staff.askdesk-msg--file .askdesk-msg__bubble {
+  border-start-end-radius: 6px !important;
+}
+
+.askdesk-msg--staff .askdesk-file__image,
+.askdesk-msg--staff .askdesk-file__video {
+  border-start-end-radius: 2px;
+}
+
+/* A chat waiting, with its button to take it from the list */
+.askdesk-item-row {
+  position: relative;
+
+  > .askdesk-item {
+    inline-size: 100%;
+    padding-inline-end: 76px;
+  }
+}
+
+.askdesk-item__take {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-end: 10px;
+  block-size: 30px;
+  padding: 0 14px;
+  font-size: 13px;
+  transform: translateY(-50%);
+  animation: askdesk-take-pulse 2s ease-in-out infinite;
+
+  &:hover {
+    animation: none;
+  }
+}
+
+@keyframes askdesk-take-pulse {
+  50% {
+    box-shadow: 0 0 0 6px rgba(14, 134, 254, 0.18), 0 6px 10px rgba(14, 134, 254, 0.3);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk-item__take {
+    animation: none;
+  }
+}
+
+/* Pictures of one's own, as tiles: what there is, its name and size, choose or change; drop one on it */
+.askdesk-upload-pair {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  margin-block-start: -4px;
+}
+
+.askdesk-upload {
+  position: relative;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  column-gap: 10px;
+  row-gap: 6px;
+  align-items: center;
+  padding: 10px;
+  border: 1px dashed var(--askdesk-line-strong);
+  border-radius: var(--askdesk-radius-sm);
+  background: var(--askdesk-surface);
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+
+  &:hover,
+  &.askdesk-upload--over {
+    border-color: var(--askdesk-accent);
+    background: var(--askdesk-accent-soft);
+  }
+
+  &:focus-within {
+    border-color: var(--askdesk-accent);
+    box-shadow: var(--askdesk-focus);
+  }
+
+  &.askdesk-upload--chosen {
+    border-style: solid;
+    border-color: color-mix(in srgb, var(--askdesk-accent) 45%, transparent);
+  }
+
+  input {
+    position: absolute;
+    inline-size: 1px;
+    block-size: 1px;
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+.askdesk-upload__thumb {
+  display: grid;
+  grid-row: span 2;
+  place-items: center;
+  inline-size: 48px;
+  block-size: 48px;
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--askdesk-soft);
+  color: var(--askdesk-faint);
+
+  img {
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: cover;
+  }
+
+  .askdesk-icon {
+    inline-size: 24px;
+    block-size: 24px;
+  }
+}
+
+.askdesk-upload__words {
+  display: grid;
+  min-inline-size: 0;
+
+  strong {
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  small {
+    overflow: hidden;
+    color: var(--askdesk-muted);
+    font-size: 11px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.askdesk-upload__action {
+  justify-self: start;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--askdesk-accent-soft);
+  color: var(--askdesk-accent);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Whether visitors get a chat now: green when they do, orange with why when they get the message form */
+.askdesk-reach {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-inline-size: 420px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: help;
+
+  i {
+    flex: none;
+    inline-size: 8px;
+    block-size: 8px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  small {
+    overflow: hidden;
+    font-size: 11px;
+    opacity: 0.85;
+    text-overflow: ellipsis;
+  }
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.askdesk-reach--open {
+  background: var(--askdesk-ok-soft);
+  color: var(--askdesk-ok);
+}
+
+.askdesk-reach--away {
+  background: var(--askdesk-warn-soft);
+  color: var(--askdesk-warn);
+
+  i {
+    animation: askdesk-check-pulse 1.4s ease-in-out infinite;
+  }
+}
+
+@media (max-width: 760px) {
+  .askdesk-reach small {
+    display: none;
+  }
+}
+
+/* A message still being translated: said so, with the browser's first translation below it */
+.askdesk-pill--busy::before {
+  content: "";
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: askdesk-check-pulse 1s ease-in-out infinite;
+}
+
+.askdesk-msg__draft {
+  display: grid;
+  gap: 2px;
+  margin: 6px 0 0;
+  padding-block-start: 6px;
+  border-block-start: 1px dashed var(--askdesk-line-strong);
+
+  small {
+    color: var(--askdesk-muted);
+    font-size: 11px;
+  }
+
+  span {
+    color: var(--askdesk-text);
+  }
+}
+
+/* A chat taken: the box to write in comes in from below. A glow of AI Ask's colours rises first and
+   fades back into the page; the box then floats up into it, from clear to solid */
+.askdesk-composer--enter {
+  position: relative;
+  isolation: isolate;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -180px -6% 0;
+    z-index: -1;
+    background:
+      radial-gradient(38% 50% at 28% 72%, rgba(0, 212, 255, 0.45), transparent 70%),
+      radial-gradient(38% 50% at 72% 72%, rgba(127, 101, 255, 0.4), transparent 70%),
+      radial-gradient(55% 55% at 50% 82%, rgba(26, 91, 255, 0.42), transparent 72%);
+    filter: blur(18px);
+    pointer-events: none;
+    animation: askdesk-glow-rise 1.5s cubic-bezier(0.2, 0.8, 0.3, 1) both;
+  }
+
+  .askdesk-composer__box {
+    animation: askdesk-box-rise 0.6s 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
+  }
+
+  .askdesk-composer__note {
+    animation: askdesk-box-rise 0.45s 0.55s ease-out both;
+  }
+}
+
+@keyframes askdesk-glow-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(60px) scaleY(0.7);
+  }
+
+  35%,
+  55% {
+    opacity: 1;
+    transform: none;
+  }
+
+  100% {
+    opacity: 0;
+    transform: none;
+  }
+}
+
+@keyframes askdesk-box-rise {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk-composer--enter::before,
+  .askdesk-composer--enter .askdesk-composer__box,
+  .askdesk-composer--enter .askdesk-composer__note {
+    animation: none;
+  }
+}
+
+/* ---------- The inbox's rows: the name and its time, what was said, then a line of small words ---------- */
+.askdesk-item__top {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-inline-size: 0;
+
+  .askdesk-item__name {
+    flex: 1;
+    min-inline-size: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .askdesk-item__time {
+    flex: none;
+    margin: 0;
+    color: var(--askdesk-faint);
+    font-size: 11px;
+  }
+
+  .askdesk-item__time--wait {
+    color: var(--askdesk-danger);
+    font-weight: 500;
+  }
+}
+
+.askdesk-item__preview {
+  display: block;
+  overflow: hidden;
+  color: var(--askdesk-muted);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.askdesk-item__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--askdesk-faint);
+  font-size: 11px;
+
+  &:empty,
+  > span:empty {
+    display: none;
+  }
+
+  .askdesk-pill {
+    padding-block: 0;
+    font-size: 10.5px;
+  }
+}
+
+/* Waiting for an answer: a red light at the face's shoulder, softly blinking */
+.askdesk-item__face {
+  position: relative;
+}
+
+.askdesk-item__light {
+  position: absolute;
+  inset-block-start: -2px;
+  inset-inline-end: -2px;
+  inline-size: 9px;
+  block-size: 9px;
+  border-radius: 50%;
+  background: #f0453a;
+  box-shadow: 0 0 0 2px var(--askdesk-surface);
+  animation: askdesk-light 1.6s ease-in-out infinite;
+}
+
+@keyframes askdesk-light {
+  50% {
+    box-shadow:
+      0 0 0 2px var(--askdesk-surface),
+      0 0 0 5px rgba(240, 69, 58, 0.25);
+    opacity: 0.55;
+  }
+}
+
+.askdesk-group--waiting .askdesk-item,
+.askdesk-group--awaiting .askdesk-item {
+  .askdesk-item__face {
+    box-shadow: 0 0 0 1px var(--askdesk-line);
+  }
+}
+
+/* A new one: the whole row lights up red, then fades back, its light staying on */
+.askdesk-item--fresh {
+  animation: askdesk-fresh 2.6s ease-out both;
+}
+
+@keyframes askdesk-fresh {
+  0% {
+    background: rgba(240, 69, 58, 0.32);
+  }
+
+  25% {
+    background: rgba(240, 69, 58, 0.22);
+  }
+
+  100% {
+    background: color-mix(in srgb, var(--askdesk-surface) 55%, transparent);
+  }
+}
+
+/* Nobody to take: the heading with its nought, nothing below */
+.askdesk-group__count {
+  margin-inline-start: 6px;
+}
+
+/* The ended ones: a heading to unfold them */
+.askdesk-group__fold {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  inline-size: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+
+  .askdesk-icon {
+    inline-size: 14px;
+    block-size: 14px;
+    transition: transform 0.2s;
+  }
+
+  &:hover {
+    color: var(--askdesk-muted);
+  }
+}
+
+.askdesk-group__fold--open .askdesk-icon {
+  transform: rotate(180deg);
+}
+
+/* Ended chats read quieter */
+.askdesk-group--closed .askdesk-item__name {
+  color: var(--askdesk-muted);
+  font-weight: 400;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk-item__light,
+  .askdesk-item--fresh {
+    animation: none;
+  }
+}
+
+/* The filters: one white pill behind them that slides to the one chosen */
+.askdesk-filters {
+  position: relative;
+  isolation: isolate;
+}
+
+.askdesk-filters__pill {
+  position: absolute;
+  inset-block: 3px;
+  inset-inline-start: 3px;
+  z-index: -1;
+  inline-size: calc((100% - 6px - 4px) / 2);
+  border-radius: 999px;
+  background: var(--askdesk-surface);
+  box-shadow: 0 1px 4px rgba(35, 35, 50, 0.12);
+  transition: transform 0.35s cubic-bezier(0.3, 1.2, 0.4, 1);
+}
+
+.askdesk-filters__pill--awaiting {
+  transform: translateX(calc(100% + 4px));
+}
+
+.askdesk-filter--on {
+  background: none;
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk-filters__pill {
+    transition: none;
+  }
+}
+
+/* Marking a message left as dealt with: a light button with a tick, green when pointed at; pressed,
+   it fills green and the tick, white, bounces */
+.askdesk-button--done {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  block-size: 34px;
+  padding: 0 14px 0 12px;
+  border: 1px solid var(--askdesk-line-strong);
+  border-radius: 999px;
+  background: var(--askdesk-surface);
+  color: var(--askdesk-text);
+  font-size: 13px;
+  font-weight: 500;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    color 0.2s,
+    box-shadow 0.2s;
+
+  .askdesk-icon {
+    inline-size: 16px;
+    block-size: 16px;
+    color: var(--askdesk-ok);
+    transition: color 0.2s;
+  }
+
+  &:hover,
+  &:focus-visible {
+    border-color: color-mix(in srgb, var(--askdesk-ok) 45%, transparent);
+    background: var(--askdesk-ok-soft);
+    color: var(--askdesk-ok);
+  }
+}
+
+.askdesk-button--done-on,
+.askdesk-button--done-on:hover {
+  border-color: #1f9d55;
+  background: #1f9d55;
+  box-shadow: 0 6px 16px -6px rgba(31, 157, 85, 0.55);
+  color: #fff;
+
+  .askdesk-icon {
+    color: #fff;
+    animation: askdesk-tick 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.5);
+  }
+}
+
+@keyframes askdesk-tick {
+  0% {
+    transform: scale(0.4);
+  }
+
+  45% {
+    transform: scale(1.45) rotate(-8deg);
+  }
+
+  70% {
+    transform: scale(0.9);
+  }
+
+  100% {
+    transform: none;
+  }
+}
+
+/* The side panel opened over the chat (a narrower screen): frosted white, the chat blurred behind it.
+   Beside the chat, as usual, it stays clear */
+@media (max-width: 1180px) {
+  .askdesk-room__aside {
+    margin: 0;
+    padding: 14px 12px;
+    background: rgba(255, 255, 255, 0.62);
+    backdrop-filter: blur(18px) saturate(1.4);
+    -webkit-backdrop-filter: blur(18px) saturate(1.4);
+    border-inline-start: 0.5px solid rgba(255, 255, 255, 0.7);
+  }
+}
+
+@media (max-width: 1180px) and (prefers-color-scheme: dark) {
+  .askdesk-room__aside {
+    background: rgba(22, 27, 38, 0.66);
+    border-inline-start-color: rgba(255, 255, 255, 0.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk-button--done-on .askdesk-icon {
+    animation: none;
+  }
+}
+
+/* The side panel's button: an icon, after the others; with the panel open the icon turns about */
+.askdesk-room__refer {
+  place-items: center;
+  inline-size: 34px;
+  block-size: 34px;
+  padding: 0;
+  border: 1px solid var(--askdesk-line-strong);
+  border-radius: 10px;
+  background: var(--askdesk-surface);
+  color: var(--askdesk-muted);
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    border-color 0.2s,
+    color 0.2s;
+
+  .askdesk-icon {
+    inline-size: 18px;
+    block-size: 18px;
+    transition: transform 0.35s cubic-bezier(0.3, 1.3, 0.4, 1);
+  }
+
+  &:hover,
+  &:focus-visible {
+    border-color: color-mix(in srgb, var(--askdesk-accent) 40%, transparent);
+    background: var(--askdesk-accent-soft);
+    color: var(--askdesk-accent);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--askdesk-focus);
+  }
+}
+
+@media (max-width: 1180px) {
+  .askdesk-room__refer {
+    display: inline-grid;
+  }
+}
+
+.askdesk:has(.askdesk-room__body--aside) .askdesk-room__refer {
+  border-color: color-mix(in srgb, var(--askdesk-accent) 40%, transparent);
+  background: var(--askdesk-accent-soft);
+  color: var(--askdesk-accent);
+
+  .askdesk-icon {
+    transform: scaleX(-1);
+  }
+}
+
+/* The rows ease into their pointed-at look and out of it */
+.askdesk-item {
+  transition:
+    background-color 0.25s ease,
+    box-shadow 0.25s ease,
+    transform 0.25s ease;
+
+  .askdesk-item__face {
+    transition:
+      background-color 0.25s ease,
+      color 0.25s ease,
+      box-shadow 0.25s ease;
+  }
+}
+
+/* The open chat's blue bar: one for the whole inbox, sliding from chat to chat */
+.askdesk-inbox {
+  position: relative;
+}
+
+.askdesk-item--open::before {
+  content: none;
+}
+
+.askdesk-inbox__bar {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  z-index: 2;
+  inline-size: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--askdesk-accent);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.askdesk-inbox__bar--on {
+  opacity: 1;
+}
+
+.askdesk-inbox__bar--moving {
+  transition:
+    transform 0.4s cubic-bezier(0.3, 1.15, 0.4, 1),
+    block-size 0.4s cubic-bezier(0.3, 1.15, 0.4, 1);
+}
+
+/* ---------- The whole console on a deep wash of one's status, moving slowly ---------- */
+@property --askdesk-wash-0 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #3b1fc9;
+}
+
+@property --askdesk-wash-1 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #5a2fe6;
+}
+
+@property --askdesk-wash-2 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #3f6ff0;
+}
+
+@property --askdesk-wash-3 {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #6aa6f2;
+}
+
+/* Online: indigo into blue. Busy: amber. Away: a grey-black, quiet. Clouds of colour, not a line from one to another */
+.askdesk {
+  --askdesk-wash-0: #3b1fc9;
+  --askdesk-wash-1: #5a2fe6;
+  --askdesk-wash-2: #3f6ff0;
+  --askdesk-wash-3: #6aa6f2;
+
+  transition:
+    --askdesk-wash-0 1.2s ease,
+    --askdesk-wash-1 1.2s ease,
+    --askdesk-wash-2 1.2s ease,
+    --askdesk-wash-3 1.2s ease;
+
+}
+
+.askdesk[data-status="busy"] {
+  --askdesk-wash-0: #a2520c;
+  --askdesk-wash-1: #c9700f;
+  --askdesk-wash-2: #e89a24;
+  --askdesk-wash-3: #f5c25a;
+}
+
+.askdesk[data-status="away"] {
+  --askdesk-wash-0: #1c1f26;
+  --askdesk-wash-1: #2e333e;
+  --askdesk-wash-2: #454c5a;
+  --askdesk-wash-3: #646c7d;
+}
+
+.askdesk__wash {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  z-index: 0;
+  inline-size: var(--askdesk-side, 280px);
+  overflow: hidden;
+  background: var(--askdesk-wash-0);
+  pointer-events: none;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -25%;
+    background:
+    radial-gradient(38% 42% at 12% 18%, var(--askdesk-wash-0) 0%, transparent 72%),
+    radial-gradient(40% 44% at 34% 70%, var(--askdesk-wash-1) 0%, transparent 72%),
+    radial-gradient(44% 40% at 70% 30%, var(--askdesk-wash-2) 0%, transparent 72%),
+    radial-gradient(42% 44% at 88% 82%, var(--askdesk-wash-3) 0%, transparent 72%),
+    radial-gradient(30% 30% at 56% 56%, var(--askdesk-wash-1) 0%, transparent 70%),
+    linear-gradient(160deg, var(--askdesk-wash-0), var(--askdesk-wash-2) 60%, var(--askdesk-wash-3));
+    will-change: transform;
+    animation: askdesk-wash-drift 26s ease-in-out infinite alternate;
+  }
+}
+
+.askdesk-main {
+  position: relative;
+
+  > .askdesk-inbox,
+  > .askdesk-splitter,
+  > .askdesk-stage {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+@keyframes askdesk-wash-drift {
+  0% {
+    transform: translate(-5%, -4%) rotate(0deg) scale(1);
+  }
+
+  50% {
+    transform: translate(3%, 2%) rotate(5deg) scale(1.06);
+  }
+
+  100% {
+    transform: translate(5%, -2%) rotate(-4deg) scale(1.1);
+  }
+}
+
+/* The side lets it through; the work beside it is white */
+.askdesk-inbox {
+  background: transparent;
+}
+
+.askdesk-stage {
+  background: #fff;
+  box-shadow: -10px 0 30px -18px rgba(10, 10, 60, 0.35);
+
+  > .askdesk-bar,
+  > .askdesk-room {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+.askdesk-stage > .askdesk-bar {
+  border: 0;
+  background: #fff;
+}
+
+/* On the colour: white words. The side's own things become light glass */
+.askdesk-inbox {
+  --askdesk-text: #fff;
+  --askdesk-muted: rgba(255, 255, 255, 0.8);
+  --askdesk-faint: rgba(255, 255, 255, 0.62);
+  --askdesk-line: rgba(255, 255, 255, 0.18);
+  --askdesk-line-strong: rgba(255, 255, 255, 0.28);
+  --askdesk-surface: rgba(255, 255, 255, 0.16);
+  --askdesk-accent: #fff;
+  --askdesk-accent-soft: rgba(255, 255, 255, 0.22);
+  --askdesk-ok: #b8f5d2;
+  --askdesk-danger: #ffd2cc;
+
+  color: #fff;
+}
+
+.askdesk-inbox .askdesk-item:hover,
+.askdesk-inbox .askdesk-item--open,
+.askdesk-inbox .askdesk-item--open:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.askdesk-inbox .askdesk-item__face {
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.askdesk-inbox .askdesk-filters__pill {
+  background: rgba(255, 255, 255, 0.26);
+  box-shadow: none;
+}
+
+.askdesk-inbox .askdesk-pill {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+/* The desk's card: its name, and one's status switched within it */
+.askdesk-brand {
+  flex-wrap: wrap;
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.25);
+  color: #fff;
+
+  .askdesk-tile {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+  }
+
+  .askdesk-bar__title {
+    color: #fff;
+  }
+
+  .askdesk-bar__staff {
+    color: rgba(255, 255, 255, 0.75);
+  }
+}
+
+/* One's status: a pill that looks to be switched; large in the bar, smaller within the card */
+.askdesk-presence {
+  --askdesk-presence: #2563eb;
+
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 7px;
+  block-size: 36px;
+  padding: 0 12px 0 14px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 6px 18px -8px rgba(10, 10, 60, 0.45);
+  color: var(--askdesk-presence);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    color 0.4s,
+    box-shadow 0.4s,
+    transform 0.15s;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+
+  &:focus-within {
+    box-shadow:
+      0 0 0 3px rgba(255, 255, 255, 0.45),
+      0 6px 18px -8px rgba(10, 10, 60, 0.45);
+  }
+
+  .askdesk-icon {
+    inline-size: 15px;
+    block-size: 15px;
+    opacity: 0.8;
+  }
+
+  /* The list over the pill, unseen: a click opens it */
+  select {
+    position: absolute;
+    inset: 0;
+    inline-size: 100%;
+    block-size: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+    font-size: 15px;
+  }
+}
+
+/* Within the card: a full-width row under its name, a large switch, no wider than the card */
+.askdesk-brand .askdesk-presence {
+  box-sizing: border-box;
+  flex: 1 1 100%;
+  min-inline-size: 0;
+  max-inline-size: 100%;
+  justify-content: center;
+  block-size: 42px;
+  margin-block-start: 2px;
+  font-size: 16px;
+}
+
+.askdesk-bar .askdesk-presence {
+  block-size: 46px;
+  padding: 0 18px 0 20px;
+  font-size: 17px;
+}
+
+.askdesk-presence__dot {
+  inline-size: 9px;
+  block-size: 9px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 22%, transparent);
+  animation: askdesk-light 1.8s ease-in-out infinite;
+}
+
+.askdesk-presence[data-status="busy"] {
+  --askdesk-presence: #b45309;
+}
+
+.askdesk-presence[data-status="away"] {
+  --askdesk-presence: #374151;
+
+  .askdesk-presence__dot {
+    animation: none;
+  }
+}
+
+/* Whether visitors can chat now: plain white words, larger, no pill */
+.askdesk-stage > .askdesk-bar .askdesk-reach {
+  gap: 8px;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  font-size: 15px;
+  font-weight: 500;
+
+  i {
+    inline-size: 9px;
+    block-size: 9px;
+    box-shadow: 0 0 0 3px color-mix(in srgb, currentColor 20%, transparent);
+  }
+
+  small {
+    font-size: 13px;
+    font-weight: 400;
+  }
+}
+
+/* The language: a globe, and its own menu growing down from it, the current one ticked */
+.askdesk-globe {
+  position: relative;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.askdesk-globe__button {
+  display: grid;
+  place-items: center;
+  inline-size: 38px;
+  block-size: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #f1f3f8;
+  color: var(--askdesk-muted);
+  cursor: pointer;
+  transition:
+    background-color 0.2s,
+    color 0.2s;
+
+  .askdesk-icon {
+    inline-size: 20px;
+    block-size: 20px;
+  }
+
+  &:hover,
+  &:focus-visible,
+  .askdesk-dropdown--open & {
+    outline: none;
+    background: var(--askdesk-accent-soft);
+    color: var(--askdesk-accent);
+  }
+}
+
+.askdesk-menu {
+  position: absolute;
+  inset-block-start: calc(100% + 8px);
+  inset-inline-end: 0;
+  z-index: 50;
+  display: grid;
+  gap: 2px;
+  min-inline-size: 200px;
+  padding: 6px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 0 0 0.5px rgba(35, 35, 50, 0.1),
+    0 18px 40px -12px rgba(10, 10, 60, 0.35);
+  backdrop-filter: blur(12px);
+  transform-origin: top right;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px) scaleY(0.6);
+  transition:
+    opacity 0.18s ease,
+    transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.1),
+    visibility 0s 0.25s;
+
+  .askdesk-dropdown--open > & {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition:
+      opacity 0.18s ease,
+      transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+  }
+}
+
+.askdesk-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: #232332;
+  font: inherit;
+  font-size: 14px;
+  text-align: start;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.15s;
+
+  .askdesk-icon {
+    inline-size: 16px;
+    block-size: 16px;
+    color: #0e86fe;
+    opacity: 0;
+  }
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    background: #eef5ff;
+  }
+}
+
+.askdesk-menu__item--on {
+  color: #0e86fe;
+  font-weight: 500;
+
+  .askdesk-icon {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk-menu {
+    transition: none;
+  }
+}
+
+/* In the white bar (the side folded away) the status pill is filled with its colour */
+.askdesk-bar .askdesk-presence {
+  background: var(--askdesk-presence);
+  box-shadow: 0 6px 16px -6px color-mix(in srgb, var(--askdesk-presence) 70%, transparent);
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk__wash,
+  .askdesk-presence__dot {
+    animation: none;
+  }
+}
+
+/* The card's name keeps to its room beside the status */
+.askdesk-brand .askdesk-bar__heading {
+  min-inline-size: 0;
+
+  .askdesk-bar__title,
+  .askdesk-bar__staff {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+/* The empty view too: the pane with its word */
+.askdesk-room__empty {
+  margin: 0 20px 20px;
+  padding: 24px;
+}
+
+@media (max-width: 760px) {
+  .askdesk-room__body {
+    margin: 0 8px 8px;
+    padding: 8px;
+    border-radius: 16px;
+  }
+}
+
+/* No chat open: a large pane of frosted white in the middle, its word in it */
+.askdesk-room > .askdesk-room__empty:only-child {
+  --askdesk-muted: rgba(35, 35, 50, 0.55);
+
+  box-sizing: border-box;
+  display: grid;
+  grid-row: 1 / -1;
+  place-items: center;
+  align-self: stretch;
+  margin: 4px 20px 20px;
+  padding: 24px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow:
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.6),
+    0 20px 50px -24px rgba(10, 10, 60, 0.35);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  color: rgba(35, 35, 50, 0.55);
+  font-size: 15px;
+}
+
+/* The bar's menus open over the work below */
+.askdesk-stage > .askdesk-bar {
+  z-index: 3;
+}
+
+/* Menus drawn here, for the status as for the language */
+.askdesk-dropdown {
+  position: relative;
+}
+
+.askdesk-dropdown--open {
+  z-index: 30;
+}
+
+.askdesk-brand {
+  position: relative;
+  z-index: 5;
+}
+
+/* The status pill is the button: the whole of it opens the menu */
+.askdesk-presence__button {
+  display: inline-flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: inherit;
+  align-self: stretch;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: none;
+  }
+
+  .askdesk-icon {
+    inline-size: 15px;
+    block-size: 15px;
+    opacity: 0.8;
+    transition: transform 0.25s;
+  }
+
+  .askdesk-dropdown--open & .askdesk-icon {
+    transform: rotate(180deg);
+  }
+}
+
+.askdesk-presence:has(.askdesk-presence__button:focus-visible) {
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.5),
+    0 6px 18px -8px rgba(10, 10, 60, 0.45);
+}
+
+/* The status menu: below the pill, from its start; within the card as wide as the pill */
+.askdesk-presence .askdesk-menu {
+  inset-inline: 0 auto;
+  min-inline-size: 180px;
+  transform-origin: top left;
+}
+
+.askdesk-brand .askdesk-presence .askdesk-menu {
+  inset-inline: 0;
+}
+
+.askdesk-menu__label {
+  flex: 1;
+}
+
+.askdesk-menu__dot {
+  flex: none;
+  inline-size: 9px;
+  block-size: 9px;
+  border-radius: 50%;
+}
+
+.askdesk-menu__dot--online {
+  background: #2563eb;
+}
+
+.askdesk-menu__dot--busy {
+  background: #d97706;
+}
+
+.askdesk-menu__dot--away {
+  background: #4b5563;
+}
+
+.askdesk-menu__item {
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+/* The handle to drag the side's width: faint white on the colour, brighter when held */
+.askdesk-splitter::after {
+  background: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.2);
+}
+
+.askdesk-splitter:hover::after,
+.askdesk-splitter:focus-visible::after,
+.askdesk--dragging .askdesk-splitter::after {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* The side panel opened over the chat: frosted, rounded, a little in from the edges */
+@media (max-width: 1180px) {
+  .askdesk-room .askdesk-room__aside {
+    inset-block: 8px;
+    inset-inline-end: 8px;
+    margin: 0;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.7);
+    box-shadow:
+      inset 0 0 0 0.5px rgba(255, 255, 255, 0.8),
+      0 18px 44px -12px rgba(10, 10, 60, 0.35);
+    backdrop-filter: blur(20px) saturate(1.4);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  }
+}
+
+/* What scrolls fades out at its top and bottom edges */
+/* (only at an edge with more beyond it: the top once scrolled down, the bottom until the end) */
+.askdesk-room__aside-scroll,
+.askdesk-inbox {
+  --askdesk-fade-top: 0px;
+  --askdesk-fade-bottom: 0px;
+
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--askdesk-fade-top), #000 calc(100% - var(--askdesk-fade-bottom)), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--askdesk-fade-top), #000 calc(100% - var(--askdesk-fade-bottom)), transparent 100%);
+}
+
+.askdesk-fade--top {
+  --askdesk-fade-top: 18px;
+}
+
+.askdesk-fade--bottom {
+  --askdesk-fade-bottom: 22px;
+}
+
+/* Scroll bars as on a Mac: none until the pointer is over what scrolls, then a thin rounded thumb */
+.askdesk ::-webkit-scrollbar {
+  inline-size: 10px;
+  block-size: 10px;
+  background: transparent;
+}
+
+.askdesk ::-webkit-scrollbar-track,
+.askdesk ::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.askdesk ::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 10px;
+  background-color: transparent;
+  background-clip: padding-box;
+}
+
+.askdesk :hover::-webkit-scrollbar-thumb {
+  background-color: rgba(35, 35, 50, 0.28);
+}
+
+.askdesk ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(35, 35, 50, 0.45);
+}
+
+.askdesk .askdesk-inbox:hover::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.4);
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  .askdesk * {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+
+  .askdesk *:hover {
+    scrollbar-color: rgba(35, 35, 50, 0.3) transparent;
+  }
+}
+
+/* The side panel over the chat keeps its shadow: a mask would cut it, so there the fading edges are
+   drawn over the content instead, kept in place while it scrolls */
+@media (max-width: 1180px) {
+  .askdesk-room .askdesk-room__aside {
+    -webkit-mask-image: none;
+    mask-image: none;
+    box-shadow:
+      inset 0 0 0 0.5px rgba(255, 255, 255, 0.8),
+      0 24px 60px -16px rgba(10, 10, 60, 0.45),
+      0 4px 14px -4px rgba(10, 10, 60, 0.18);
+
+    &::before,
+    &::after {
+      content: "";
+      position: sticky;
+      z-index: 2;
+      display: block;
+      block-size: 18px;
+      margin-inline: -12px;
+      pointer-events: none;
+    }
+
+    &::before {
+      inset-block-start: -14px;
+      margin-block: -14px -4px;
+      background: linear-gradient(to bottom, rgba(255, 255, 255, 0.9), transparent);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    &.askdesk-fade--top::before,
+    &.askdesk-fade--bottom::after {
+      opacity: 1;
+    }
+
+    &::after {
+      inset-block-end: -12px;
+      margin-block: -4px -12px;
+      background: linear-gradient(to top, rgba(255, 255, 255, 0.9), transparent);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+  }
+}
+
+
+/* ---------- The work: a pale grey-blue, the white bar above it, white cards on it (as at first) ---------- */
+.askdesk-stage {
+  background: var(--askdesk-canvas);
+}
+
+.askdesk-stage > .askdesk-bar {
+  border-block-end: 0.5px solid var(--askdesk-line);
+}
+
+.askdesk-room__head {
+  border: 0;
+}
+
+.askdesk-room__body {
+  gap: 20px;
+  padding: 0 28px 24px;
+}
+
+.askdesk-room__column {
+  margin: 0;
+}
+
+.askdesk-room .askdesk-room__aside {
+  margin: -6px -6px 0;
+  border: 0;
+  background: none;
+}
+
+.askdesk-room__aside-scroll {
+  padding: 6px 6px 12px;
+}
+
+/* The side's sections: one white card on the grey, a line between each */
+.askdesk-panels {
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--askdesk-surface);
+  box-shadow:
+    0 0 0 0.5px var(--askdesk-line),
+    0 6px 20px -6px rgba(35, 35, 50, 0.1);
+}
+
+.askdesk-panels > .askdesk-panel {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.askdesk-panels > .askdesk-panel + .askdesk-panel {
+  border-block-start: 0.5px solid var(--askdesk-line-strong);
+}
+
+/* Past chats and questions: rows of a list, a line between, the row tinted when pointed at */
+.askdesk-history {
+  gap: 0;
+}
+
+.askdesk-history__chat,
+.askdesk-history__question {
+  border: 0;
+  border-block-end: 0.5px solid var(--askdesk-line);
+  border-radius: 0;
+  background: none;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background: rgba(37, 99, 235, 0.05);
+  }
+}
+
+.askdesk-history__chat summary,
+.askdesk-history__question {
+  padding: 9px 4px;
+}
+
+.askdesk-history__title {
+  margin: 12px 0 2px;
+}
+
+@media (max-width: 1180px) {
+  .askdesk-room__body {
+    padding: 0 16px 16px;
+  }
+
+  .askdesk-room .askdesk-room__aside {
+    margin: 0;
+  }
+
+  .askdesk-room__aside-scroll {
+    padding: 14px 16px 16px;
+  }
+}
+
+/* No chat open: the chat's own soft card, large, with its word */
+.askdesk-room > .askdesk-room__empty:only-child {
+  margin: 20px 28px 24px;
+  border-radius: 16px;
+  background: var(--askdesk-chat-bg);
+  box-shadow:
+    0 0 0 0.5px var(--askdesk-line),
+    0 6px 20px -4px rgba(35, 35, 50, 0.08);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* The AI search: white, a border of blue into violet; focused, a ring of colour runs round it */
+@property --askdesk-ring {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.askdesk-room__aside .askdesk-search {
+  position: relative;
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(120deg, #2563eb, #7c3aed) border-box;
+  box-shadow: 0 6px 18px -10px rgba(91, 46, 224, 0.45);
+  transition: box-shadow 0.3s ease;
+
+  > .askdesk-icon {
+    color: #6d4aff;
+  }
+
+  &:focus-within {
+    background:
+      linear-gradient(#fff, #fff) padding-box,
+      conic-gradient(from var(--askdesk-ring), #2563eb, #7c3aed, #c084fc, #22d3ee, #2563eb) border-box;
+    box-shadow:
+      0 0 0 3px rgba(124, 58, 237, 0.12),
+      0 8px 26px -8px rgba(91, 46, 224, 0.55);
+    animation: askdesk-ring 1.6s linear;
+  }
+}
+
+@keyframes askdesk-ring {
+  to {
+    --askdesk-ring: 360deg;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk-room__aside .askdesk-search:focus-within {
+    animation: none;
+  }
+}
+
+
+/* The side: a frame that does not scroll (its corners and shadow whole), the layer within it scrolls */
+.askdesk-room .askdesk-room__aside {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+  -webkit-mask-image: none;
+  mask-image: none;
+
+  &::before,
+  &::after {
+    content: none;
+  }
+}
+
+.askdesk-room__aside-scroll {
+  flex: 1;
+  min-block-size: 0;
+  overflow-y: auto;
+  padding: 14px 16px 16px;
+}
+
+/* The handle to drag the side's width: above the work, on the coloured side of the edge so its faint
+   white shows */
+.askdesk-main > .askdesk-splitter {
+  z-index: 3;
+}
+
+.askdesk-splitter::after {
+  inset-inline-start: -9px;
+}
+
+/* The visitor's page: it follows them; when it changes it glows a moment. The pages they went through
+   fold below it */
+.askdesk-room__pages {
+  display: grid;
+  flex-basis: 100%;
+  gap: 2px;
+  min-inline-size: 0;
+  margin-block-start: -4px;
+
+  .askdesk-room__page {
+    margin: 0;
+  }
+}
+
+.askdesk-room__page--moved {
+  animation: askdesk-page-moved 1.6s ease-out;
+}
+
+@keyframes askdesk-page-moved {
+  0% {
+    background: rgba(37, 99, 235, 0.16);
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
+  }
+
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 4px transparent;
+  }
+}
+
+.askdesk-room__page {
+  border-radius: 6px;
+}
+
+.askdesk-room__trail {
+  font-size: 12px;
+
+  summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--askdesk-muted);
+    cursor: pointer;
+    list-style: none;
+
+    &::-webkit-details-marker {
+      display: none;
+    }
+
+    &::after {
+      content: "";
+      inline-size: 6px;
+      block-size: 6px;
+      border-block-end: 1.5px solid currentColor;
+      border-inline-end: 1.5px solid currentColor;
+      transform: translateY(-2px) rotate(45deg);
+      transition: transform 0.2s;
+    }
+
+    &:hover {
+      color: var(--askdesk-accent);
+    }
+  }
+
+  &[open] summary::after {
+    transform: translateY(1px) rotate(-135deg);
+  }
+
+  ol {
+    display: grid;
+    gap: 0;
+    max-inline-size: 640px;
+    margin: 6px 0 0;
+    padding: 0 0 0 18px;
+    border-inline-start: 1.5px solid var(--askdesk-line-strong);
+    list-style: none;
+  }
+
+  li {
+    position: relative;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 3px 0;
+
+    &::before {
+      content: "";
+      position: absolute;
+      inset-block-start: 9px;
+      inset-inline-start: -22.5px;
+      inline-size: 7px;
+      block-size: 7px;
+      border-radius: 50%;
+      background: var(--askdesk-line-strong);
+    }
+
+    &:first-child::before {
+      background: var(--askdesk-accent);
+      box-shadow: 0 0 0 3px var(--askdesk-accent-soft);
+    }
+
+    a {
+      overflow: hidden;
+      color: var(--askdesk-text);
+      text-decoration: none;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+
+      &:hover {
+        color: var(--askdesk-accent);
+        text-decoration: underline;
+      }
+    }
+
+    time {
+      flex: none;
+      color: var(--askdesk-faint);
+      font-size: 11px;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk-room__page--moved {
+    animation: none;
+  }
+}

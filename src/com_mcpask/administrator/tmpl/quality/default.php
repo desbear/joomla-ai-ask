@@ -193,7 +193,7 @@ $total = $this->ratings['good'] + $this->ratings['bad'];
 														<?php echo $e($page['source'] . ' #' . $page['item_id']); ?>
 													<?php endif; ?>
 													<?php if ($page['site'] !== '') : ?><span class="text-muted">（<?php echo $e($page['site']); ?>）</span><?php endif; ?>
-													<?php if ($page['missing']) : ?><span class="badge bg-warning text-dark"><?php echo Text::_('COM_MCPASK_RULE_PAGE_MISSING'); ?></span><?php endif; ?>
+													<?php if ($page['missing']) : ?><span class="badge bg-warning"><?php echo Text::_('COM_MCPASK_RULE_PAGE_MISSING'); ?></span><?php endif; ?>
 												</li>
 											<?php endforeach; ?>
 										</ol>

@@ -111,6 +111,45 @@ class Dispatcher extends AbstractModuleDispatcher
             'agentTry'       => Text::_('MOD_MCP_ASK_AGENT_TRY'),
             'agentMore'      => Text::_('MOD_MCP_ASK_AGENT_MORE'),
             'useSuggestion'  => Text::_('MOD_MCP_ASK_USE_SUGGESTION'),
+            'liveLeave'      => Text::_('MOD_MCP_ASK_LIVE_LEAVE'),
+            'liveOriginal'   => Text::_('MOD_MCP_ASK_LIVE_ORIGINAL'),
+            'liveTranslated' => Text::_('MOD_MCP_ASK_LIVE_TRANSLATED'),
+            'liveFailed'     => Text::_('MOD_MCP_ASK_LIVE_FAILED'),
+            'liveByAi'       => Text::_('MOD_MCP_ASK_LIVE_BY_AI'),
+            'liveLeaveConfirm' => Text::_('MOD_MCP_ASK_LIVE_LEAVE_CONFIRM'),
+            'liveAttach'        => Text::_('MOD_MCP_ASK_LIVE_ATTACH'),
+            'liveUploading'     => Text::_('MOD_MCP_ASK_LIVE_UPLOADING'),
+            'liveExpiresIn'     => Text::_('MOD_MCP_ASK_LIVE_EXPIRES_IN'),
+            'liveExpired'       => Text::_('MOD_MCP_ASK_LIVE_EXPIRED'),
+            'liveDownload'      => Text::_('MOD_MCP_ASK_LIVE_DOWNLOAD'),
+            'liveTooLarge'      => Text::_('MOD_MCP_ASK_LIVE_TOO_LARGE'),
+            'liveImageTooLarge' => Text::_('MOD_MCP_ASK_LIVE_IMAGE_TOO_LARGE'),
+            'liveCapture' => Text::_('MOD_MCP_ASK_LIVE_CAPTURE'),
+            'liveScreenshot' => Text::_('MOD_MCP_ASK_LIVE_SCREENSHOT'),
+            'livePicture' => Text::_('MOD_MCP_ASK_LIVE_PICTURE'),
+            'liveRecord' => Text::_('MOD_MCP_ASK_LIVE_RECORD'),
+            'liveRecordNote' => Text::_('MOD_MCP_ASK_LIVE_RECORD_NOTE'),
+            'liveRecording' => Text::_('MOD_MCP_ASK_LIVE_RECORDING'),
+            'liveStop' => Text::_('MOD_MCP_ASK_LIVE_STOP'),
+            'liveWatch' => Text::_('MOD_MCP_ASK_LIVE_WATCH'),
+            'liveAgain' => Text::_('MOD_MCP_ASK_LIVE_AGAIN'),
+            'liveCancel' => Text::_('MOD_MCP_ASK_LIVE_CANCEL'),
+            'liveSend' => Text::_('MOD_MCP_ASK_LIVE_SEND'),
+            'liveCut' => Text::_('MOD_MCP_ASK_LIVE_CUT'),
+            'liveCaptureFailed' => Text::_('MOD_MCP_ASK_LIVE_CAPTURE_FAILED'),
+            'liveMarkHint' => Text::_('MOD_MCP_ASK_LIVE_MARK_HINT'),
+            'liveDrop' => Text::_('MOD_MCP_ASK_LIVE_DROP'),
+            'liveStickers' => Text::_('MOD_MCP_ASK_LIVE_STICKERS'),
+            'liveShotNow' => Text::_('MOD_MCP_ASK_LIVE_SHOT_NOW'),
+            'liveDraft' => Text::_('MOD_MCP_ASK_LIVE_DRAFT'),
+            'liveQuick' => Text::_('MOD_MCP_ASK_LIVE_QUICK'),
+            'liveShotHint' => Text::_('MOD_MCP_ASK_LIVE_SHOT_HINT'),
+            'liveRecorderTitle' => Text::_('MOD_MCP_ASK_LIVE_RECORDER_TITLE'),
+            'liveRecorderNote' => Text::_('MOD_MCP_ASK_LIVE_RECORDER_NOTE'),
+            'liveRecorderStart' => Text::_('MOD_MCP_ASK_LIVE_RECORDER_START'),
+            'liveRecorderBack' => Text::_('MOD_MCP_ASK_LIVE_RECORDER_BACK'),
+            'liveRecorderSending' => Text::_('MOD_MCP_ASK_LIVE_RECORDER_SENDING'),
+            'liveRecorderSent' => Text::_('MOD_MCP_ASK_LIVE_RECORDER_SENT'),
             'required'       => Text::_('MOD_MCP_ASK_REQUIRED'),
             'reportWriting'  => Text::_('MOD_MCP_ASK_REPORT_WRITING'),
             'reportOpen'     => Text::_('MOD_MCP_ASK_REPORT_OPEN'),
@@ -192,7 +231,8 @@ class Dispatcher extends AbstractModuleDispatcher
                 $listed[] = $item;
             }
 
-            if ($agent->type === 'livechat' && !$handoff) {
+            // The first agent that passes visitors on to people (one that tells whether they answer now)
+            if (isset($item['status']) && !$handoff) {
                 $handoff = $item;
             }
         }

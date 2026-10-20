@@ -1,0 +1,115 @@
+/* The recorder's own window */
+html {
+  block-size: 100%;
+  background:
+    radial-gradient(70% 60% at 10% 0%, rgba(51, 207, 255, 0.18), transparent 70%),
+    radial-gradient(60% 60% at 100% 10%, rgba(127, 101, 255, 0.14), transparent 70%),
+    #f5f8fc;
+}
+
+body {
+  margin: 0;
+  color: #232332;
+  font: 15px/1.55 system-ui, -apple-system, "PingFang TC", "Noto Sans TC", sans-serif;
+}
+
+.rec {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 28px 24px 96px;
+  text-align: center;
+}
+
+.rec__badge {
+  display: grid;
+  place-items: center;
+  inline-size: 56px;
+  block-size: 56px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 8px 24px -8px rgba(235, 80, 0, 0.35);
+
+  span {
+    inline-size: 20px;
+    block-size: 20px;
+    border-radius: 50%;
+    background: #ff3b30;
+  }
+}
+
+[data-state="recording"] .rec__badge span {
+  animation: rec-blink 1s ease-in-out infinite;
+}
+
+.rec__title {
+  margin: 4px 0 0;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.rec__note {
+  margin: 0;
+  color: rgba(35, 35, 50, 0.6);
+  font-size: 14px;
+}
+
+.rec__status {
+  min-block-size: 1.5em;
+  margin: 0;
+  color: #0e86fe;
+  font-size: 14px;
+}
+
+[data-state="sent"] .rec__status {
+  color: #0f6e3a;
+}
+
+.rec__start {
+  min-block-size: 44px;
+  padding: 0 28px;
+  border: 0;
+  border-radius: 22px;
+  background: linear-gradient(45deg, #33cfff, #0e86fe);
+  color: #fff;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 6px 10px rgba(14, 134, 254, 0.3);
+  transition: transform 0.15s, filter 0.15s;
+
+  &:hover {
+    filter: brightness(1.05);
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px #a6d2ff, 0 6px 10px rgba(14, 134, 254, 0.3);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+[data-state="waiting"] .rec__start,
+[data-state="recording"] .rec__start,
+[data-state="sending"] .rec__start,
+[data-state="sent"] .rec__start,
+[data-state="alone"] .rec__start {
+  display: none;
+}
+
+@keyframes rec-blink {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-state="recording"] .rec__badge span {
+    animation: none;
+  }
+}

@@ -185,6 +185,29 @@ final class Card
     }
 
     /**
+     * A chat with a person in the conversation's own window (AI Ask Desk): the room's key, the handoff
+     * it is logged as, the addresses the page talks to the people answering through (of this site),
+     * and the words it shows. What the visitor writes then goes to the room, not to the agent.
+     *
+     * @param  array{poll: string, send: string, leave: string, rate?: string, upload?: string, capture?: string}  $urls  capture: the script that takes pictures and recordings of the page
+     * @param  array<string, string>                             $texts  waiting, joined, closed, notice, original, translated, failed
+     *
+     * @since  0.20.0
+     */
+    public static function chat(string $key, string $handoff, array $urls, array $texts): array
+    {
+        $local = static fn ($url) => \is_string($url) && preg_match('#^/(?!/)[^\s]*$#', $url) ? $url : '';
+
+        return [
+            'type'    => 'chat',
+            'key'     => preg_match('/^[0-9a-f]{48}$/', $key) ? $key : '',
+            'handoff' => preg_match('/^[0-9a-f]{48}$/', $handoff) ? $handoff : '',
+            'urls'    => array_map($local, array_intersect_key($urls, array_flip(['poll', 'send', 'leave', 'rate', 'upload', 'capture', 'stickers']))),
+            'texts'   => array_map(static fn ($text) => self::clip((string) $text, 500), array_intersect_key($texts, array_flip(['waiting', 'joined', 'closed', 'notice', 'original', 'translated', 'failed', 'leave']))),
+        ];
+    }
+
+    /**
      * Other agents the visitor may go on with, the conversation so far passed along: when this one
      * cannot help now (no one there to chat), or when it is done.
      *

@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<form>
+	<fields name="own">
+		<fieldset name="own">
+			<field name="timezone" type="timezone" default=""
+				label="PLG_MCPASK_ASKDESK_FIELD_TIMEZONE" description="PLG_MCPASK_ASKDESK_FIELD_TIMEZONE_DESC">
+				<option value="">PLG_MCPASK_ASKDESK_FIELD_TIMEZONE_SITE</option>
+			</field>
+			<field name="hours" type="subform" multiple="true" min="0" max="14" layout="joomla.form.field.subform.repeatable-table"
+				label="PLG_MCPASK_ASKDESK_FIELD_HOURS" description="PLG_MCPASK_ASKDESK_FIELD_HOURS_DESC"
+				default="{&quot;hours0&quot;: {&quot;days&quot;: [&quot;1&quot;, &quot;2&quot;, &quot;3&quot;, &quot;4&quot;, &quot;5&quot;], &quot;from&quot;: &quot;09:00&quot;, &quot;to&quot;: &quot;18:00&quot;}}">
+				<form>
+					<field name="days" type="checkboxes" label="PLG_MCPASK_ASKDESK_FIELD_DAYS">
+						<option value="1">MONDAY</option>
+						<option value="2">TUESDAY</option>
+						<option value="3">WEDNESDAY</option>
+						<option value="4">THURSDAY</option>
+						<option value="5">FRIDAY</option>
+						<option value="6">SATURDAY</option>
+						<option value="7">SUNDAY</option>
+					</field>
+					<field name="from" type="text" default="09:00" maxlength="5" pattern="[0-2][0-9]:[0-5][0-9]" label="PLG_MCPASK_ASKDESK_FIELD_FROM" hint="09:00" />
+					<field name="to" type="text" default="18:00" maxlength="5" pattern="[0-2][0-9]:[0-5][0-9]" label="PLG_MCPASK_ASKDESK_FIELD_TO" hint="18:00" />
+				</form>
+			</field>
+			<field name="closed" type="mcpaskholidays" rows="6" filter="string" workdays="open_days" addfieldprefix="Gss\Component\Mcpask\Administrator\Field"
+				label="PLG_MCPASK_ASKDESK_FIELD_CLOSED" description="PLG_MCPASK_ASKDESK_FIELD_CLOSED_DESC" hint="2026-12-25 Christmas Day" />
+			<field name="open_days" type="textarea" rows="4" filter="string"
+				label="PLG_MCPASK_ASKDESK_FIELD_OPEN_DAYS" description="PLG_MCPASK_ASKDESK_FIELD_OPEN_DAYS_DESC" hint="2027-02-20 補行上班&#10;2027-02-21 09:00-12:00" />
+			<field name="guest_details" type="radio" layout="joomla.form.field.radio.switcher" default="1"
+				label="PLG_MCPASK_ASKDESK_FIELD_GUEST_DETAILS" description="PLG_MCPASK_ASKDESK_FIELD_GUEST_DETAILS_DESC">
+				<option value="0">JNO</option>
+				<option value="1">JYES</option>
+			</field>
+			<field name="details_text" type="textarea" rows="2" filter="string" showon="guest_details:1"
+				label="PLG_MCPASK_ASKDESK_FIELD_DETAILS_TEXT" description="PLG_MCPASK_ASKDESK_FIELD_DETAILS_TEXT_DESC" />
+			<field name="away" type="list" default="message"
+				label="PLG_MCPASK_ASKDESK_FIELD_AWAY" description="PLG_MCPASK_ASKDESK_FIELD_AWAY_DESC">
+				<option value="message">PLG_MCPASK_ASKDESK_AWAY_MESSAGE</option>
+				<option value="refer">PLG_MCPASK_ASKDESK_AWAY_REFER</option>
+				<option value="both">PLG_MCPASK_ASKDESK_AWAY_BOTH</option>
+			</field>
+			<field name="away_text" type="textarea" rows="2" filter="string"
+				label="PLG_MCPASK_ASKDESK_FIELD_AWAY_TEXT" description="PLG_MCPASK_ASKDESK_FIELD_AWAY_TEXT_DESC" />
+			<field name="offline_text" type="textarea" rows="2" filter="string" showon="away!:refer"
+				label="PLG_MCPASK_ASKDESK_FIELD_OFFLINE" description="PLG_MCPASK_ASKDESK_FIELD_OFFLINE_DESC" />
+			<field name="waiting_text" type="textarea" rows="2" filter="string"
+				label="PLG_MCPASK_ASKDESK_FIELD_WAITING" description="PLG_MCPASK_ASKDESK_FIELD_WAITING_DESC" />
+			<field name="thanks_text" type="textarea" rows="2" filter="string" showon="away!:refer"
+				label="PLG_MCPASK_ASKDESK_FIELD_THANKS" description="PLG_MCPASK_ASKDESK_FIELD_THANKS_DESC" />
+		</fieldset>
+	</fields>
+</form>

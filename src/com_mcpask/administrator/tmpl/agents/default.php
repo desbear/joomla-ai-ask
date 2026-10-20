@@ -63,6 +63,10 @@ $e = fn ($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 						<td><?php echo HTMLHelper::_('grid.id', $i, (int) $agent->id); ?></td>
 						<td>
 							<a href="<?php echo Route::_('index.php?option=com_mcpask&view=agent&id=' . (int) $agent->id); ?>" class="fw-bold"><?php echo $e($agent->title); ?></a>
+							<?php $groups = array_filter(array_map('intval', (array) $agent->params->get('groups', []))); ?>
+							<?php if ($groups) : ?>
+								<div class="small text-muted"><span class="icon-lock" aria-hidden="true"></span> <?php echo $e(Text::sprintf('COM_MCPASK_AGENTS_GROUPS_ONLY', implode('、', array_map(fn ($id) => $this->groupNames[$id] ?? '#' . $id, $groups)))); ?></div>
+							<?php endif; ?>
 						</td>
 						<td>
 							<?php echo $kind ? $e($kind->title()) : '<span class="text-danger">' . $e($agent->type) . '</span>'; ?>

@@ -136,7 +136,7 @@ $wa->addInlineScript(<<<'JS'
 				<tr>
 					<td style="min-width:12rem">
 						<strong><?php echo Text::_('COM_MCPASK_PET_ACTION_' . strtoupper($name)); ?></strong>
-						<?php if ($name === 'idle' || $name === 'clean') : ?><span class="badge bg-warning text-dark"><?php echo Text::_('JREQUIRED'); ?></span><?php endif; ?>
+						<?php if ($name === 'idle' || $name === 'clean') : ?><span class="badge bg-warning"><?php echo Text::_('JREQUIRED'); ?></span><?php endif; ?>
 						<div class="small text-muted"><?php echo Text::_('COM_MCPASK_PET_ACTION_' . strtoupper($name) . '_DESC'); ?></div>
 					</td>
 					<td><?php echo $cell($name); ?></td>

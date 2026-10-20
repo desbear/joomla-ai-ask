@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<extension type="package" method="upgrade">
+	<name>pkg_askdesk</name>
+	<packagename>askdesk</packagename>
+	<author>GSS</author>
+	<creationDate>2026-10</creationDate>
+	<copyright>(C) 2026 GSS</copyright>
+	<license>GNU General Public License version 2 or later; see LICENSE</license>
+	<version>0.1.0</version>
+	<description>PKG_ASKDESK_XML_DESCRIPTION</description>
+	<packager>GSS</packager>
+	<scriptfile>script.php</scriptfile>
+	<blockChildUninstall>true</blockChildUninstall>
+	<files folder="packages">
+		<file type="component" id="com_askdesk">com_askdesk.zip</file>
+		<file type="plugin" id="askdesk" group="mcpask">plg_mcpask_askdesk.zip</file>
+	</files>
+	<languages folder="language">
+		<language tag="en-GB">en-GB/pkg_askdesk.sys.ini</language>
+		<language tag="zh-TW">zh-TW/pkg_askdesk.sys.ini</language>
+	</languages>
+</extension>

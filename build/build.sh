@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Build the packages into dist/, installable through Joomla's extension installer:
 #   pkg_mcpask-<version>.zip  AI Ask for Joomla (answers visitors' questions from the site's own content)
+#   pkg_askdesk-<version>.zip AI Ask Desk (live chat with people in AI Ask's window, translated both ways)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -30,8 +31,10 @@ build() {
 # The browser fetches a module's script and styles again only when their version changes:
 # the asset manifest must carry the module's version (its assets may say "auto", Joomla's media
 # version, which changes with every install)
-for module in mod_mcp_ask; do
-  want=$(sed -n 's:.*<version>\(.*\)</version>.*:\1:p' "src/$module/$module.xml" | head -1)
+for module in mod_mcp_ask com_askdesk; do
+  manifest=src/$module/$module.xml
+  [ -f "$manifest" ] || manifest=src/$module/${module#com_}.xml
+  want=$(sed -n 's:.*<version>\(.*\)</version>.*:\1:p' "$manifest" | head -1)
   if grep -q '"version"' "src/$module/media/joomla.asset.json" && grep '"version"' "src/$module/media/joomla.asset.json" | grep -v '"auto"' | grep -vq "\"$want\""; then
     echo "src/$module/media/joomla.asset.json: asset versions differ from $want" >&2
     exit 1
@@ -41,3 +44,5 @@ done
 build pkg_mcpask src/pkg_mcpask/pkg_mcpask.xml src/pkg_mcpask/script.php src/pkg_mcpask/language \
   com_mcpask mod_mcp_ask mod_mcp_ask_log plg_content_mcpask plg_task_mcpask plg_easyblog_mcpask plg_mcpask_rsform plg_mcpask_livechat plg_mcpask_imagegen plg_mcpask_dropfiles plg_mcp_mcpask
 
+build pkg_askdesk src/pkg_askdesk/pkg_askdesk.xml src/pkg_askdesk/script.php src/pkg_askdesk/language \
+  com_askdesk plg_mcpask_askdesk

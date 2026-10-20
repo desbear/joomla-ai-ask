@@ -18,7 +18,7 @@ use Joomla\CMS\Router\Route;
 
 $e       = fn ($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $counts  = $this->counts;
-$badges  = ['requested' => 'bg-secondary', 'failed' => 'bg-danger', 'opened' => 'bg-info', 'referred' => 'bg-primary', 'message' => 'bg-warning text-dark', 'chatting' => 'bg-success'];
+$badges  = ['requested' => 'bg-secondary', 'failed' => 'bg-danger', 'opened' => 'bg-info', 'referred' => 'bg-primary', 'message' => 'bg-warning', 'chatting' => 'bg-success'];
 $option  = static fn ($value, $label, $current) => '<option value="' . htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8') . '"' . ((string) $value === (string) $current ? ' selected' : '') . '>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</option>';
 ?>
 <form action="<?php echo Route::_('index.php?option=com_mcpask&view=handoffs'); ?>" method="get" name="adminForm" id="adminForm">

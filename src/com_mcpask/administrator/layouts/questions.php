@@ -81,7 +81,7 @@ $e    = static fn ($value) => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF
 								</div>
 							<?php endif; ?>
 							<?php foreach (array_filter(explode(',', (string) ($row->flags ?? ''))) as $flag) : ?>
-								<span class="badge <?php echo $flag === 'output_filtered' ? 'bg-warning text-dark' : 'bg-danger'; ?>"><?php echo Text::_('COM_MCPASK_FLAG_' . strtoupper(preg_replace('/[^a-z_]/', '', $flag))); ?></span>
+								<span class="badge <?php echo $flag === 'output_filtered' ? 'bg-warning' : 'bg-danger'; ?>"><?php echo Text::_('COM_MCPASK_FLAG_' . strtoupper(preg_replace('/[^a-z_]/', '', $flag))); ?></span>
 							<?php endforeach; ?>
 							<?php if (($row->answer ?? null) !== null && $row->answer !== '') : ?>
 								<details class="small mt-1">
@@ -94,7 +94,7 @@ $e    = static fn ($value) => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF
 								</details>
 							<?php endif; ?>
 							<?php if ((int) ($row->hint_id ?? 0) > 0) : ?>
-								<span class="badge bg-info text-dark"><?php echo Text::_('COM_MCPASK_RULE_APPLIED'); ?></span>
+								<span class="badge bg-info"><?php echo Text::_('COM_MCPASK_RULE_APPLIED'); ?></span>
 							<?php endif; ?>
 						</td>
 						<td class="text-end text-nowrap"><?php echo (int) $row->tokens_in; ?> + <?php echo (int) $row->tokens_out; ?></td>

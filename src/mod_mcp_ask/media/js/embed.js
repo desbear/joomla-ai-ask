@@ -12,7 +12,9 @@
  * It puts a frame of the Joomla site in a corner of the window: the size of a button, the open
  * search box, or the whole window for the conversation. What is asked and answered stays in the
  * frame; this page tells it where the visitor is, changes page when a source of this website is
- * opened, and opens LiveChat here when the visitor asks for a person.
+ * opened, and opens LiveChat here when the visitor asks for a person. In a chat with a person
+ * (AI Ask Desk) the frame may capture this tab, a screenshot or a short recording, when the visitor
+ * chooses to: this page puts the frame aside meanwhile.
  *
  * Optional attributes: data-lang (a language tag), data-user (a token the website's server signed
  * for its signed-in visitor), data-title (the frame's name for screen readers).
@@ -54,7 +56,8 @@
 
   frame.src = address.href;
   frame.title = script.dataset.title || 'Ask';
-  frame.setAttribute('allow', 'clipboard-write');
+  // Copying answers; showing this page to a person answering (a screenshot or a recording of the tab, AI Ask Desk)
+  frame.setAttribute('allow', 'clipboard-write; display-capture');
   frame.setAttribute('allowtransparency', 'true');
 
   // Hidden until the page in it says it is ready, so nothing shows of a frame that is refused
@@ -77,6 +80,8 @@
   let ready = false;
   let side = 'right';
   let mode = 'button';
+  // While the page is captured: the frame out of sight (a screenshot), or only the bar to stop a recording
+  let capture = 'none';
   let button = 96;
   let context = {};
   let user = script.dataset.user ? { token: script.dataset.user, name: '' } : null;
@@ -96,6 +101,24 @@
   // ---------- Size ----------
 
   const place = () => {
+    if (capture === 'bar') {
+      const wide = Math.min(window.innerWidth, 440);
+
+      Object.assign(frame.style, {
+        top: 'auto',
+        bottom: '0',
+        left: `${Math.max(0, (window.innerWidth - wide) / 2)}px`,
+        right: 'auto',
+        width: `${wide}px`,
+        height: '96px',
+        visibility: 'visible',
+      });
+
+      return;
+    }
+
+    frame.style.visibility = ready && capture !== 'hidden' ? 'visible' : 'hidden';
+
     const full = mode === 'full';
     const wide = Math.min(window.innerWidth, 480);
 
@@ -280,6 +303,8 @@
         place();
         frame.style.visibility = 'visible';
         sendContext();
+        // This page lets the frame capture it, and puts the frame aside meanwhile
+        post('host', { capture: true });
 
         if (user) {
           post('user', user);
@@ -323,6 +348,12 @@
       }
       case 'handoff':
         handoff(data);
+        break;
+      case 'capture':
+        capture = ['hidden', 'bar'].includes(data.phase) ? data.phase : 'none';
+        place();
+        // Answered once the page is laid out without the frame (or with only the bar)
+        window.requestAnimationFrame(() => window.requestAnimationFrame(() => post('captured', { phase: capture })));
         break;
       default:
     }

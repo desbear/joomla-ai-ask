@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<form addfieldprefix="Gss\Component\Askdesk\Administrator\Field">
+	<fieldset name="person">
+		<field name="display_name" type="text" maxlength="100" filter="string"
+			label="COM_ASKDESK_PERSON_DISPLAY_NAME" description="COM_ASKDESK_PERSON_DISPLAY_NAME_DESC" />
+		<field name="avatar" type="askdeskpet" default="" none="COM_ASKDESK_PERSON_AVATAR_NONE"
+			label="COM_ASKDESK_PERSON_AVATAR" description="COM_ASKDESK_PERSON_AVATAR_DESC" />
+		<field name="avatar_image" type="media" types="images" preview="tooltip" showon="avatar:"
+			label="COM_ASKDESK_PERSON_IMAGE" description="COM_ASKDESK_PERSON_IMAGE_DESC" />
+		<field name="thanks_image" type="media" types="images" preview="tooltip" showon="avatar:"
+			label="COM_ASKDESK_PERSON_THANKS" description="COM_ASKDESK_PERSON_THANKS_DESC" />
+	</fieldset>
+</form>
