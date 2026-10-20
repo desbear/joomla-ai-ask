@@ -4828,3 +4828,35 @@ button.askdesk-me {
   position: relative;
   z-index: 4;
 }
+
+/* The little timeline drawn as the full list is: a line down the left, a dot on it for each page, the
+   page now in blue; it stands apart by itself, no divider before it */
+.askdesk-trail__face {
+  padding: 0;
+  border: 0;
+}
+
+.askdesk-trail__list {
+  position: relative;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 4px;
+    inline-size: 1.5px;
+    background: var(--askdesk-line-strong);
+  }
+}
+
+.askdesk-trail__row {
+  padding-inline-start: 18px;
+}
+
+.askdesk-trail__dot {
+  inset-inline-start: 1px;
+}
+
+.askdesk-trail__hint {
+  inset-inline-start: 0;
+}

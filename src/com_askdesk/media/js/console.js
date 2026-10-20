@@ -1267,7 +1267,8 @@
     pop.append(el('p', 'askdesk-trail__heading', pages.length > 1 ? t.pagesVisited.replace('%s', pages.length) : t.page), all);
     view.append(list);
     face.append(view);
-    face.title = room.page;
+    // Its own hint says what it is; the address in full for screen readers
+    face.setAttribute('aria-label', `${t.page}: ${room.page}`);
     face.setAttribute('aria-haspopup', 'dialog');
     face.setAttribute('aria-expanded', String(Boolean(state.trailOpen)));
     box.append(face, hint, pop);
