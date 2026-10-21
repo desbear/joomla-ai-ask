@@ -2,6 +2,13 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.4.1
+
+- **An AI's reading as a card of its own**: a panel with `look: "ai"` is drawn as a blue-violet card above the
+  side's white one, its refresh beside its heading's words (turning while it reads again). The round search has
+  a white ring so it stands apart from the card under it.
+- Nothing that scrolls under the held heading at the top of the side shows above it any more.
+
 ## AI Ask Desk 0.4.0
 
 - **A brief in a panel**: a plugin's panel can carry a brief to read, in parts (each a title, a tone, points with

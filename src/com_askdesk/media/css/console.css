@@ -6967,7 +6967,8 @@ button.askdesk-me {
   border-radius: 50%;
   /* Flat: violet above, blue below; a violet shadow under it */
   background: linear-gradient(180deg, #7c3aed 0%, #2563eb 100%);
-  box-shadow: 0 6px 14px -6px rgba(124, 58, 237, 0.55);
+  /* A white ring, so that it stands apart from a blue-violet card under it */
+  box-shadow: 0 0 0 2px #fff, 0 6px 14px -6px rgba(124, 58, 237, 0.55);
   color: #fff;
   cursor: pointer;
   opacity: clamp(0, (var(--askdesk-search-p, 0) - 0.5) * 2, 1);
@@ -7122,5 +7123,167 @@ button.askdesk-me {
   .askdesk-room__head .askdesk-room__actions {
     flex: none;
     margin-inline-start: auto;
+  }
+}
+
+/* ---------- An AI's reading (0.4.1): a blue-violet card of its own above the side's white one ---------- */
+.askdesk-featured {
+  display: grid;
+  gap: 12px;
+  margin-block-end: 12px;
+
+  &:empty {
+    display: none;
+  }
+}
+
+.askdesk-panel--ai {
+  --askdesk-muted: rgba(255, 255, 255, 0.74);
+  --askdesk-faint: rgba(255, 255, 255, 0.58);
+  --askdesk-soft: rgba(255, 255, 255, 0.1);
+  --askdesk-line: rgba(255, 255, 255, 0.24);
+
+  overflow: hidden;
+  border-radius: 16px;
+  /* The glows over the whole card, however long, so no edge shows across it */
+  background:
+    radial-gradient(70% 45% at 100% 0%, rgba(106, 166, 242, 0.5), transparent 70%),
+    radial-gradient(70% 45% at 0% 100%, rgba(127, 101, 255, 0.55), transparent 72%),
+    linear-gradient(160deg, #3b1fc9 0%, #5a2fe6 50%, #3f6ff0 100%);
+  box-shadow: 0 10px 26px -14px rgba(59, 31, 201, 0.7);
+  color: #fff;
+
+  /* As tall as the white card's headings, its words in the middle */
+  > .askdesk-panel__title {
+    box-sizing: border-box;
+    inline-size: 100%;
+    block-size: 52px;
+    margin: 0;
+    padding: 4px 14px 0;
+    border: 0;
+    background: none;
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: start;
+
+    .askdesk-icon {
+      color: #c9d8ff;
+    }
+
+    &::after {
+      border-color: rgba(255, 255, 255, 0.7);
+    }
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+  }
+
+  > .askdesk-panel__body {
+    padding: 0 14px 14px;
+  }
+
+  .askdesk-brief__part {
+    border-inline-start-color: rgba(201, 216, 255, 0.55);
+  }
+
+  .askdesk-brief__title {
+    color: #c9d8ff;
+  }
+
+  .askdesk-brief__part--warn {
+    border-inline-start-color: #fbbf24;
+
+    .askdesk-brief__title {
+      color: #fde68a;
+    }
+  }
+
+  .askdesk-brief__part--ok {
+    border-inline-start-color: #4ade80;
+
+    .askdesk-brief__title {
+      color: #bbf7d0;
+    }
+  }
+
+  .askdesk-brief__sources small {
+    background: rgba(255, 255, 255, 0.16);
+    color: rgba(255, 255, 255, 0.86);
+  }
+
+  .askdesk-brief__notice {
+    background: rgba(251, 191, 36, 0.2);
+    color: #fde68a;
+  }
+
+  .askdesk-panel__hint {
+    color: var(--askdesk-muted);
+  }
+
+  .askdesk-addon__link {
+    color: #fff;
+  }
+}
+
+.askdesk-stage .askdesk-panel--ai {
+  border-radius: 6px;
+}
+
+/* Read again, beside the heading's words: small and round, turning while it is read */
+.askdesk-panel__again {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  inline-size: 24px;
+  block-size: 24px;
+  margin-inline-start: -2px;
+  border-radius: 50%;
+  color: rgba(255, 255, 255, 0.72);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  .askdesk-icon {
+    inline-size: 14px;
+    block-size: 14px;
+    color: inherit;
+  }
+
+  &:hover,
+  &:focus-visible {
+    background: rgba(255, 255, 255, 0.18);
+    color: #fff;
+    outline: none;
+  }
+
+  &.is-busy {
+    cursor: default;
+
+    .askdesk-icon {
+      animation: askdesk-turn 0.9s linear infinite;
+    }
+  }
+}
+
+@keyframes askdesk-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk-panel__again.is-busy .askdesk-icon {
+    animation: none;
+    opacity: 0.5;
+  }
+}
+
+/* The heading held at the top covers the band above it too (the side's 8px fading edge), so that
+   nothing that scrolls under it shows over it */
+@media (min-width: 1181px) {
+  .askdesk-panels .askdesk-panel__title.is-held-top.is-first {
+    box-shadow: 0 -9px 0 var(--askdesk-canvas);
   }
 }

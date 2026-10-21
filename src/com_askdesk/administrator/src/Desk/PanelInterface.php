@@ -40,7 +40,8 @@ namespace Gss\Component\Askdesk\Administrator\Desk;
  *    a summary to read, in parts, each point with where it comes from (an AI's brief of the visitor,
  *    say); stale when what it was made from has changed since
  *  - icon (a name of the console's icons) for its heading; follow ("draft" or "refresh"): an action the
- *    console runs once, at once, after drawing it (slow work, such as an AI's, not holding up the others)
+ *    console runs once, at once, after drawing it (slow work, such as an AI's, not holding up the others);
+ *    look ("ai"): drawn as a blue-violet card of its own above the others, read again from its heading
  *
  * A view that is an empty array is not shown (nothing for this chat).
  *

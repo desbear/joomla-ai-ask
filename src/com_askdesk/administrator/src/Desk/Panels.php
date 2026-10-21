@@ -158,6 +158,7 @@ final class Panels
                 ] : null, $list($items['items'] ?? [])), static fn ($item) => $item && ($item['title'] !== '' || $item['text'] !== ''))), 0, 50),
             ] : null,
             'icon'     => preg_match('/^[a-z]{1,20}$/', (string) ($view['icon'] ?? '')) ? (string) $view['icon'] : '',
+            'look'     => ($view['look'] ?? '') === 'ai' ? 'ai' : '',
             'follow'   => \in_array($view['follow'] ?? '', ['draft', 'refresh'], true) ? $view['follow'] : '',
             'brief'    => $brief ? [
                 'generated' => $text($brief['generated'] ?? '', 120),

@@ -61,7 +61,9 @@ It is a package of its own, `pkg_askdesk`, which needs AI Ask 0.20.0 or later:
   refresh. A panel may also carry a note (0.2.1): drafted by AI from the chat with `Summary::write()`, changed
   by the person answering and sent only when they confirm. And a brief (0.4.0): parts with points and their
   sources, an AI's of the visitor, say; a panel can have the console run an action once on opening (`follow`),
-  so slow work runs after it is drawn, choose its icon, and return nothing for a chat it has nothing for. The
+  so slow work runs after it is drawn, choose its icon, and return nothing for a chat it has nothing for. With
+  `look: "ai"` (0.4.1) it is drawn as a blue-violet card of its own above the others, read again from beside its
+  heading. The
   console draws it all as text; whatever the plugin calls stays on the server.
 - On a narrower screen these open over the chat with **Reference**.
 

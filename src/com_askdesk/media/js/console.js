@@ -2657,9 +2657,11 @@
 
   // The suggested replies, the visitor's history and the library: one card, parted by lines
   const panels = el('div', 'askdesk-panels');
+  // A part that is an AI's reading (a brief of the visitor): a card of its own above the rest, blue-violet
+  const featured = el('div', 'askdesk-featured');
 
   panels.append(panel(t.suggestions, 'bulb', suggestList), panel(t.history, 'history', historyList), libraryPanel);
-  asideScroll.append(search, results, panels);
+  asideScroll.append(search, results, featured, panels);
 
   // The search, as the side scrolls down, shrinks away toward the top end, and a round search button
   // grows there in its place; scrolled back to the top, the search opens again. Both follow how far the
@@ -3116,13 +3118,58 @@
       foot.append(link);
     }
 
-    const again = button('askdesk-addon__refresh', '', () => actAddon(view.name, 'refresh', {}));
+    // Read again: at the foot; for an AI's reading, beside its heading's words
+    const head = body.closest('.askdesk-panel')?.querySelector(':scope > .askdesk-panel__title');
+    let beside = head?.querySelector(':scope > .askdesk-panel__again');
 
-    again.title = t.panelRefresh;
-    again.setAttribute('aria-label', t.panelRefresh);
-    again.append(icon('refresh'));
-    foot.append(again);
-    parts.push(foot);
+    if (view.look === 'ai' && head) {
+      if (!beside) {
+        beside = el('span', 'askdesk-panel__again');
+        beside.setAttribute('role', 'button');
+        beside.tabIndex = 0;
+        beside.title = t.panelRefresh;
+        beside.setAttribute('aria-label', t.panelRefresh);
+        beside.append(icon('refresh'));
+        head.querySelector(':scope > span:not(.askdesk-icon)').after(beside);
+
+        // Within the heading's button, but not opening or closing it
+        const go = (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+
+          if (!beside.classList.contains('is-busy')) {
+            beside.classList.add('is-busy');
+            actAddon(beside.dataset.name, 'refresh', {});
+          }
+        };
+
+        beside.addEventListener('click', go);
+        beside.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            go(event);
+          }
+        });
+      }
+
+      beside.dataset.name = view.name;
+    } else {
+      beside?.remove();
+      beside = null;
+
+      const again = button('askdesk-addon__refresh', '', () => actAddon(view.name, 'refresh', {}));
+
+      again.title = t.panelRefresh;
+      again.setAttribute('aria-label', t.panelRefresh);
+      again.append(icon('refresh'));
+      foot.append(again);
+    }
+
+    // Busy while it is being drawn again (a draft) and done once drawn
+    beside?.classList.toggle('is-busy', false);
+
+    if (foot.childElementCount) {
+      parts.push(foot);
+    }
 
     body.dataset.state = view.state;
     body.replaceChildren(...parts);
@@ -3147,6 +3194,7 @@
 
       entry.details.querySelector('.askdesk-panel__title > span:not(.askdesk-icon)').textContent = view.title || view.name;
       paintAddon(entry.body, view);
+      entry.details.classList.toggle('askdesk-panel--ai', view.look === 'ai');
 
       // Slow work it asks for (an AI's brief, say): once for this chat, after it is drawn
       const asked = `${view.name}:${state.open}`;
@@ -3155,8 +3203,14 @@
         followed.add(asked);
         actAddon(view.name, view.follow, {});
       }
-      panels.insertBefore(entry.details, before);
-      before = entry.details.nextSibling;
+      if (view.look === 'ai') {
+        if (entry.details.parentNode !== featured) {
+          featured.append(entry.details);
+        }
+      } else {
+        panels.insertBefore(entry.details, before);
+        before = entry.details.nextSibling;
+      }
     });
 
     addons.forEach((entry, name) => {
@@ -3193,6 +3247,7 @@
     }
 
     entry.body.replaceChildren(...(action === 'draft' ? [el('p', 'askdesk-panel__hint', t.panelNoteWriting), skeleton(4)] : [skeleton(3)]));
+    entry.details.querySelector(':scope > .askdesk-panel__title > .askdesk-panel__again')?.classList.add('is-busy');
 
     try {
       const data = await post(config.urls.panel, { room, name, action, ...extra });
@@ -3213,6 +3268,8 @@
       }
     } catch (error) {
       entry.body.replaceChildren(el('p', 'askdesk-panel__hint', t.panelError));
+    } finally {
+      entry.details.querySelector(':scope > .askdesk-panel__title > .askdesk-panel__again')?.classList.remove('is-busy');
     }
   };
 
