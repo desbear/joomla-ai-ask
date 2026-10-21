@@ -2,6 +2,11 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.1.2
+
+- The console's conversation fades at its top and bottom edges once there is more to scroll, as the side and the
+  inbox do.
+
 ## AI Ask Desk 0.1.1
 
 - The console's box of the visitor's conversation with AI before the chat: its colours fade out within it, with no
@@ -68,6 +73,11 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
 - **The console's look**: the side in a deep wash of one's status (blue online, amber busy, grey-black away), the
   status switched from the desk's card; new waiting chats light up red and ring a bell on the count; ended chats fold
   away; drop-down menus, Mac-like scroll bars, and the work on a calm grey-blue with white cards.
+
+## AI Ask for Joomla 0.20.1
+
+- In a chat with a person, what waits above the box to be sent has a small round button at its corner to take it
+  away (it showed as a square before).
 
 ## AI Ask for Joomla 0.20.0
 

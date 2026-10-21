@@ -2860,8 +2860,7 @@
       }
 
       remove.type = 'button';
-      remove.title = `${strings.liveRemove} ${item.name}`;
-      remove.setAttribute('aria-label', remove.title);
+      remove.setAttribute('aria-label', `${strings.liveRemove} ${item.name}`);
       remove.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
       remove.addEventListener('click', () => {
         if (item.url) {

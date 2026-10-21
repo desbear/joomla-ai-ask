@@ -4298,7 +4298,8 @@ button.askdesk-me {
 /* What scrolls fades out at its top and bottom edges */
 /* (only at an edge with more beyond it: the top once scrolled down, the bottom until the end) */
 .askdesk-room__aside-scroll,
-.askdesk-inbox {
+.askdesk-inbox,
+.askdesk-log {
   --askdesk-fade-top: 0px;
   --askdesk-fade-bottom: 0px;
 
@@ -4312,6 +4313,15 @@ button.askdesk-me {
 
 .askdesk-fade--bottom {
   --askdesk-fade-bottom: 22px;
+}
+
+/* The conversation fades a little further at its edges */
+.askdesk-log.askdesk-fade--top {
+  --askdesk-fade-top: 32px;
+}
+
+.askdesk-log.askdesk-fade--bottom {
+  --askdesk-fade-bottom: 32px;
 }
 
 /* Scroll bars as on a Mac: none until the pointer is over what scrolls, then a thin rounded thumb */

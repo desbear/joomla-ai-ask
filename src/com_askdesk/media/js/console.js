@@ -1032,6 +1032,8 @@
   const body = el('div', 'askdesk-room__body');
   const column = el('div', 'askdesk-room__column');
   const log = el('div', 'askdesk-log');
+
+  fades(log);
   const thread = el('div', 'askdesk-thread');
   const intro = el('div', 'askdesk-intro');
   const list = el('div', 'askdesk-list');
