@@ -82,6 +82,36 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
   status switched from the desk's card; new waiting chats light up red and ring a bell on the count; ended chats fold
   away; drop-down menus, Mac-like scroll bars, and the work on a calm grey-blue with white cards.
 
+## AI Ask for Joomla 0.20.4
+
+- **Clear data**: a page for Super Users (on the dashboard's toolbar) that clears what AI Ask has kept of its
+  visitors: the question log, handoffs, agent use (and agent conversations under way), and analysis reports (not
+  ticked by default: their private addresses stop working). It shows how many records of each there are, asks
+  for a confirmation, and logs who cleared what. Settings, agents, embed keys, pets, source rules and the index
+  are kept. For starting over, or when another site takes over answering.
+- **Signing in through the other website, on this site's own pages**: a key whose website signs its visitors'
+  tokens may also be used by this site's own visitors (Sign in through this website, and its sign-in address): the
+  conversation's Sign in button goes to that website's sign-in and comes back to the page known, the conversation
+  open again. For AI Ask only, for the browser tab, an hour at most. On a Joomla site, the module of mode Another
+  site's AI Ask answers at index.php?option=com_mcpask&task=embed.signin&module=(its ID), back only to the website
+  it names, with a one-time state. See docs/embeds.md.
+  A sign-in page that does not come back to the address it is given (one offering other ways in) no longer strands
+  the visitor: the other website's module sends them on from whichever of its pages they land on signed in (within
+  a quarter of an hour). Visitors signed in on this site itself see their name and Sign out there instead.
+- **An embedded pet no longer flickers when dragged**: the frame kept shrinking back to the button's size under
+  the finger whenever the pet asked for its size meanwhile (the page now keeps the whole window until it is let
+  go, and only changes the frame when something changes), and let go, the pet showed a moment in its old corner
+  (it now stays where it was put until the frame is there).
+- **No ring round a pet when the conversation opens or closes**: the panel grew out of (and shrank into) the pet's
+  round, see-through box, its edge showing a moment as a ring; it now comes in and goes where it is.
+- **No ring round a pet when its card closes**: the search box eased back to the pet's size, its line showing a
+  moment as a ring round the pet; it now closes at once.
+- **Sites that minify CSS (JCH Optimize)**: the card beside a pet could open off the window (below it, or over it),
+  as the minifier made some sizes invalid (it took the "+" in calc() for a selector's and dropped its spaces).
+  The stylesheet no longer uses "+" in calc().
+- **Look-ups work again**: since 0.20.3 a form field's look-up was left out of the card (a check still wanted the
+  service's address, no longer sent to the browser), so no suggestions came.
+
 ## AI Ask for Joomla 0.20.3
 
 - **Signing in through the site that embeds AI Ask**: in the mode Another site's AI Ask, the conversation's Sign in

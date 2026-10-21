@@ -170,13 +170,20 @@
     const buttonTop = spot ? spot.y * Math.max(0, window.innerHeight - Math.min(window.innerHeight, button)) : 0;
     const top = !full && spot ? Math.round(Math.min(Math.max(0, buttonTop + Math.min(window.innerHeight, button) - height), window.innerHeight - height)) : null;
 
-    Object.assign(frame.style, {
+    const style = {
       top: full ? '0' : (top === null ? 'auto' : `${top}px`),
       bottom: full || top === null ? '0' : 'auto',
       left: full || at === 'left' ? '0' : 'auto',
       right: full || at === 'right' ? '0' : 'auto',
       width: full ? '100vw' : `${mode === 'bar' ? Math.min(window.innerWidth, wide + (button > 96 ? button - 40 : 0)) : button}px`,
       height: full ? '100dvh' : `${height}px`,
+    };
+
+    // Only what changes: setting the same again still makes the frame lay out anew (it flickered)
+    Object.entries(style).forEach(([name, value]) => {
+      if (frame.style[name] !== value) {
+        frame.style[name] = value;
+      }
     });
   };
 
@@ -375,14 +382,18 @@
 
         break;
       case 'size':
-        mode = ['button', 'bar', 'full'].includes(data.mode) ? data.mode : 'button';
-
         // A pet needs more room than the round button
-        if (mode === 'button') {
+        if (data.mode === 'button' || !['bar', 'full'].includes(data.mode)) {
           button = Math.min(300, Math.max(96, Number(data.button) || 96));
         }
 
-        place();
+        // While the button is dragged the frame keeps the whole window: the button's size is kept for
+        // when it is let go (the frame shrank under the finger and the button flickered, 0.20.4)
+        if (mode !== 'drag') {
+          mode = ['button', 'bar', 'full'].includes(data.mode) ? data.mode : 'button';
+          place();
+        }
+
         // Answered once the new size is laid out
         window.requestAnimationFrame(() => post('sized', { mode }));
         break;

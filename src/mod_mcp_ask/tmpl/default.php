@@ -32,6 +32,11 @@ $e     = static fn ($value) => htmlspecialchars((string) $value, ENT_QUOTES, 'UT
 
 // Another site's AI Ask (0.20.2): its embed script, with who the visitor is when they are signed in
 if (!empty($remote)) {
+    // Signed in here on the way back to the other site's page: on there now (0.20.4)
+    if (!empty($remote['resume'])) {
+        echo '<script>window.location.replace(', json_encode($remote['resume'], JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT), ');</script>';
+    }
+
     echo '<script src="' . $e($remote['src']) . '" data-key="' . $e($remote['key']) . '" data-lang="' . $e($remote['lang']) . '" data-title="' . $e($remote['title']) . '"'
         . ($remote['user'] !== '' ? ' data-user="' . $e($remote['user']) . '"' : '')
         . ($remote['login'] !== '' ? ' data-login="' . $e($remote['login']) . '"' : '')
@@ -56,6 +61,8 @@ $class = 'mcp-ask' . ($mode !== 'icon' ? ' mcp-ask--' . $mode : '') . (!empty($p
     <?php if ($pageItem) : ?>data-page-item="<?php echo (int) $pageItem; ?>"<?php endif; ?>
     data-sources-shown="<?php echo (int) ($sourcesShown ?? 3); ?>"
     <?php if (!empty($pet)) : ?>data-pet="<?php echo $json($pet); ?>"<?php endif; ?>
+    <?php if (!empty($signin)) : ?>data-signin="<?php echo $json($signin); ?>"<?php endif; ?>
+    <?php if (!empty($account)) : ?>data-account="<?php echo $json($account); ?>"<?php endif; ?>
     <?php if (!empty($embed)) : ?>data-embed="<?php echo $json($embed); ?>" data-side="<?php echo $e($embed['side'] ?? 'right'); ?>"<?php endif; ?>
     <?php if ($demoSources) : ?>data-demo-sources="<?php echo $json($demoSources); ?>"<?php endif; ?>
     <?php if ($spot) : ?>data-side="<?php echo $spot['side']; ?>" data-y<?php endif; ?>

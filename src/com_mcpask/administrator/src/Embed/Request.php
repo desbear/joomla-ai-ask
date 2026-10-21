@@ -45,6 +45,8 @@ final class Request
         self::$embed = null;
 
         if ($key === '') {
+            self::signin($app);
+
             return null;
         }
 
@@ -68,5 +70,35 @@ final class Request
         }
 
         return $embed;
+    }
+
+    /**
+     * This site's own page, its visitor signed in through another website (0.20.4): the key
+     * (X-Mcp-Ask-Signin) and that website's token (X-Mcp-Ask-Identity). Only a key set for it, and
+     * only a token that website signed; the request is this site's, not an embed's.
+     */
+    private static function signin(CMSApplicationInterface $app): void
+    {
+        $server  = $app->getInput()->server;
+        $key     = $server->getString('HTTP_X_MCP_ASK_SIGNIN', '');
+        $token   = trim(mb_substr($server->getString('HTTP_X_MCP_ASK_IDENTITY', ''), 0, 4000));
+        $current = $app->getIdentity();
+
+        if ($key === '' || substr_count($token, '.') !== 2 || str_starts_with($token, 'v1.') || ($current && !$current->guest) || !method_exists($app, 'loadIdentity')) {
+            return;
+        }
+
+        $db    = Factory::getContainer()->get(DatabaseInterface::class);
+        $embed = (new Embeds($db))->byKey($key);
+
+        if (!$embed || Embeds::signinUrl($embed) === null) {
+            return;
+        }
+
+        $user = (new Identity($db, (string) $app->get('secret')))->user($token, $embed);
+
+        if ($user) {
+            $app->loadIdentity($user);
+        }
     }
 }

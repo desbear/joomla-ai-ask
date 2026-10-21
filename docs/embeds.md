@@ -44,6 +44,20 @@ A known visitor is the request's user for that request only: questions are logge
 
 A Joomla site that has AI Ask itself can show this site's AI Ask without writing any code: in its **AI Ask** module, choose the mode **Another site's AI Ask (embedded)** and give this site's address, the key and the secret. The module writes the embed script, and for each signed-in visitor signs a token on its server (valid an hour; the secret is never written into the page). Turn on **Tokens signed by the other website** for the key, and **Make accounts for new members** when its members have no account here yet. Answers, agents and chats with people are then this site's, and the people who answer see the other site's signed-in visitors by name.
 
+## Signing in through the other website on this site's own pages
+
+A site whose AI Ask is shown on another website may let its own visitors sign in through that website too
+(0.20.4), for AI Ask only. On the key, with **Tokens signed by the other website** on, turn on **Sign in through
+this website** and give its **Sign-in address there**: on a Joomla site, the module of mode *Another site's AI Ask*
+answers at `index.php?option=com_mcpask&task=embed.signin&module=` followed by that module's ID.
+
+The conversation's Sign in button then goes there with the page's address and a one-time state. That website signs
+its visitor in (its own sign-in, its single sign-on) and sends them back to that page, and only to a page of the
+website its module names, with a token for the key in the address's fragment (which no server sees). The page takes
+the token only with the state it gave, removes it from the address, and opens the conversation again. The token is
+kept for that browser tab, an hour at most, and sent with AI Ask's requests (`X-Mcp-Ask-Signin`,
+`X-Mcp-Ask-Identity`); this site's own sign-in is not affected, and Sign out forgets it.
+
 ## Chats with people, and showing the screen
 
 A chat with a person in AI Ask Desk works in the frame as on the site: messages, translation, files, ratings. Links to

@@ -57,6 +57,14 @@
 				label="COM_MCPASK_EMBED_CREATE_GROUP" description="COM_MCPASK_EMBED_CREATE_GROUP_DESC">
 				<option value="">COM_MCPASK_EMBED_CREATE_GROUP_DEFAULT</option>
 			</field>
+			<field name="site_signin" type="radio" layout="joomla.form.field.radio.switcher" default="0" showon="product_tokens:1"
+				label="COM_MCPASK_EMBED_SITE_SIGNIN" description="COM_MCPASK_EMBED_SITE_SIGNIN_DESC">
+				<option value="0">JNO</option>
+				<option value="1">JYES</option>
+			</field>
+			<field name="site_signin_url" type="url" filter="url" validate="url" schemes="https,http" showon="product_tokens:1[AND]site_signin:1"
+				label="COM_MCPASK_EMBED_SITE_SIGNIN_URL" description="COM_MCPASK_EMBED_SITE_SIGNIN_URL_DESC"
+				hint="https://www.example.com/index.php?option=com_mcpask&amp;task=embed.signin&amp;module=123" />
 		</fieldset>
 	</fields>
 </form>

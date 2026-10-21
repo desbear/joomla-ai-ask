@@ -599,13 +599,38 @@
     };
   });
 
+  // On this site's own pages, visitors not signed in here may sign in through another website
+  // (0.20.4): the embed key set so here, and that website's sign-in address
+  const signin = embed ? null : (() => {
+    try {
+      const data = JSON.parse(roots.map((root) => root.dataset.signin).find(Boolean) || 'null');
+
+      return data && /^pk_[0-9a-f]{24}$/.test(data.key) && /^https?:\/\//i.test(data.url) ? { key: data.key, url: String(data.url) } : null;
+    } catch (error) {
+      return null;
+    }
+  })();
+  const identityKey = embed ? embed.key : (signin ? signin.key : '');
+
+  // Signed in on this site itself (where visitors may also sign in through the other website): who,
+  // and this site's sign-out (0.20.4)
+  const account = embed ? null : (() => {
+    try {
+      const data = JSON.parse(roots.map((root) => root.dataset.account).find(Boolean) || 'null');
+
+      return data && typeof data.logout === 'string' && data.logout ? { name: String(data.name || '').slice(0, 100), logout: data.logout } : null;
+    } catch (error) {
+      return null;
+    }
+  })();
+
   // Who the visitor is: a token from the sign-in window, or one the other website's server signed
   const IDENTITY = 'mcp-ask:identity';
   let identity = (() => {
     try {
       const kept = JSON.parse(sessionStorage.getItem(IDENTITY));
 
-      return embed && kept && typeof kept.token === 'string' && kept.key === embed.key && Number(kept.until) > Date.now() ? kept : null;
+      return identityKey && kept && typeof kept.token === 'string' && kept.key === identityKey && Number(kept.until) > Date.now() ? kept : null;
     } catch (error) {
       return null;
     }
@@ -628,6 +653,42 @@
     identityHeard.forEach((callback) => callback());
   };
 
+  // Back from signing in on the other website: its token in the address's fragment, with the state
+  // this page gave it; taken out of the address at once, kept for this tab (0.20.4)
+  const SIGNIN = 'mcp-ask:signin';
+  let signinReturned = false;
+
+  if (signin && window.location.hash.includes('mcp-ask-signin=')) {
+    const back = new URLSearchParams(window.location.hash.slice(1));
+    const token = back.get('mcp-ask-signin') || '';
+    const rest = [...back].filter(([name]) => !name.startsWith('mcp-ask-'));
+    let asked = null;
+
+    try {
+      asked = JSON.parse(sessionStorage.getItem(SIGNIN));
+      sessionStorage.removeItem(SIGNIN);
+    } catch (error) {
+      // No state kept: the token is not taken
+    }
+
+    window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search + (rest.length ? `#${new URLSearchParams(rest)}` : ''));
+
+    if (asked && typeof asked.state === 'string' && asked.state === back.get('mcp-ask-state') && Number(asked.until) > Date.now() && token.length < 4000 && token.split('.').length === 3) {
+      let until = Date.now() + 3600 * 1000;
+
+      try {
+        const claims = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+
+        until = Math.min(until, Number(claims.exp) * 1000 || until);
+      } catch (error) {
+        // An hour at most
+      }
+
+      keepIdentity({ key: signin.key, token, name: '', until, product: true });
+      signinReturned = Boolean(asked.open);
+    }
+  }
+
   onHost('user', (data) => {
     if (typeof data.token === 'string' && data.token.length < 4000) {
       keepIdentity({ key: embed.key, token: data.token, name: plain(data.name, 100), until: Date.now() + 3600 * 1000, product: true });
@@ -637,7 +698,14 @@
   });
 
   // Sent with every request when embedded
-  const embedHeaders = () => (embed ? { 'X-Mcp-Ask-Embed': embed.key, ...(identity ? { 'X-Mcp-Ask-Identity': identity.token } : {}) } : {});
+  const embedHeaders = () => {
+    if (embed) {
+      return { 'X-Mcp-Ask-Embed': embed.key, ...(identity ? { 'X-Mcp-Ask-Identity': identity.token } : {}) };
+    }
+
+    // Signed in through the other website: its key and token, on this site's own requests
+    return signin && identity ? { 'X-Mcp-Ask-Signin': signin.key, 'X-Mcp-Ask-Identity': identity.token } : {};
+  };
 
   const fetchTransport = (endpoint) => async function* transport(request, signal) {
     const response = await fetch(endpoint, {
@@ -4892,11 +4960,11 @@
 
   // Signed in: who, then a button to sign out; otherwise a button to sign in
   const paintLogin = () => {
-    const name = identity ? identity.name || tokenName(identity.token) : '';
+    const name = account ? account.name : (identity ? identity.name || tokenName(identity.token) : '');
 
-    login.hidden = !embed || (!embed.login && !hostLogin && !identity);
-    login.textContent = identity ? strings.signOut : strings.signIn;
-    who.hidden = !embed || !name;
+    login.hidden = embed ? !embed.login && !hostLogin && !identity : !signin && !account;
+    login.textContent = identity || account ? strings.signOut : strings.signIn;
+    who.hidden = !(embed || signin || account) || !name;
     who.textContent = name;
     who.title = name;
   };
@@ -4933,6 +5001,32 @@
     });
 
     identityHeard.push(paintLogin);
+  } else if (account) {
+    login.addEventListener('click', () => window.location.assign(account.logout));
+  } else if (signin) {
+    // Through the other website's sign-in, back to this page; the conversation opens again if it was open
+    login.addEventListener('click', () => {
+      if (identity) {
+        keepIdentity(null);
+
+        return;
+      }
+
+      const state = [...window.crypto.getRandomValues(new Uint8Array(24))].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+      const url = new URL(signin.url, window.location.href);
+
+      try {
+        sessionStorage.setItem(SIGNIN, JSON.stringify({ state, open: dialog.open, until: Date.now() + 15 * 60 * 1000 }));
+      } catch (error) {
+        return;
+      }
+
+      url.searchParams.set('return', btoa(window.location.href.split('#')[0]));
+      url.searchParams.set('state', state);
+      window.location.assign(url.href);
+    });
+
+    identityHeard.push(paintLogin);
   }
 
   paintLogin();
@@ -4952,7 +5046,7 @@
   // Helpers listed with the search box, before anything is asked
   launchers.forEach((launcher) => {
     // Embedded, there may be some once the visitor is known
-    if (!agentList.length && !(embed && agentListUrl)) {
+    if (!agentList.length && !((embed || signin) && agentListUrl)) {
       return;
     }
 
@@ -4969,7 +5063,7 @@
   const refreshAgents = () => {
     const who = identity ? identity.token : '';
 
-    if (!embed || !agentListUrl || who === agentsAskedFor) {
+    if (!(embed || signin) || !agentListUrl || who === agentsAskedFor) {
       return;
     }
 
@@ -5117,6 +5211,8 @@
         }
 
         drag.moved = true;
+        launcher.dragging = true;
+        hostSized = '';
         toggle.setPointerCapture(drag.id);
         // Out of sight until the frame covers the window, or it would show in its corner a moment
         root.style.visibility = 'hidden';
@@ -5157,9 +5253,22 @@
       const box = root.getBoundingClientRect();
       const side = box.left + box.width / 2 < window.innerWidth / 2 ? 'left' : 'right';
 
-      root.classList.remove('mcp-ask--dragging');
-      ['left', 'top', 'right', 'bottom', 'visibility'].forEach((name) => root.style.removeProperty(name));
-      root.dataset.side = side;
+      // The button stays where it was let go until the page has put the frame there: put back in
+      // the frame's corner first, it showed there a moment, where it had been (0.20.4)
+      const settle = () => {
+        window.clearTimeout(timer);
+        off();
+        root.classList.remove('mcp-ask--dragging');
+        ['left', 'top', 'right', 'bottom', 'visibility'].forEach((name) => root.style.removeProperty(name));
+        root.dataset.side = side;
+        launcher.dragging = false;
+        hostSized = `button:${petRoom()}`;
+      };
+      const timer = window.setTimeout(settle, 300);
+      const off = onHost('sized', settle);
+
+      // Out of sight for the moment the frame shrinks (a frame or two), rather than in the wrong place
+      root.style.visibility = 'hidden';
       hostPost('drag', { phase: 'end', side, rect: { top: box.top, height: box.height } });
     };
 
@@ -5751,8 +5860,11 @@
   const visible = (launcher) => launcher.root.getClientRects().length > 0;
 
   // The search box and the conversation are one surface: morph between them
+  // Opened by the page itself as it comes in (back from signing in): no animation, which would wait
+  let still = false;
+
   const morph = (name, from, to, update) => {
-    if (!document.startViewTransition || reduced.matches) {
+    if (still || !document.startViewTransition || reduced.matches) {
       update();
 
       return Promise.resolve();
@@ -5781,10 +5893,17 @@
 
   // Embedded: how much of the other website's window the frame takes: the button, the open
   // search box, or all of it for the conversation. Answered once the frame has its new size.
+  let hostSized = '';
+
   const hostSize = (mode) => {
-    if (!embed) {
+    const button = mode === 'button' ? petRoom() : 0;
+
+    // The frame keeps the whole window while the button is dragged; and the same size is not asked again
+    if (!embed || launchers.some((launcher) => launcher.dragging) || hostSized === `${mode}:${button}`) {
       return Promise.resolve();
     }
+
+    hostSized = `${mode}:${button}`;
 
     return new Promise((resolve) => {
       const done = () => {
@@ -5795,7 +5914,7 @@
       const timer = window.setTimeout(done, 200);
       const off = onHost('sized', done);
 
-      hostPost('size', { mode, button: mode === 'button' ? petRoom() : 0 });
+      hostPost('size', { mode, button });
     });
   };
 
@@ -5830,14 +5949,18 @@
 
     // In stages, so the browser moves something light: the panel with a skeleton of a conversation
     // comes into place, then what is in it rises in, a part after another
-    const staged = Boolean(document.startViewTransition) && !reduced.matches;
+    const staged = !still && Boolean(document.startViewTransition) && !reduced.matches;
 
     if (staged) {
       dialog.classList.remove('mcp-ask-chat--revealing');
       dialog.classList.add('mcp-ask-chat--entering');
     }
 
-    return morph('mcp-ask-open', visible(from) ? from.form : null, panel, () => {
+    // A pet's box is see-through and round: grown from it, the panel's edge showed a moment as a
+    // ring round the pet (0.20.4). The panel comes in where it is instead.
+    const start = visible(from) && !(from.root.classList.contains('mcp-ask--pet') && from.root.dataset.state === 'idle') ? from.form : null;
+
+    return morph('mcp-ask-open', start, panel, () => {
       from.input.value = '';
       setState(from, 'idle');
       dialog.showModal();
@@ -5871,7 +5994,10 @@
     dialog.removeAttribute('data-ufo');
     visitor.hidden = true;
 
-    return morph('mcp-ask-close', panel, target ? target.form : null, () => dialog.close());
+    // Not into a pet's round, see-through box either (the same ring as opening)
+    const end = target && !(target.root.classList.contains('mcp-ask--pet') && target.root.dataset.state === 'idle') ? target.form : null;
+
+    return morph('mcp-ask-close', panel, end, () => dialog.close());
   };
 
   // Put the conversation away first, then let the browser animate the page change
@@ -6635,6 +6761,25 @@
   // A chat with a person goes on from the page before
   if (live) {
     livePoll();
+  }
+
+  // Back signed in from the other website, the conversation that was open is open again
+  // (once the page has loaded: an animation asked for while it is still coming in never ends)
+  if (signinReturned) {
+    const reopen = () => window.setTimeout(() => {
+      const launcher = launchers.find(visible) || launchers[0];
+
+      if (launcher && !dialog.open) {
+        still = true;
+        openChat(launcher).finally(() => { still = false; });
+      }
+    }, 100);
+
+    if (document.readyState === 'complete') {
+      reopen();
+    } else {
+      window.addEventListener('load', reopen, { once: true });
+    }
   }
 
   // Embedded: the other website's page may show the frame now, as big as the button

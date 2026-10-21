@@ -71,12 +71,16 @@ final class Card
     }
 
     /**
-     * Where a field looks up suggestions as the visitor types: an address with {query}, the key
-     * that goes into the field, a key shown beside it, and other fields filled in (field => key).
+     * How a field suggests values as the visitor types: the key that goes into the field, a key
+     * shown beside it, and other fields filled in (field => key). Where to ask stays on the server,
+     * which asks for the visitor (0.20.3); an agent that gives its own address (with {query}) has the
+     * visitor's browser ask instead.
      */
     private static function lookup(mixed $lookup): ?array
     {
-        if (!\is_array($lookup) || !preg_match('#^https?://[^\s]+$#i', (string) ($lookup['url'] ?? '')) || !str_contains((string) $lookup['url'], '{query}') || (string) ($lookup['value'] ?? '') === '') {
+        $url = \is_array($lookup) ? (string) ($lookup['url'] ?? '') : '';
+
+        if (!\is_array($lookup) || (string) ($lookup['value'] ?? '') === '' || ($url !== '' && (!preg_match('#^https?://[^\s]+$#i', $url) || !str_contains($url, '{query}')))) {
             return null;
         }
 
@@ -86,12 +90,12 @@ final class Card
             $fill[self::clip((string) $name, 100)] = self::clip((string) $key, 100);
         }
 
-        return [
-            'url'   => self::clip((string) $lookup['url'], 1000),
+        return array_filter([
+            'url'   => $url !== '' ? self::clip($url, 1000) : null,
             'value' => self::clip((string) $lookup['value'], 100),
             'note'  => self::clip((string) ($lookup['note'] ?? ''), 100),
             'fill'  => (object) $fill,
-        ];
+        ], static fn ($value) => $value !== null);
     }
 
     /**

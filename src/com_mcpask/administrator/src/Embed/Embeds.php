@@ -168,6 +168,43 @@ final class Embeds
     }
 
     /**
+     * Where this site's own visitors sign in through the other website of a key (0.20.4): its
+     * sign-in address, when the key takes that website's tokens and is set so; null otherwise.
+     */
+    public static function signinUrl(object $embed): ?string
+    {
+        $url  = trim((string) $embed->params->get('site_signin_url', ''));
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+        $local = $host === 'localhost' || str_ends_with($host, '.test') || str_ends_with($host, '.localhost');
+
+        if (!$embed->params->get('product_tokens', 0) || !$embed->params->get('site_signin', 0) || $host === ''
+            || !(preg_match('#^https://#i', $url) || ($local && preg_match('#^http://#i', $url)))) {
+            return null;
+        }
+
+        return $url;
+    }
+
+    /**
+     * The key this site's own visitors sign in with through another website, if any (the first
+     * published one set so).
+     *
+     * @return  array{key: string, url: string}|null
+     */
+    public function signin(): ?array
+    {
+        foreach ($this->all() as $embed) {
+            $url = (int) $embed->published === 1 ? self::signinUrl($embed) : null;
+
+            if ($url !== null) {
+                return ['key' => (string) $embed->public_key, 'url' => $url];
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Whether a page of this origin may show the key ("https://example.com", "*.example.com" too).
      */
     public static function allows(object $embed, string $origin): bool

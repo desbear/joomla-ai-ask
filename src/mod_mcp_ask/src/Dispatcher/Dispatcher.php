@@ -113,7 +113,19 @@ class Dispatcher extends AbstractModuleDispatcher
                 : Route::_('index.php?option=com_users&task=user.logout&' . Session::getFormToken() . '=1&return=' . base64_encode($here), false, Route::TLS_IGNORE, true);
         }
 
+        // Signed in here on the way back to the other site's own page (its visitor signing in through
+        // this site, 0.20.4): on to the hand-off that sends them there, whichever page they landed on
+        $resume = '';
+        $cookie = $this->getApplication()->getInput()->cookie;
+        $wanted = (string) base64_decode($cookie->getBase64('mcp_ask_signin', ''), true);
+
+        if ($wanted !== '' && $user && !$user->guest
+            && str_starts_with($wanted, rtrim(Uri::root(), '/') . '/') && str_contains($wanted, 'task=embed.signin')) {
+            $resume = $wanted;
+        }
+
         return [
+            'resume' => $resume,
             'src'    => $site . '/media/mod_mcp_ask/js/embed.js',
             'logout' => $logout,
             'key'    => $key,
@@ -124,6 +136,27 @@ class Dispatcher extends AbstractModuleDispatcher
             'size'   => max(0, min(240, (int) $params->get('remote_size', 0))),
             'title'  => trim((string) $params->get('title')) ?: Text::_('MOD_MCP_ASK_TITLE'),
         ];
+    }
+
+    /**
+     * The embed key this site's own visitors sign in through (its website's sign-in address), when
+     * one is set so.
+     *
+     * @return  array{key: string, url: string}|null
+     */
+    private function signin(): ?array
+    {
+        $class = 'Gss\\Component\\Mcpask\\Administrator\\Embed\\Embeds';
+
+        if (!class_exists($class) || !method_exists($class, 'signin')) {
+            return null;
+        }
+
+        try {
+            return (new $class(\Joomla\CMS\Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class)))->signin();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     protected function getLayoutData(): array
@@ -154,6 +187,16 @@ class Dispatcher extends AbstractModuleDispatcher
         $data['feedback']    = $demo ? '' : Route::_('index.php?option=com_mcpask&task=ask.feedback&format=raw', false);
         $data['allowedHosts'] = $this->allowedHosts();
         $data['pageItem']    = $data['embed'] ? 0 : $this->pageItem();
+        // Visitors not signed in here may sign in through another website, for AI Ask; and those
+        // signed in here see who they are and may sign out, as there (0.20.4)
+        $signin              = $data['embed'] || $demo ? null : $this->signin();
+        $user                = $this->getApplication()->getIdentity();
+        $signedIn            = $user && !$user->guest;
+        $data['signin']      = $signin && !$signedIn ? $signin : null;
+        $data['account']     = $signin && $signedIn ? [
+            'name'   => (string) $user->name,
+            'logout' => Route::_('index.php?option=com_users&task=user.logout&' . Session::getFormToken() . '=1&return=' . base64_encode(Uri::getInstance()->toString()), false),
+        ] : null;
         $data['sourcesShown'] = max(0, min(50, (int) $params->get('sources_shown', 3)));
         // On the days of a festive row, its pet and cleaning pet instead of the usual ones
         $festive             = $this->festive($params);

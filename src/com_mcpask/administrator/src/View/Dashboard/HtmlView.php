@@ -116,6 +116,11 @@ class HtmlView extends BaseHtmlView
             ToolbarHelper::link('index.php?option=com_mcpask&view=agents', Text::_('COM_MCPASK_AGENTS'), 'users');
             ToolbarHelper::link('index.php?option=com_mcpask&view=embeds', Text::_('COM_MCPASK_EMBEDS'), 'code');
             ToolbarHelper::link('index.php?option=com_mcpask&view=pets', Text::_('COM_MCPASK_PETS'), 'image');
+
+            if ($user->authorise('core.admin', 'com_mcpask')) {
+                ToolbarHelper::link('index.php?option=com_mcpask&view=reset', Text::_('COM_MCPASK_RESET'), 'trash');
+            }
+
             ToolbarHelper::preferences('com_mcpask');
         }
 

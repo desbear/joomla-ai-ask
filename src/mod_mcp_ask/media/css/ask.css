@@ -6,6 +6,9 @@
  * @license     GNU General Public License version 2 or later; see LICENSE
  */
 
+/* No "+" in calc(): some sites' CSS minifiers (JCH Optimize) take it for the sibling combinator in
+   nested rules and drop its spaces, which makes the whole value invalid. "a - -b" is the same. */
+
 /*
  * Blocks: .mcp-ask (launcher), .mcp-ask-dots, .mcp-ask-chat (overlay), .mcp-ask-msg, .mcp-ask-cite, .mcp-ask-source.
  * Not wrapped in @layer on purpose: a template's unlayered element styles would win over layered ones.
@@ -405,7 +408,7 @@
 
   /* By its bottom edge, from the size it has when closed (a pet's), so that opening, which makes the
      button the box's height, leaves the pet where it is (0.20.3) */
-  inset-block: auto calc(var(--mcp-ask-edge-bottom) + (100dvh - var(--mcp-ask-spot-size, var(--mcp-ask-size)) - var(--mcp-ask-edge-top) - var(--mcp-ask-edge-bottom)) * (1 - var(--mcp-ask-y, 1)));
+  inset-block: auto calc(var(--mcp-ask-edge-bottom) - -1 * (100dvh - var(--mcp-ask-spot-size, var(--mcp-ask-size)) - var(--mcp-ask-edge-top) - var(--mcp-ask-edge-bottom)) * (1 - var(--mcp-ask-y, 1)));
   margin-block: 0;
 }
 
@@ -458,7 +461,7 @@
 /* With an on-screen keyboard up (iOS lays it over the page), the open search box sits just above
    it, wherever the button was, and the conversation keeps to the part of the window still seen */
 .mcp-ask-keyboard .mcp-ask--float:not([data-state="idle"]) {
-  inset-block: auto calc(var(--mcp-ask-keyboard, 0px) + 12px);
+  inset-block: auto calc(var(--mcp-ask-keyboard, 0px) - -12px);
   margin-block: 0;
 }
 
@@ -813,7 +816,7 @@ html:has(.mcp-ask-chat[open]) {
   /* Its light: a cone that widens downwards over the conversation, from where the saucer takes it up */
   .mcp-ask-chat__beam {
     position: absolute;
-    inset-block: calc(7vh + var(--mcp-ask-ufo) * 0.6) 96px;
+    inset-block: calc(7vh - -1 * var(--mcp-ask-ufo) * 0.6) 96px;
     inset-inline-start: calc(50% - min(46vw, 420px));
     z-index: 1;
     inline-size: min(92vw, 840px);
@@ -1089,7 +1092,7 @@ html:has(.mcp-ask-chat[open]) {
 }
 
 .mcp-ask-chat[data-ufo="point"] .mcp-ask-visitor {
-  translate: calc(max(16px, (100vw - 960px) / 2) + 8px) calc(100dvh - 190px);
+  translate: calc(max(16px, (100vw - 960px) / 2) - -8px) calc(100dvh - 190px);
 
   .mcp-ask-visitor__ufo {
     inline-size: 92px;
@@ -3320,12 +3323,12 @@ html:active-view-transition-type(mcp-ask-nav) {
 }
 
 .mcp-ask--float .mcp-ask__agents {
-  inset-block-end: calc(100% + 10px);
+  inset-block-end: calc(100% - -10px);
   inset-inline-end: 0;
 }
 
 .mcp-ask:not(.mcp-ask--box, .mcp-ask--float) .mcp-ask__agents {
-  inset-block-start: calc(100% + 8px);
+  inset-block-start: calc(100% - -8px);
   inset-inline-end: 0;
 }
 
@@ -3526,9 +3529,12 @@ html:active-view-transition-type(mcp-ask-nav) {
 .mcp-ask--float.mcp-ask--pet[data-state="idle"] {
   --mcp-ask-size: var(--mcp-ask-pet-size);
 
+  /* Closed at once: easing from the box to the pet's size, its line showed a moment as a ring round
+     the pet (0.20.4) */
   .mcp-ask__form {
     background: transparent;
     box-shadow: none;
+    transition: none;
   }
 
   .mcp-ask__toggle {
@@ -3592,13 +3598,13 @@ html:active-view-transition-type(mcp-ask-nav) {
 
 /* Helpers listed above the box stay clear of the pet */
 .mcp-ask--pet .mcp-ask__agents {
-  inset-block-end: calc(100% + 60px);
+  inset-block-end: calc(100% - -60px);
 }
 
 /* A word beside the pet on the first visit */
 .mcp-ask-pet__bubble {
   position: absolute;
-  inset-block-end: calc(100% + 6px);
+  inset-block-end: calc(100% - -6px);
   inset-inline-end: 0;
   z-index: 4;
   display: flex;
@@ -4021,23 +4027,23 @@ html:active-view-transition-type(mcp-ask-nav) {
   }
 
   .mcp-ask__form {
-    inset-inline-end: calc(var(--mcp-ask-pet-size) + 8px);
+    inset-inline-end: calc(var(--mcp-ask-pet-size) - -8px);
     inline-size: min(var(--mcp-ask-width), 100vw - 48px - var(--mcp-ask-pet-size));
   }
 
   .mcp-ask__agents {
-    inset-block-end: calc(100% + 10px);
-    inset-inline-end: calc(var(--mcp-ask-pet-size) + 8px);
+    inset-block-end: calc(100% - -10px);
+    inset-inline-end: calc(var(--mcp-ask-pet-size) - -8px);
   }
 }
 
 .mcp-ask--float.mcp-ask--pet[data-side="left"]:not([data-state="idle"]) {
   .mcp-ask__form {
-    inset-inline: calc(var(--mcp-ask-pet-size) + 8px) auto;
+    inset-inline: calc(var(--mcp-ask-pet-size) - -8px) auto;
   }
 
   .mcp-ask__agents {
-    inset-inline: calc(var(--mcp-ask-pet-size) + 8px) auto;
+    inset-inline: calc(var(--mcp-ask-pet-size) - -8px) auto;
   }
 }
 
@@ -4051,7 +4057,7 @@ html:active-view-transition-type(mcp-ask-nav) {
   --mcp-ask-card-reach: calc(var(--mcp-ask-pet-size) * 0.35);
 
   position: absolute;
-  inset-block-end: calc(var(--mcp-ask-pet-size) + 6px);
+  inset-block-end: calc(var(--mcp-ask-pet-size) - -6px);
   inset-inline-end: var(--mcp-ask-card-reach);
   z-index: 4;
   display: flex;
@@ -4147,7 +4153,7 @@ html:active-view-transition-type(mcp-ask-nav) {
 
 /* The pet too high up for the card above it: below it, the tail pointing up */
 .mcp-ask--float.mcp-ask--pet[data-card="below"]:not([data-state="idle"]) .mcp-ask__card {
-  inset-block: calc(100% + 14px) auto;
+  inset-block: calc(100% - -14px) auto;
   transform-origin: 100% 0;
 
   &::before,
@@ -4226,7 +4232,7 @@ html:active-view-transition-type(mcp-ask-nav) {
   }
 
   html:not(.mcp-ask-embedded) .mcp-ask--float.mcp-ask--pet:not([data-state="idle"]) {
-    --mcp-ask-dock: calc(var(--mcp-ask-view-top, 0px) + var(--mcp-ask-view-height, 100dvh) - max(10px, env(safe-area-inset-bottom)));
+    --mcp-ask-dock: calc(var(--mcp-ask-view-top, 0px) - -1 * var(--mcp-ask-view-height, 100dvh) - max(10px, env(safe-area-inset-bottom)));
 
     .mcp-ask__card {
       position: fixed;
@@ -4325,7 +4331,7 @@ html:active-view-transition-type(mcp-ask-nav) {
 
 .mcp-ask-more__menu {
   position: absolute;
-  inset-block-end: calc(100% + 8px);
+  inset-block-end: calc(100% - -8px);
   inset-inline-end: 0;
   z-index: 20;
   display: grid;
@@ -4349,7 +4355,7 @@ html:active-view-transition-type(mcp-ask-nav) {
 
 /* In the card beside a pet the list drops down over the box, which is below it */
 .mcp-ask__card .mcp-ask-more__menu {
-  inset-block: calc(100% + 6px) auto;
+  inset-block: calc(100% - -6px) auto;
 }
 
 .mcp-ask .mcp-ask-more__item,
@@ -4477,7 +4483,7 @@ html:active-view-transition-type(mcp-ask-nav) {
 
 .mcp-ask-chat .mcp-ask-capture-menu {
   position: absolute;
-  inset-block-end: calc(100% + 8px);
+  inset-block-end: calc(100% - -8px);
   inset-inline-start: 0;
   z-index: 5;
   display: grid;
@@ -4604,7 +4610,7 @@ html:active-view-transition-type(mcp-ask-nav) {
 
 .mcp-ask-chat .mcp-ask-sticker-menu {
   position: absolute;
-  inset-block-end: calc(100% + 8px);
+  inset-block-end: calc(100% - -8px);
   inset-inline-start: 0;
   z-index: 5;
   display: grid;

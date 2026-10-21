@@ -14,6 +14,7 @@ use Gss\Component\Mcpask\Administrator\Ask\Settings;
 use Gss\Component\Mcpask\Administrator\Ask\Theme;
 use Gss\Component\Mcpask\Administrator\Embed\Embeds;
 use Gss\Component\Mcpask\Administrator\Embed\Identity;
+use Gss\Component\Mcpask\Administrator\Embed\ProductToken;
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Document\FactoryInterface as DocumentFactory;
 use Joomla\CMS\Event\Content\ContentPrepareEvent;
@@ -37,6 +38,9 @@ use Joomla\Event\DispatcherInterface;
  */
 class EmbedController extends BaseController
 {
+    /** The cookie that keeps a visitor's way back to another site's page while they sign in here (0.20.4) */
+    public const PENDING = 'mcp_ask_signin';
+
     /**
      * The page in the other website's frame ({key, host}). Only the websites the key lists may
      * show it: the browser enforces that by the frame-ancestors header.
@@ -175,6 +179,75 @@ class EmbedController extends BaseController
             '<script>(function(){try{if(window.opener){window.opener.postMessage(', $data, ',window.location.origin);window.close();}}catch(e){}})();</script>';
 
         $this->app->close();
+    }
+
+    /**
+     * This site's visitors, passed on to another site's own pages signed in (0.20.4): that site's
+     * AI Ask sends a visitor here to sign in ({module, return, state}); signed in here (this site's
+     * sign-in first, when they are not), they go back to that page with a token this site signs, as
+     * the module of mode "Another site's AI Ask" does for its frame. Only to the website that module
+     * names; the token in the address's fragment, which is not sent to any server.
+     */
+    public function signin(): void
+    {
+        $input  = $this->app->getInput();
+        $db     = Factory::getContainer()->get(DatabaseInterface::class);
+        $id     = $input->getInt('module', 0);
+        $state  = $input->getString('state', '');
+        $return = (string) base64_decode($input->getBase64('return', ''), true);
+        $row    = $id > 0 ? $db->setQuery(
+            $db->getQuery(true)->select($db->quoteName('params'))->from($db->quoteName('#__modules'))
+                ->where('id = ' . $id)->where($db->quoteName('module') . ' = ' . $db->quote('mod_mcp_ask'))
+                ->where('published = 1')->where('client_id = 0')
+        )->loadResult() : null;
+        $params = new \Joomla\Registry\Registry((string) $row);
+        $site   = rtrim(trim((string) $params->get('remote_site', '')), '/');
+        $key    = trim((string) $params->get('remote_key', ''));
+        $secret = trim((string) $params->get('remote_secret', ''));
+        $same   = static fn (string $a, string $b) => strtolower((string) parse_url($a, PHP_URL_SCHEME)) === strtolower((string) parse_url($b, PHP_URL_SCHEME))
+            && strtolower((string) parse_url($a, PHP_URL_HOST)) === strtolower((string) parse_url($b, PHP_URL_HOST))
+            && (int) parse_url($a, PHP_URL_PORT) === (int) parse_url($b, PHP_URL_PORT);
+
+        // Only back to a page of the website that module names, with a state to match there
+        if ($row === null || $params->get('mode') !== 'remote' || $site === '' || $key === '' || $secret === ''
+            || !preg_match('/^[A-Za-z0-9_-]{16,64}$/', $state) || $return === '' || !$same($return, $site)) {
+            throw new \RuntimeException(Text::_('JERROR_PAGE_NOT_FOUND'), 404);
+        }
+
+        $user = $this->app->getIdentity();
+
+        // Not signed in here yet: this site's sign-in (its single sign-on), then here again. A sign-in
+        // page may not come back to the address it is given (one that offers other ways in, say): the
+        // module, on whichever page of this site the visitor lands signed in, sends them on (a cookie
+        // for a quarter of an hour, this address only)
+        if (!$user || $user->guest) {
+            $here  = Uri::getInstance()->toString();
+            $login = trim((string) $params->get('remote_login', ''));
+
+            $this->app->getInput()->cookie->set(self::PENDING, base64_encode($here), [
+                'expires'  => time() + 900,
+                'path'     => Uri::root(true) . '/',
+                'secure'   => Uri::getInstance()->isSsl(),
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ]);
+
+            $this->app->redirect($login !== ''
+                ? str_replace(['{return}', '{return64}'], [rawurlencode($here), rawurlencode(base64_encode($here))], $login)
+                : Route::_('index.php?option=com_users&view=login&return=' . base64_encode($here), false, Route::TLS_IGNORE, true));
+        }
+
+        if (!filter_var((string) $user->email, FILTER_VALIDATE_EMAIL)) {
+            throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
+        }
+
+        $token = ProductToken::sign($key, $secret, (string) $user->email, (string) $user->name);
+
+        $this->app->getInput()->cookie->set(self::PENDING, '', ['expires' => 1, 'path' => Uri::root(true) . '/']);
+
+        header('Cache-Control: no-store');
+        header('Referrer-Policy: no-referrer');
+        $this->app->redirect(strtok($return, '#') . '#mcp-ask-signin=' . rawurlencode($token) . '&mcp-ask-state=' . rawurlencode($state));
     }
 
     /**
