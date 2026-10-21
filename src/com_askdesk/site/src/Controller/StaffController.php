@@ -212,6 +212,58 @@ class StaffController extends BaseController
     }
 
     /**
+     * The phrases one may put in the box: the shared ones, and one's own ({}).
+     */
+    public function phrases(): void
+    {
+        [, , $me] = $this->check();
+
+        $this->send(['phrases' => $this->phraseBook()->forStaff((int) $me->user_id)]);
+    }
+
+    /**
+     * One's own phrase kept, or changed ({id?, title, text, pinned}); all of one's phrases back.
+     */
+    public function phraseSave(): void
+    {
+        [, , $me, $body] = $this->check();
+
+        $book  = $this->phraseBook();
+        $title = \is_string($body['title'] ?? null) ? $body['title'] : '';
+        $text  = \is_string($body['text'] ?? null) ? $body['text'] : '';
+
+        try {
+            if ((int) ($body['id'] ?? 0) > 0) {
+                $book->update((int) $me->user_id, (int) $body['id'], $title, $text, !empty($body['pinned']));
+            } else {
+                $book->add((int) $me->user_id, $title, $text, !empty($body['pinned']));
+            }
+        } catch (\RuntimeException) {
+            $this->send(['error' => Text::_('COM_ASKDESK_CONSOLE_PHRASE_FAILED')]);
+        }
+
+        $this->send(['phrases' => $book->forStaff((int) $me->user_id)]);
+    }
+
+    /**
+     * One's own phrase deleted ({id}).
+     */
+    public function phraseDelete(): void
+    {
+        [, , $me, $body] = $this->check();
+
+        $book = $this->phraseBook();
+        $book->delete((int) $me->user_id, (int) ($body['id'] ?? 0));
+
+        $this->send(['phrases' => $book->forStaff((int) $me->user_id)]);
+    }
+
+    private function phraseBook(): \Gss\Component\Askdesk\Administrator\Desk\Phrases
+    {
+        return new \Gss\Component\Askdesk\Administrator\Desk\Phrases(Factory::getContainer()->get(DatabaseInterface::class));
+    }
+
+    /**
      * The library in Dropfiles: one's own files and those shared ({}).
      */
     public function library(): void

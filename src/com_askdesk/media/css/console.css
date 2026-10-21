@@ -4956,3 +4956,297 @@ button.askdesk-me {
     background: #e5484d;
   }
 }
+
+/* ---------- Phrases: a row of them inside the box, above the words; more in a list from its end ---------- */
+.askdesk-composer__box {
+  flex-wrap: wrap;
+}
+
+.askdesk-phrases {
+  display: flex;
+  flex: 1 0 100%;
+  align-items: center;
+  gap: 8px;
+  min-inline-size: 0;
+  padding: 4px 6px 2px 10px;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.askdesk-phrases__pills {
+  display: flex;
+  flex: 1;
+  gap: 6px;
+  min-inline-size: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.askdesk-phrases__pill {
+  flex: none;
+  max-inline-size: 180px;
+  padding: 5px 12px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: var(--askdesk-accent-soft);
+  color: var(--askdesk-accent);
+  font: inherit;
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    transform 0.15s;
+
+  &:hover {
+    background: color-mix(in srgb, var(--askdesk-accent) 18%, var(--askdesk-surface));
+    transform: translateY(-1px);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--askdesk-focus);
+  }
+}
+
+/* One's own, a shade apart */
+.askdesk-phrases__pill--mine {
+  background: color-mix(in srgb, #7c3aed 10%, var(--askdesk-surface));
+  color: #6d28d9;
+}
+
+.askdesk-phrases__more {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border: 1px solid var(--askdesk-line-strong);
+  border-radius: 999px;
+  background: var(--askdesk-surface);
+  color: var(--askdesk-muted);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
+
+  .askdesk-icon {
+    inline-size: 14px;
+    block-size: 14px;
+  }
+
+  &:hover,
+  &[aria-expanded="true"] {
+    border-color: color-mix(in srgb, var(--askdesk-accent) 40%, transparent);
+    color: var(--askdesk-accent);
+  }
+}
+
+/* The list: above the box, at its end */
+.askdesk-phrase-menu {
+  position: absolute;
+  inset-block-end: calc(100% + 8px);
+  inset-inline-end: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 8px;
+  inline-size: min(380px, calc(100vw - 32px));
+  max-block-size: min(400px, 52vh);
+  padding: 10px;
+  border-radius: 16px;
+  background: var(--askdesk-surface);
+  box-shadow:
+    0 0 0 0.5px var(--askdesk-line-strong),
+    0 18px 40px -12px rgba(10, 10, 60, 0.3);
+  animation: askdesk-drop-in 0.18s ease both;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.askdesk-phrase-menu__tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.askdesk-phrase-menu__tab {
+  padding: 4px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--askdesk-muted);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--askdesk-text);
+  }
+}
+
+.askdesk-phrase-menu__tab--on {
+  background: var(--askdesk-accent-soft);
+  color: var(--askdesk-accent);
+  font-weight: 500;
+}
+
+.askdesk-phrase-menu__find {
+  box-sizing: border-box;
+  inline-size: 100%;
+  block-size: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--askdesk-line-strong);
+  border-radius: 10px;
+  background: var(--askdesk-surface);
+  color: var(--askdesk-text);
+  font: inherit;
+  font-size: 13px;
+
+  &:focus {
+    border-color: var(--askdesk-accent);
+    outline: none;
+    box-shadow: var(--askdesk-focus);
+  }
+}
+
+.askdesk-phrase-menu__list {
+  overflow-y: auto;
+  margin-inline: -4px;
+  padding-inline: 4px;
+}
+
+.askdesk-phrase-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  border-block-end: 0.5px solid var(--askdesk-line);
+
+  &:last-child {
+    border-block-end: 0;
+  }
+}
+
+.askdesk-phrase-menu__use {
+  display: grid;
+  flex: 1;
+  gap: 1px;
+  min-inline-size: 0;
+  padding: 8px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+
+  strong {
+    overflow: hidden;
+    font-size: 13px;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  span {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--askdesk-muted);
+    font-size: 12px;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  &:hover {
+    background: color-mix(in srgb, var(--askdesk-accent) 6%, transparent);
+  }
+}
+
+.askdesk-phrase-menu__tool {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 30px;
+  block-size: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--askdesk-faint);
+  cursor: pointer;
+
+  .askdesk-icon {
+    inline-size: 16px;
+    block-size: 16px;
+  }
+
+  &:hover {
+    background: var(--askdesk-accent-soft);
+    color: var(--askdesk-accent);
+  }
+}
+
+.askdesk-phrase-menu__tool--on {
+  color: var(--askdesk-accent);
+}
+
+.askdesk-phrase-menu__tool--drop:hover {
+  background: color-mix(in srgb, #e5484d 12%, transparent);
+  color: #c4313a;
+}
+
+.askdesk-phrase-menu__none {
+  margin: 12px 4px;
+  color: var(--askdesk-faint);
+  font-size: 12.5px;
+}
+
+.askdesk-phrase-menu__keep {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  block-size: 34px;
+  border: 1px dashed color-mix(in srgb, var(--askdesk-accent) 45%, transparent);
+  border-radius: 10px;
+  background: none;
+  color: var(--askdesk-accent);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+
+  .askdesk-icon {
+    inline-size: 14px;
+    block-size: 14px;
+  }
+
+  &:hover:not(:disabled) {
+    background: var(--askdesk-accent-soft);
+  }
+
+  &:disabled {
+    border-color: var(--askdesk-line-strong);
+    color: var(--askdesk-faint);
+    cursor: default;
+  }
+}
+
+/* The list of phrases open: the work under the head comes above it, so the list is whole */
+.askdesk-room__body:has(.askdesk-phrase-menu:not([hidden])) {
+  position: relative;
+  z-index: 5;
+}

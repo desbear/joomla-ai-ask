@@ -2,6 +2,14 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.1.3
+
+- **Phrases**: sentences the people answering often write. Shared ones are kept in the back end (AI Ask Desk →
+  Phrases); those pinned are a row of buttons inside the console's box, a click puts one in where the cursor is, to
+  change before it is sent (and translated for the visitor). The rest are under "More phrases", with a search and
+  tabs for all, shared and one's own. Each person keeps phrases of their own there (what is in the box, with a
+  click), pins them to the row or deletes them; nobody else sees them.
+
 ## AI Ask Desk 0.1.2
 
 - The console's conversation fades at its top and bottom edges once there is more to scroll, as the side and the

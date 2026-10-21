@@ -5,3 +5,4 @@ DROP TABLE IF EXISTS "#__askdesk_ratings";
 DROP TABLE IF EXISTS "#__askdesk_handled";
 DROP TABLE IF EXISTS "#__askdesk_files";
 DROP TABLE IF EXISTS "#__askdesk_stickers";
+DROP TABLE IF EXISTS "#__askdesk_phrases";

@@ -116,6 +116,10 @@
     enter: 'M9 10l-5 5 5 5M20 4v7a4 4 0 0 1-4 4H4',
     down: 'M6 9l6 6 6-6',
     close: 'M6 6l12 12M18 6L6 18',
+    quote: 'M10 11H6a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v6c0 2.7-1.3 4.3-4 5M19 11h-4a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v6c0 2.7-1.3 4.3-4 5',
+    pin: 'M15 4.5l-4 4L7 10l-1.5 1.5 7 7L14 17l1.5-4 4-4M9 15l-4.5 4.5M14.5 4L20 9.5',
+    trash: 'M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3',
+    plus: 'M12 5v14M5 12h14',
     globe: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3.6 9h16.8M3.6 15h16.8M11.5 3a17 17 0 0 0 0 18M12.5 3a17 17 0 0 1 0 18',
     panel: 'M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM15 4v16M11 10l-2 2 2 2',
     clip: 'M15 7l-6.5 6.5a1.5 1.5 0 0 0 3 3L18 10a3 3 0 0 0-6-6l-6.5 6.5a4.5 4.5 0 0 0 9 9L21 13',
@@ -1097,6 +1101,199 @@
   stickerMenu.setAttribute('role', 'dialog');
   stickerMenu.setAttribute('aria-label', t.stickers);
   box.append(attach, attachInput, stickerButton, field, send, stickerMenu);
+
+  // Phrases (0.1.3): those pinned on a row inside the box, a click puts one in; the rest, and one's
+  // own to keep, delete or pin, in a list that opens from the end of the row
+  const phraseRow = el('div', 'askdesk-phrases');
+  const phrasePills = el('div', 'askdesk-phrases__pills');
+  const phraseMore = button('askdesk-phrases__more', '', () => togglePhrases());
+  const phraseMenu = el('div', 'askdesk-phrase-menu');
+  const phraseTabs = el('div', 'askdesk-phrase-menu__tabs');
+  const phraseFind = el('input', 'askdesk-phrase-menu__find');
+  const phraseList = el('div', 'askdesk-phrase-menu__list');
+  const phraseKeep = button('askdesk-phrase-menu__keep', '', () => keepPhrase());
+  let phrases = [];
+  let phraseTab = 'all';
+
+  phraseMore.append(icon('quote'), el('span', '', t.phrasesMore));
+  phraseMore.setAttribute('aria-haspopup', 'dialog');
+  phraseMore.setAttribute('aria-expanded', 'false');
+  phraseFind.type = 'search';
+  phraseFind.placeholder = t.phrasesSearch;
+  phraseFind.setAttribute('aria-label', t.phrasesSearch);
+  phraseKeep.append(icon('plus'), el('span', '', t.phraseSaveMine));
+  phraseMenu.hidden = true;
+  phraseMenu.setAttribute('role', 'dialog');
+  phraseMenu.setAttribute('aria-label', t.phrases);
+  phraseMenu.append(phraseTabs, phraseFind, phraseList, phraseKeep);
+  phraseRow.append(phrasePills, phraseMore);
+  phraseRow.hidden = true;
+  box.prepend(phraseRow);
+  box.append(phraseMenu);
+
+  // A phrase into the box, where the cursor is, ready to change before it is sent
+  const putPhrase = (text) => {
+    const start = field.selectionStart ?? field.value.length;
+    const end = field.selectionEnd ?? field.value.length;
+    const before = field.value.slice(0, start);
+    const glue = before && !/\s$/.test(before) ? ' ' : '';
+
+    field.value = `${before}${glue}${text}${field.value.slice(end)}`;
+    field.focus();
+    field.setSelectionRange(start + glue.length + text.length, start + glue.length + text.length);
+    field.dispatchEvent(new Event('input'));
+  };
+
+  const paintPhrases = () => {
+    const pinned = phrases.filter((item) => item.pinned);
+
+    phraseRow.hidden = !phrases.length;
+    phrasePills.replaceChildren(...pinned.map((item) => {
+      const pill = button(`askdesk-phrases__pill${item.mine ? ' askdesk-phrases__pill--mine' : ''}`, item.title, () => putPhrase(item.text));
+
+      pill.title = item.text;
+
+      return pill;
+    }));
+
+    phraseTabs.replaceChildren(...[['all', t.phrasesAll], ['shared', t.phrasesShared], ['mine', t.phrasesMine]].map(([name, label]) => {
+      const tab = button(`askdesk-phrase-menu__tab${phraseTab === name ? ' askdesk-phrase-menu__tab--on' : ''}`, label, () => {
+        phraseTab = name;
+        paintPhrases();
+      });
+
+      tab.setAttribute('aria-pressed', String(phraseTab === name));
+
+      return tab;
+    }));
+
+    const find = phraseFind.value.trim().toLowerCase();
+    const shown = phrases.filter((item) => (phraseTab === 'all' || (phraseTab === 'mine') === item.mine)
+      && (!find || `${item.title} ${item.text}`.toLowerCase().includes(find)));
+
+    phraseList.replaceChildren(...(shown.length ? shown.map((item) => {
+      const row = el('div', 'askdesk-phrase-menu__item');
+      const use = button('askdesk-phrase-menu__use', '', () => {
+        closePhrases();
+        putPhrase(item.text);
+      });
+
+      use.append(el('strong', '', item.title), el('span', '', item.text));
+      row.append(use);
+
+      // One's own: pinned to the row or not, deleted
+      if (item.mine) {
+        const pin = button(`askdesk-phrase-menu__tool${item.pinned ? ' askdesk-phrase-menu__tool--on' : ''}`, '', () => savePhrase({ ...item, pinned: !item.pinned }));
+        const drop = button('askdesk-phrase-menu__tool askdesk-phrase-menu__tool--drop', '', () => dropPhrase(item));
+
+        pin.append(icon('pin'));
+        pin.title = t.phrasePin;
+        pin.setAttribute('aria-label', t.phrasePin);
+        pin.setAttribute('aria-pressed', String(item.pinned));
+        drop.append(icon('trash'));
+        drop.title = t.phraseDelete;
+        drop.setAttribute('aria-label', `${t.phraseDelete} ${item.title}`);
+        row.append(pin, drop);
+      }
+
+      return row;
+    }) : [el('p', 'askdesk-phrase-menu__none', t.phrasesNone)]));
+
+    phraseKeep.disabled = !field.value.trim();
+  };
+
+  const loadPhrases = async () => {
+    try {
+      const data = await post(config.urls.phrases, {});
+
+      phrases = Array.isArray(data.phrases) ? data.phrases : [];
+    } catch (error) {
+      phrases = [];
+    }
+
+    paintPhrases();
+  };
+
+  const savePhrase = async (item) => {
+    try {
+      const data = await post(config.urls.phraseSave, { id: item.id || 0, title: item.title || '', text: item.text, pinned: Boolean(item.pinned) });
+
+      if (data.error) {
+        say(data.error);
+      } else if (Array.isArray(data.phrases)) {
+        phrases = data.phrases;
+      }
+    } catch (error) {
+      say(t.error);
+    }
+
+    paintPhrases();
+  };
+
+  const dropPhrase = async (item) => {
+    try {
+      const data = await post(config.urls.phraseDelete, { id: item.id });
+
+      if (Array.isArray(data.phrases)) {
+        phrases = data.phrases;
+      }
+    } catch (error) {
+      say(t.error);
+    }
+
+    paintPhrases();
+  };
+
+  // What is in the box kept as one's own phrase, pinned so it is at hand
+  const keepPhrase = async () => {
+    const text = field.value.trim();
+
+    if (!text) {
+      return;
+    }
+
+    await savePhrase({ text, pinned: true });
+    phraseTab = 'mine';
+    paintPhrases();
+  };
+
+  const closePhrases = () => {
+    phraseMenu.hidden = true;
+    phraseMore.setAttribute('aria-expanded', 'false');
+  };
+
+  const togglePhrases = () => {
+    if (!phraseMenu.hidden) {
+      closePhrases();
+
+      return;
+    }
+
+    phraseMenu.hidden = false;
+    phraseMore.setAttribute('aria-expanded', 'true');
+    paintPhrases();
+    phraseFind.focus();
+  };
+
+  phraseFind.addEventListener('input', paintPhrases);
+  field.addEventListener('input', () => {
+    phraseKeep.disabled = !field.value.trim();
+  });
+  document.addEventListener('pointerdown', (event) => {
+    if (!phraseMenu.hidden && !phraseMenu.contains(event.target) && !phraseMore.contains(event.target)) {
+      closePhrases();
+    }
+  });
+  phraseMenu.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closePhrases();
+      phraseMore.focus();
+    }
+  });
+
+  if (config.urls.phrases) {
+    loadPhrases();
+  }
 
   // What was chosen to send (files, pictures, stickers) waits above the box, each to take away again,
   // until one sends: then it goes, before the words written

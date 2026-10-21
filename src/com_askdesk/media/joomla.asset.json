@@ -1,11 +1,11 @@
 {
   "$schema": "https://developer.joomla.org/schemas/json-schema/web_assets.json",
   "name": "com_askdesk",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "AI Ask Desk",
   "license": "GPL-2.0-or-later",
   "assets": [
-    { "name": "com_askdesk.console", "type": "style", "uri": "com_askdesk/console.css", "version": "0.1.2" },
-    { "name": "com_askdesk.console", "type": "script", "uri": "com_askdesk/console.js", "version": "0.1.2", "attributes": { "defer": true } }
+    { "name": "com_askdesk.console", "type": "style", "uri": "com_askdesk/console.css", "version": "0.1.3" },
+    { "name": "com_askdesk.console", "type": "script", "uri": "com_askdesk/console.js", "version": "0.1.3", "attributes": { "defer": true } }
   ]
 }
