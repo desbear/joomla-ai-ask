@@ -2,6 +2,16 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.4.0
+
+- **A brief in a panel**: a plugin's panel can carry a brief to read, in parts (each a title, a tone, points with
+  their sources): an AI's brief of the visitor, say. A panel can ask the console to run an action once, right
+  after it is drawn, so slow work (an AI's) does not hold up the other panels; it can choose its heading's icon,
+  and show nothing at all for a chat that has nothing for it.
+- The side's search softens away under the top edge as the side scrolls, and its glow when written in is no
+  longer cut; the box to write in keeps its round corners.
+- On a phone the chat's buttons sit at the end of the page line, not on a row of their own.
+
 ## AI Ask Desk 0.3.9
 
 - The side beside the chat starts level with the chat's card: its search at rest, its held headings once

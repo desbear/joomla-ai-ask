@@ -2741,6 +2741,46 @@
 
   // What plugins add beside a chat (a CRM's customer, say): drawn from their view, all as text
   const addons = new Map();
+  // The actions panels asked to run on opening, already run (for which chat)
+  const followed = new Set();
+
+  // A brief to read (an AI's of the visitor): its parts, each point with where it comes from
+  const paintBrief = (brief) => {
+    const box = el('div', `askdesk-brief${brief.stale ? ' askdesk-brief--stale' : ''}`);
+
+    if (brief.notice) {
+      box.append(el('p', 'askdesk-brief__notice', brief.notice));
+    }
+
+    brief.sections.forEach((section) => {
+      const part = el('section', `askdesk-brief__part askdesk-brief__part--${section.tone}`);
+      const points = el('ul', 'askdesk-brief__points');
+
+      section.points.forEach((point) => {
+        const item = el('li', '');
+
+        item.append(el('span', 'askdesk-brief__text', point.text));
+
+        if (point.sources.length) {
+          const sources = el('span', 'askdesk-brief__sources');
+
+          point.sources.forEach((source) => sources.append(el('small', '', source)));
+          item.append(sources);
+        }
+
+        points.append(item);
+      });
+
+      part.append(el('h4', 'askdesk-brief__title', section.title), points);
+      box.append(part);
+    });
+
+    if (brief.generated) {
+      box.append(el('p', 'askdesk-brief__when', brief.generated));
+    }
+
+    return box;
+  };
   const noteEdits = new Map();
   const noteTicks = new Map();
 
@@ -2966,6 +3006,10 @@
       }
     }
 
+    if (view.brief) {
+      parts.push(paintBrief(view.brief));
+    }
+
     if (view.fields.length) {
       const list = el('dl', 'askdesk-addon__fields');
 
@@ -3096,13 +3140,21 @@
       if (!entry) {
         const body = el('div', 'askdesk-addon');
 
-        entry = { body, details: panel(view.title || view.name, 'user', body) };
+        entry = { body, details: panel(view.title || view.name, view.icon && ICONS[view.icon] ? view.icon : 'user', body) };
         entry.details.classList.add('askdesk-panel--addon');
         addons.set(view.name, entry);
       }
 
       entry.details.querySelector('.askdesk-panel__title > span:not(.askdesk-icon)').textContent = view.title || view.name;
       paintAddon(entry.body, view);
+
+      // Slow work it asks for (an AI's brief, say): once for this chat, after it is drawn
+      const asked = `${view.name}:${state.open}`;
+
+      if (view.follow && !followed.has(asked)) {
+        followed.add(asked);
+        actAddon(view.name, view.follow, {});
+      }
       panels.insertBefore(entry.details, before);
       before = entry.details.nextSibling;
     });

@@ -66,7 +66,14 @@ final class Panels
 
         foreach (self::all() as $name => $panel) {
             try {
-                $views[] = self::clean($name, $panel->view($room, $staff));
+                $view = $panel->view($room, $staff);
+
+                // Nothing to show for this chat: not shown at all
+                if ($view === []) {
+                    continue;
+                }
+
+                $views[] = self::clean($name, $view);
             } catch (\Throwable) {
                 $views[] = self::clean($name, ['state' => 'error']);
             }
@@ -110,6 +117,7 @@ final class Panels
         $https = static fn ($value) => \is_string($value) && preg_match('#^https://[^\s"<>]+$#i', $value) ? $value : '';
         $list  = static fn ($value) => \is_array($value) ? array_values($value) : [];
         $note  = \is_array($view['note'] ?? null) ? $view['note'] : null;
+        $brief = \is_array($view['brief'] ?? null) ? $view['brief'] : null;
         $items = \is_array($view['list'] ?? null) ? $view['list'] : null;
         $link  = \is_array($view['link'] ?? null) && $https($view['link']['url'] ?? null) !== '' ? ['title' => $text($view['link']['title'] ?? '', 80), 'url' => $https($view['link']['url'])] : null;
 
@@ -148,6 +156,21 @@ final class Panels
                     'text'  => $text($item['text'] ?? '', 4000),
                     'tags'  => array_slice(array_values(array_filter(array_map(static fn ($tag) => $text($tag, 60), $list($item['tags'] ?? [])))), 0, 10),
                 ] : null, $list($items['items'] ?? [])), static fn ($item) => $item && ($item['title'] !== '' || $item['text'] !== ''))), 0, 50),
+            ] : null,
+            'icon'     => preg_match('/^[a-z]{1,20}$/', (string) ($view['icon'] ?? '')) ? (string) $view['icon'] : '',
+            'follow'   => \in_array($view['follow'] ?? '', ['draft', 'refresh'], true) ? $view['follow'] : '',
+            'brief'    => $brief ? [
+                'generated' => $text($brief['generated'] ?? '', 120),
+                'stale'     => !empty($brief['stale']),
+                'notice'    => $text($brief['notice'] ?? '', 200),
+                'sections'  => array_slice(array_values(array_filter(array_map(static fn ($section) => \is_array($section) ? [
+                    'title'  => $text($section['title'] ?? '', 60),
+                    'tone'   => \in_array($section['tone'] ?? '', ['info', 'warn', 'ok'], true) ? $section['tone'] : 'info',
+                    'points' => array_slice(array_values(array_filter(array_map(static fn ($point) => \is_array($point) && $text($point['text'] ?? '', 400) !== '' ? [
+                        'text'    => $text($point['text'], 400),
+                        'sources' => array_slice(array_values(array_filter(array_map(static fn ($source) => $text($source, 40), $list($point['sources'] ?? [])))), 0, 6),
+                    ] : null, $list($section['points'] ?? [])))), 0, 8),
+                ] : null, $list($brief['sections'] ?? [])), static fn ($section) => $section && $section['points'])), 0, 6),
             ] : null,
             'results'  => array_slice(array_values(array_filter(array_map(static fn ($item) => \is_array($item) && $text($item['ref'] ?? '', 100) !== '' ? ['ref' => $text($item['ref'], 100), 'title' => $text($item['title'] ?? '', 120), 'meta' => $text($item['meta'] ?? '', 200)] : null, $list($view['results'] ?? [])))), 0, 20),
         ];

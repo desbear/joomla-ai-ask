@@ -36,6 +36,14 @@ namespace Gss\Component\Askdesk\Administrator\Desk;
  *    kept there (notes before, say): the latest few shown, all of them in a side card; more a link
  *    (https) to the rest when there are more than given.
  *
+ *  - brief ({generated, stale, notice, sections: {title, tone (info, warn, ok), points: {text, sources}}}):
+ *    a summary to read, in parts, each point with where it comes from (an AI's brief of the visitor,
+ *    say); stale when what it was made from has changed since
+ *  - icon (a name of the console's icons) for its heading; follow ("draft" or "refresh"): an action the
+ *    console runs once, at once, after drawing it (slow work, such as an AI's, not holding up the others)
+ *
+ * A view that is an empty array is not shown (nothing for this chat).
+ *
  * Text only: nothing in it is read as HTML.
  *
  * @since  0.2.0
