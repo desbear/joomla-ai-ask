@@ -2,6 +2,11 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.2.7
+
+- The held headings: the topmost takes the card's top corners and the bottommost its bottom ones; a shadow only
+  where a stack meets what scrolls, none between headings.
+
 ## AI Ask Desk 0.2.6
 
 - The side's headings stay in view as it scrolls: those passed stack at the top, those still below at the bottom.

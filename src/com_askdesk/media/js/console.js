@@ -2303,6 +2303,8 @@
 
       head.style.setProperty('--above', String(index));
       head.style.setProperty('--below', String(parts.length - 1 - index));
+      head.classList.toggle('is-first', index === 0);
+      head.classList.toggle('is-last', index === parts.length - 1);
     });
     held();
   };
@@ -2312,13 +2314,20 @@
   const held = () => {
     window.cancelAnimationFrame(holding);
     holding = window.requestAnimationFrame(() => {
-      panels.querySelectorAll(':scope > .askdesk-panel').forEach((part) => {
+      const heads = [...panels.querySelectorAll(':scope > .askdesk-panel')].map((part) => {
         const head = part.querySelector(':scope > .askdesk-panel__title');
         const shift = head.getBoundingClientRect().top - part.querySelector(':scope > .askdesk-panel__mark').getBoundingClientRect().top;
 
         head.classList.toggle('is-held-top', shift > 1);
         head.classList.toggle('is-held-bottom', shift < -1);
+
+        return head;
       });
+      const top = heads.filter((head) => head.classList.contains('is-held-top'));
+      const bottom = heads.filter((head) => head.classList.contains('is-held-bottom'));
+
+      // The shadow only where a stack meets what scrolls: the last held at the top, the first at the bottom
+      heads.forEach((head) => head.classList.toggle('is-edge', head === top[top.length - 1] || head === bottom[0]));
     });
   };
 

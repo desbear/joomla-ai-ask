@@ -4503,12 +4503,46 @@ button.askdesk-me {
   text-align: start;
   transition: box-shadow 0.2s;
 
-  &.is-held-top {
-    box-shadow: 0 6px 10px -8px rgba(35, 35, 50, 0.25);
+  /* A shadow only where a stack meets what scrolls under it, none between headings */
+  &.is-held-top.is-edge {
+    box-shadow: 0 8px 12px -10px rgba(35, 35, 50, 0.3);
   }
 
-  &.is-held-bottom {
-    box-shadow: 0 -6px 10px -8px rgba(35, 35, 50, 0.25);
+  &.is-held-bottom.is-edge {
+    box-shadow: 0 -8px 12px -10px rgba(35, 35, 50, 0.3);
+  }
+
+  /* The outermost held ones take the card's corners, the top one its top, the bottom one its bottom.
+     What scrolls under them is the card's white, so the heading stays square in the side's own colour
+     and its white is a rounded layer on it, below its icon and words (the shadow on that layer too) */
+  &.is-held-top.is-first,
+  &.is-held-bottom.is-last {
+    background: var(--askdesk-canvas);
+    box-shadow: none;
+
+    &::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      background: var(--askdesk-surface);
+    }
+  }
+
+  &.is-held-top.is-first::before {
+    border-radius: 16px 16px 0 0;
+  }
+
+  &.is-held-bottom.is-last::before {
+    border-radius: 0 0 16px 16px;
+  }
+
+  &.is-held-top.is-first.is-edge::before {
+    box-shadow: 0 8px 12px -10px rgba(35, 35, 50, 0.3);
+  }
+
+  &.is-held-bottom.is-last.is-edge::before {
+    box-shadow: 0 -8px 12px -10px rgba(35, 35, 50, 0.3);
   }
 
   &:hover {
