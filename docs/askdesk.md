@@ -54,6 +54,11 @@ It is a package of its own, `pkg_askdesk`, which needs AI Ask 0.20.0 or later:
 - **The visitor's history**, for signed-in visitors only: their earlier chats here (to open and read), and the
   questions they asked AI Ask, with whether the AI answered and how they rated it (as long as AI Ask's log keeps
   questions and records who asked). Guests have none.
+- **Panels from plugins** (0.2.0): a plugin of the `askdesk` group can add its own section at the top, such as
+  who the visitor is in a CRM. It answers the `onAskdeskPanels` event with an object implementing
+  `Gss\Component\Askdesk\Administrator\Desk\PanelInterface`: `view()` says what to show for a chat (a title,
+  fields, labels, an https link, a search box and results to choose from), `act()` handles a search, a choice or a
+  refresh. The console draws it all as text; whatever the plugin calls stays on the server.
 - On a narrower screen these open over the chat with **Reference**.
 
 ## Links, search and typing

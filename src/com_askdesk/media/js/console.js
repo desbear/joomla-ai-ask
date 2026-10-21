@@ -131,6 +131,9 @@
     video: 'M15 10l4.6-2.3A1 1 0 0 1 21 8.6v6.8a1 1 0 0 1-1.4.9L15 14M3 8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z',
     check: 'M5 12l5 5L20 7',
     alert: 'M12 9v4m0 4h.01M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z',
+    user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM5 20a7 7 0 0 1 14 0',
+    search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4',
+    refresh: 'M20 11a8 8 0 0 0-14.8-3.5M4 4v4h4M4 13a8 8 0 0 0 14.8 3.5M20 20v-4h-4',
     chat: 'M8 9h8M8 13h6M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-5l-5 3v-3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z',
   };
 
@@ -2219,6 +2222,180 @@
   panels.append(panel(t.suggestions, 'bulb', suggestList), panel(t.history, 'history', historyList), libraryPanel);
   asideScroll.append(search, results, panels);
 
+  // What plugins add beside a chat (a CRM's customer, say): drawn from their view, all as text
+  const addons = new Map();
+
+  const paintAddon = (body, view) => {
+    const parts = [];
+
+    if (view.subtitle) {
+      parts.push(el('p', 'askdesk-addon__subtitle', view.subtitle));
+    }
+
+    if (view.state !== 'found' || view.message) {
+      const fallback = view.state === 'error' ? t.panelError : (view.state === 'setup' ? t.panelSetup : '');
+
+      if (view.message || fallback) {
+        parts.push(el('p', `askdesk-panel__hint askdesk-addon__note askdesk-addon__note--${view.state}`, view.message || fallback));
+      }
+    }
+
+    if (view.fields.length) {
+      const list = el('dl', 'askdesk-addon__fields');
+
+      view.fields.forEach((field) => {
+        const row = el('div', 'askdesk-addon__field');
+
+        row.append(el('dt', '', field.label), el('dd', '', field.value));
+        list.append(row);
+      });
+      parts.push(list);
+    }
+
+    if (view.tags.length) {
+      const tags = el('div', 'askdesk-addon__tags');
+
+      view.tags.forEach((tag) => tags.append(el('span', 'askdesk-addon__tag', tag)));
+      parts.push(tags);
+    }
+
+    if (view.search) {
+      const form = el('form', 'askdesk-addon__search');
+      const input = el('input');
+      const go = el('button', 'askdesk-addon__go');
+
+      input.type = 'search';
+      input.placeholder = view.search.placeholder || t.panelSearch;
+      input.setAttribute('aria-label', t.panelSearch);
+      go.type = 'submit';
+      go.setAttribute('aria-label', t.panelSearch);
+      go.append(icon('search'));
+      form.append(input, go);
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+
+        if (input.value.trim()) {
+          actAddon(view.name, 'search', { text: input.value.trim() });
+        }
+      });
+      parts.push(form);
+    }
+
+    if (view.results.length) {
+      const results = el('div', 'askdesk-addon__results');
+
+      view.results.forEach((item) => {
+        const row = el('div', 'askdesk-addon__result');
+        const text = el('div', 'askdesk-addon__result-text');
+
+        text.append(el('strong', '', item.title || item.ref));
+
+        if (item.meta) {
+          text.append(el('span', '', item.meta));
+        }
+
+        row.append(text, button('askdesk-addon__choose', t.panelChoose, () => actAddon(view.name, 'choose', { ref: item.ref })));
+        results.append(row);
+      });
+      parts.push(results);
+    }
+
+    const foot = el('div', 'askdesk-addon__foot');
+
+    if (view.link) {
+      const link = el('a', 'askdesk-addon__link');
+
+      link.href = view.link.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.append(el('span', '', view.link.title || view.title), icon('external'));
+      foot.append(link);
+    }
+
+    const again = button('askdesk-addon__refresh', '', () => actAddon(view.name, 'refresh', {}));
+
+    again.title = t.panelRefresh;
+    again.setAttribute('aria-label', t.panelRefresh);
+    again.append(icon('refresh'));
+    foot.append(again);
+    parts.push(foot);
+
+    body.dataset.state = view.state;
+    body.replaceChildren(...parts);
+  };
+
+  const showAddons = (views) => {
+    const seen = new Set();
+    let before = panels.firstChild;
+
+    views.forEach((view) => {
+      seen.add(view.name);
+
+      let entry = addons.get(view.name);
+
+      if (!entry) {
+        const body = el('div', 'askdesk-addon');
+
+        entry = { body, details: panel(view.title || view.name, 'user', body) };
+        entry.details.classList.add('askdesk-panel--addon');
+        addons.set(view.name, entry);
+      }
+
+      entry.details.querySelector('.askdesk-panel__title > span:not(.askdesk-icon)').textContent = view.title || view.name;
+      paintAddon(entry.body, view);
+      panels.insertBefore(entry.details, before);
+      before = entry.details.nextSibling;
+    });
+
+    addons.forEach((entry, name) => {
+      if (!seen.has(name)) {
+        entry.details.remove();
+        addons.delete(name);
+      }
+    });
+  };
+
+  // Once for each chat opened
+  const loadAddons = async () => {
+    const room = state.open;
+
+    addons.forEach((entry) => entry.body.replaceChildren(skeleton(3)));
+
+    try {
+      const data = await post(config.urls.panels, { room });
+
+      if (room === state.open) {
+        showAddons(Array.isArray(data.panels) ? data.panels : []);
+      }
+    } catch (error) {
+      addons.forEach((entry) => entry.body.replaceChildren(el('p', 'askdesk-panel__hint', t.panelError)));
+    }
+  };
+
+  const actAddon = async (name, action, extra) => {
+    const room = state.open;
+    const entry = addons.get(name);
+
+    if (!entry) {
+      return;
+    }
+
+    entry.body.replaceChildren(skeleton(3));
+
+    try {
+      const data = await post(config.urls.panel, { room, name, action, ...extra });
+
+      if (room === state.open && data.panel) {
+        paintAddon(entry.body, data.panel);
+      } else if (room === state.open) {
+        entry.body.replaceChildren(el('p', 'askdesk-panel__hint', data.error || t.panelError));
+      }
+    } catch (error) {
+      entry.body.replaceChildren(el('p', 'askdesk-panel__hint', t.panelError));
+    }
+  };
+
+
   const skeleton = (lines = 2) => {
     const box = el('div', 'askdesk-skeleton');
 
@@ -2605,6 +2782,7 @@
     side.failed = '';
     paintSuggestions();
     loadHistory();
+    loadAddons();
     suggestNow();
   };
 

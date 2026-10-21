@@ -212,6 +212,35 @@ class StaffController extends BaseController
     }
 
     /**
+     * What other extensions show beside a chat (0.2.0), a panel each ({room}).
+     */
+    public function panels(): void
+    {
+        [$rooms, , $me, $body] = $this->check();
+
+        $room = $this->room($rooms, $body);
+
+        $this->send(['panels' => \Gss\Component\Askdesk\Administrator\Desk\Panels::views($room, $me)]);
+    }
+
+    /**
+     * Something done in one of those panels ({room, name, action, text?, ref?}): what it shows now.
+     */
+    public function panel(): void
+    {
+        [$rooms, , $me, $body] = $this->check();
+
+        $room  = $this->room($rooms, $body);
+        $input = [
+            'text' => \is_string($body['text'] ?? null) ? mb_substr(trim($body['text']), 0, 200) : '',
+            'ref'  => \is_string($body['ref'] ?? null) ? mb_substr(trim($body['ref']), 0, 100) : '',
+        ];
+        $view  = \Gss\Component\Askdesk\Administrator\Desk\Panels::act((string) ($body['name'] ?? ''), $room, $me, (string) ($body['action'] ?? ''), $input);
+
+        $this->send($view === null ? ['error' => Text::_('JERROR_ALERTNOAUTHOR')] : ['panel' => $view]);
+    }
+
+    /**
      * The phrases one may put in the box: the shared ones, and one's own ({}).
      */
     public function phrases(): void

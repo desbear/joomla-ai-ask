@@ -37,7 +37,7 @@ use Joomla\CMS\Router\Route;
 final class AskdeskAgent implements AgentInterface
 {
     /** Of the desk's scripts, for browsers to fetch them again when they change. */
-    private const VERSION = '0.1.3';
+    private const VERSION = '0.2.0';
 
     public function type(): string
     {

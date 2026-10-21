@@ -2,6 +2,13 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.2.0
+
+- **Panels from plugins**: beside a chat, plugins of the new `askdesk` group can show a section of their own at the
+  top of the side card (a CRM's customer, say): fields, labels, a link, and a search with results to choose from,
+  each refreshable. Plugins answer `onAskdeskPanels` with a `PanelInterface`; the console draws only text and https
+  links, and what a plugin calls stays on the server (see docs/askdesk.md, "Beside the chat").
+
 ## AI Ask Desk 0.1.3
 
 - **Phrases**: sentences the people answering often write. Shared ones are kept in the back end (AI Ask Desk →

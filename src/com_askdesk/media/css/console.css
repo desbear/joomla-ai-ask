@@ -5252,3 +5252,180 @@ button.askdesk-me {
   position: relative;
   z-index: 5;
 }
+
+/* What plugins add beside a chat (0.2.0): a customer's card, its fields as rows */
+.askdesk-addon {
+  display: grid;
+  gap: 10px;
+}
+
+.askdesk-addon__subtitle {
+  margin: -4px 0 0;
+  color: var(--askdesk-muted);
+  font-size: 12px;
+}
+
+.askdesk-addon__note--error {
+  color: var(--askdesk-danger);
+}
+
+.askdesk-addon__fields {
+  display: grid;
+  margin: 0;
+  font-size: 12.5px;
+}
+
+.askdesk-addon__field {
+  display: grid;
+  grid-template-columns: minmax(64px, 34%) 1fr;
+  gap: 8px;
+  padding: 6px 0;
+
+  & + & {
+    border-block-start: 0.5px solid var(--askdesk-line);
+  }
+
+  dt {
+    color: var(--askdesk-muted);
+  }
+
+  dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    white-space: pre-line;
+  }
+}
+
+.askdesk-addon__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.askdesk-addon__tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--askdesk-accent-soft);
+  color: var(--askdesk-accent);
+  font-size: 11.5px;
+}
+
+.askdesk-addon__search {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 2px 2px 10px;
+  border: 0.5px solid var(--askdesk-line-strong);
+  border-radius: 999px;
+  transition: box-shadow 0.2s, border-color 0.2s;
+
+  &:focus-within {
+    border-color: var(--askdesk-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--askdesk-accent) 18%, transparent);
+  }
+
+  input {
+    flex: 1;
+    min-inline-size: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-size: 12.5px;
+    outline: none;
+  }
+}
+
+.askdesk-addon__go,
+.askdesk-addon__refresh {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--askdesk-muted);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+
+  &:hover {
+    background: var(--askdesk-canvas);
+    color: var(--askdesk-accent);
+  }
+}
+
+.askdesk-addon__results {
+  display: grid;
+}
+
+.askdesk-addon__result {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+
+  & + & {
+    border-block-start: 0.5px solid var(--askdesk-line);
+  }
+}
+
+.askdesk-addon__result-text {
+  display: grid;
+  flex: 1;
+  min-inline-size: 0;
+  font-size: 12.5px;
+
+  strong {
+    font-weight: 500;
+  }
+
+  span {
+    overflow: hidden;
+    color: var(--askdesk-muted);
+    font-size: 11.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.askdesk-addon__choose {
+  flex: none;
+  padding: 4px 10px;
+  border: 0.5px solid var(--askdesk-line-strong);
+  border-radius: 999px;
+  background: var(--askdesk-surface);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+
+  &:hover {
+    border-color: var(--askdesk-accent);
+    color: var(--askdesk-accent);
+  }
+}
+
+.askdesk-addon__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.askdesk-addon__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--askdesk-accent);
+  font-size: 12.5px;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.askdesk-addon__refresh {
+  margin-inline-start: auto;
+}
