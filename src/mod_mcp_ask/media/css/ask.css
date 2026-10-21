@@ -403,8 +403,14 @@
   --mcp-ask-edge-top: max(20px, env(safe-area-inset-top));
   --mcp-ask-edge-bottom: max(20px, env(safe-area-inset-bottom));
 
-  inset-block: calc(var(--mcp-ask-edge-top) + (100dvh - var(--mcp-ask-size) - var(--mcp-ask-edge-top) - var(--mcp-ask-edge-bottom)) * var(--mcp-ask-y, 1)) auto;
+  /* By its bottom edge, from the size it has when closed (a pet's), so that opening, which makes the
+     button the box's height, leaves the pet where it is (0.20.3) */
+  inset-block: auto calc(var(--mcp-ask-edge-bottom) + (100dvh - var(--mcp-ask-spot-size, var(--mcp-ask-size)) - var(--mcp-ask-edge-top) - var(--mcp-ask-edge-bottom)) * (1 - var(--mcp-ask-y, 1)));
   margin-block: 0;
+}
+
+.mcp-ask--float.mcp-ask--pet {
+  --mcp-ask-spot-size: var(--mcp-ask-pet-size);
 }
 
 .mcp-ask--float[data-side="right"] {
@@ -747,15 +753,20 @@ html:has(.mcp-ask-chat[open]) {
       display: none;
     }
 
-    &.mcp-ask-chat__login--in::before {
-      content: "";
-      display: inline-block;
-      inline-size: 8px;
-      block-size: 8px;
-      margin-inline-end: 6px;
-      border-radius: 50%;
-      background: var(--mcp-ask-tip);
-      vertical-align: middle;
+  }
+
+  /* Who is signed in, beside the button that signs them out */
+  .mcp-ask-chat__who {
+    max-inline-size: 14em;
+    overflow: hidden;
+    color: var(--mcp-ask-text);
+    font-size: 14px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    &[hidden] {
+      display: none;
     }
   }
 
@@ -3481,17 +3492,22 @@ html:active-view-transition-type(mcp-ask-nav) {
 }
 
 /* Embedded on another website: the frame is the button's size until the conversation opens, so
-   the button keeps to its corner of the frame */
+   the button keeps to its corner of the frame, with room all round for what the pet does */
 .mcp-ask-embedded .mcp-ask--float {
-  inset-block-end: 20px;
+  inset-block-end: 28px;
 }
 
 .mcp-ask-embedded .mcp-ask--float[data-side="right"] {
-  right: 20px;
+  right: 28px;
 }
 
 .mcp-ask-embedded .mcp-ask--float[data-side="left"] {
-  left: 20px;
+  left: 28px;
+}
+
+/* Dragged: the frame covers the window meanwhile and the button follows the finger */
+.mcp-ask-embedded .mcp-ask--float.mcp-ask--dragging {
+  margin: 0;
 }
 
 /* ---------- Pet ----------
@@ -4187,9 +4203,10 @@ html:active-view-transition-type(mcp-ask-nav) {
 /* ---------- Pet on a phone (0.19.0) ----------
    The pet sits in a rounded frame. Open, the card docks across the bottom of what is seen (just above
    the keyboard while typing: iOS may move the page meanwhile, so it keeps to what is still seen),
-   and the framed pet is pressed onto its upper corner on the pet's side, in front of it. */
+   and the framed pet is pressed onto its upper corner on the pet's side, in front of it. Not in an
+   embed's frame: it is narrow on any screen, and the page around it decides where it is (0.20.3). */
 @media (max-width: 640px) {
-  .mcp-ask--float.mcp-ask--pet .mcp-ask-pet {
+  html:not(.mcp-ask-embedded) .mcp-ask--float.mcp-ask--pet .mcp-ask-pet {
     overflow: hidden;
     border-radius: 18px;
     background: var(--mcp-ask-surface);
@@ -4200,7 +4217,7 @@ html:active-view-transition-type(mcp-ask-nav) {
   }
 
   /* The square picture fills the frame, its corners cut by the frame's */
-  .mcp-ask--float.mcp-ask--pet .mcp-ask-pet__frame {
+  html:not(.mcp-ask-embedded) .mcp-ask--float.mcp-ask--pet .mcp-ask-pet__frame {
     inset: 0;
     inline-size: 100%;
     block-size: 100%;
@@ -4208,7 +4225,7 @@ html:active-view-transition-type(mcp-ask-nav) {
     object-position: 50% 50%;
   }
 
-  .mcp-ask--float.mcp-ask--pet:not([data-state="idle"]) {
+  html:not(.mcp-ask-embedded) .mcp-ask--float.mcp-ask--pet:not([data-state="idle"]) {
     --mcp-ask-dock: calc(var(--mcp-ask-view-top, 0px) + var(--mcp-ask-view-height, 100dvh) - max(10px, env(safe-area-inset-bottom)));
 
     .mcp-ask__card {

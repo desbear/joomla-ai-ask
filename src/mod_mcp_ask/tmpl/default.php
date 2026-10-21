@@ -33,7 +33,11 @@ $e     = static fn ($value) => htmlspecialchars((string) $value, ENT_QUOTES, 'UT
 // Another site's AI Ask (0.20.2): its embed script, with who the visitor is when they are signed in
 if (!empty($remote)) {
     echo '<script src="' . $e($remote['src']) . '" data-key="' . $e($remote['key']) . '" data-lang="' . $e($remote['lang']) . '" data-title="' . $e($remote['title']) . '"'
-        . ($remote['user'] !== '' ? ' data-user="' . $e($remote['user']) . '"' : '') . ' async></script>';
+        . ($remote['user'] !== '' ? ' data-user="' . $e($remote['user']) . '"' : '')
+        . ($remote['login'] !== '' ? ' data-login="' . $e($remote['login']) . '"' : '')
+        . ($remote['logout'] !== '' ? ' data-logout="' . $e($remote['logout']) . '"' : '')
+        . ($remote['size'] >= 48 ? ' data-size="' . (int) $remote['size'] . '"' : '') . ' async></script>'
+        . ($remote['why'] !== '' ? '<!-- AI Ask: the signed-in visitor is not passed on: ' . $e($remote['why']) . ' -->' : '');
 
     return;
 }
@@ -44,7 +48,7 @@ $class = 'mcp-ask' . ($mode !== 'icon' ? ' mcp-ask--' . $mode : '') . (!empty($p
 <div class="<?php echo $class; ?>" data-mcp-ask data-mode="<?php echo $mode; ?>" data-state="idle"
     <?php if ($endpoint !== '') : ?>data-endpoint="<?php echo $e($endpoint); ?>"<?php endif; ?>
     <?php if (!empty($feedback)) : ?>data-feedback="<?php echo $e($feedback); ?>"<?php endif; ?>
-    <?php if (!empty($agentStart)) : ?>data-agent-start="<?php echo $e($agentStart); ?>" data-agent-step="<?php echo $e($agentStep); ?>" data-agent-report="<?php echo $e($agentReport ?? ''); ?>" data-agent-handoff="<?php echo $e($agentHandoff ?? ''); ?>"<?php endif; ?>
+    <?php if (!empty($agentStart)) : ?>data-agent-start="<?php echo $e($agentStart); ?>" data-agent-step="<?php echo $e($agentStep); ?>" data-agent-report="<?php echo $e($agentReport ?? ''); ?>" data-agent-handoff="<?php echo $e($agentHandoff ?? ''); ?>" data-agent-list="<?php echo $e($agentList ?? ''); ?>" data-agent-lookup="<?php echo $e($agentLookup ?? ''); ?>"<?php endif; ?>
     <?php if (!empty($agents)) : ?>data-agents="<?php echo $json($agents); ?>"<?php endif; ?>
     <?php if (!empty($handoff)) : ?>data-handoff="<?php echo $json($handoff); ?>"<?php endif; ?>
     <?php if (!empty($agentLooks)) : ?>data-agent-looks="<?php echo $json((object) $agentLooks); ?>"<?php endif; ?>

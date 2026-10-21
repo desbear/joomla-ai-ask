@@ -20,6 +20,7 @@ use Gss\Component\Mcpask\Administrator\Agent\Sessions;
 use Gss\Component\Mcpask\Administrator\Ask\Guard;
 use Gss\Component\Mcpask\Administrator\Ask\ServiceException;
 use Gss\Component\Mcpask\Administrator\Ask\Settings;
+use Gss\Component\Mcpask\Administrator\Ask\WebClient;
 use Gss\Component\Mcpask\Administrator\Embed\Embeds;
 use Gss\Component\Mcpask\Administrator\Embed\Request as EmbedRequest;
 use Joomla\CMS\Factory;
@@ -71,6 +72,68 @@ class AgentController extends BaseController
             $agents->record((int) $agent->id, 'completed');
         }
         $this->answer($agent, $session, $reply);
+    }
+
+    /**
+     * The agents this visitor may meet, as the module lists them (0.20.3): an embedded conversation
+     * asks once the other website has said who the visitor is, for agents kept to some user groups.
+     */
+    public function list(): void
+    {
+        [, $db] = $this->check();
+
+        [$agents, $handoff, $looks] = (new Agents($db))->offer($this->app->getLanguage()->getTag(), $this->app->getIdentity());
+
+        $this->send(['agents' => $agents, 'handoff' => $handoff, 'looks' => (object) $looks]);
+    }
+
+    /** Suggestions passed on from a look-up, at most */
+    private const LOOKUP_ITEMS = 8;
+
+    /**
+     * A field's look-up, asked by this site for the visitor ({session, field, query}, 0.20.3): only
+     * the address the agent's settings give that field, of the agent of the visitor's own
+     * conversation, on the public internet (WebClient), and only the plain values of the first few
+     * items come back.
+     */
+    public function lookup(): void
+    {
+        [$settings, $db, $visitor, $body] = $this->check();
+
+        $open  = (new Sessions($db, $this->secret()))->open(\is_string($body['session'] ?? null) ? $body['session'] : '', $visitor);
+        $field = \is_string($body['field'] ?? null) ? $body['field'] : '';
+        $query = trim(\is_string($body['query'] ?? null) ? $body['query'] : '');
+
+        if (!$open || $field === '' || mb_strlen($query) < 2 || mb_strlen($query) > 100) {
+            $this->send(['items' => []]);
+        }
+
+        $agent = $this->find(new Agents($db), $open['agent_id']);
+        $type  = Agents::types()[$agent->type];
+        $url   = method_exists($type, 'lookupUrl')
+            ? $type->lookupUrl(new Context($agent, $open['state'], $this->app->getLanguage()->getTag(), $settings, $db, $visitor), $field)
+            : null;
+
+        if (!$url) {
+            $this->send(['items' => []]);
+        }
+
+        $url    = str_replace('{query}', rawurlencode($query), $url);
+        $result = (new WebClient($url))->get($url, true);
+        $data   = $result['status'] === 200 ? json_decode($result['body'], true) : null;
+        $items  = [];
+
+        foreach (\is_array($data) && array_is_list($data) ? $data : [] as $item) {
+            if (\is_array($item)) {
+                $items[] = array_filter($item, static fn ($value) => \is_scalar($value));
+            }
+
+            if (\count($items) >= self::LOOKUP_ITEMS) {
+                break;
+            }
+        }
+
+        $this->send(['items' => $items]);
     }
 
     public function step(): void

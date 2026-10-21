@@ -14,6 +14,7 @@ use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Dispatcher\AbstractModuleDispatcher;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Router\Route;
+use Joomla\CMS\Session\Session;
 use Joomla\CMS\Uri\Uri;
 use Joomla\Registry\Registry;
 
@@ -55,7 +56,7 @@ class Dispatcher extends AbstractModuleDispatcher
      * page's language, and for a signed-in visitor a token signed with the key's secret (HS256,
      * valid an hour) that says who they are. Null when the settings are not complete.
      *
-     * @return  array{src: string, key: string, lang: string, user: string, title: string}|null
+     * @return  array{src: string, logout: string, key: string, lang: string, user: string, login: string, why: string, size: int, title: string}|null
      */
     private function remote(Registry $params): ?array
     {
@@ -73,8 +74,14 @@ class Dispatcher extends AbstractModuleDispatcher
         $user   = $this->getApplication()->getIdentity();
         $secret = trim((string) $params->get('remote_secret', ''));
         $token  = '';
+        // Why a signed-in visitor is not passed on, for whoever reads the page's source
+        $why    = '';
 
-        if ($user && !$user->guest && $secret !== '' && filter_var((string) $user->email, FILTER_VALIDATE_EMAIL)) {
+        if ($user && !$user->guest) {
+            $why = $secret === '' ? 'no secret is saved in the module' : (filter_var((string) $user->email, FILTER_VALIDATE_EMAIL) ? '' : 'the account has no valid e-mail address');
+        }
+
+        if ($user && !$user->guest && $why === '') {
             $now   = time();
             $part  = static fn (array $data) => rtrim(strtr(base64_encode((string) json_encode($data, JSON_UNESCAPED_UNICODE)), '+/', '-_'), '=');
             $head  = $part(['alg' => 'HS256', 'typ' => 'JWT']);
@@ -82,12 +89,40 @@ class Dispatcher extends AbstractModuleDispatcher
             $token = $head . '.' . $body . '.' . rtrim(strtr(base64_encode(hash_hmac('sha256', $head . '.' . $body, $secret, true)), '+/', '-_'), '=');
         }
 
+        // Where a visitor who is not signed in signs in: this site's own sign-in (its single sign-on),
+        // coming back to this page; the frame's sign-in button leads there (0.20.3)
+        $login = '';
+
+        if (!$user || $user->guest) {
+            $here  = Uri::getInstance()->toString();
+            $login = trim((string) $params->get('remote_login', ''));
+            $login = $login !== ''
+                ? str_replace(['{return}', '{return64}'], [rawurlencode($here), rawurlencode(base64_encode($here))], $login)
+                : Route::_('index.php?option=com_users&view=login&return=' . base64_encode($here), false, Route::TLS_IGNORE, true);
+        }
+
+        // Where a signed-in visitor signs out: this site's own sign-out, back to this page; signing out
+        // in the conversation goes there, or the next page would sign them in there again
+        $logout = '';
+
+        if ($token !== '') {
+            $here   = Uri::getInstance()->toString();
+            $logout = trim((string) $params->get('remote_logout', ''));
+            $logout = $logout !== ''
+                ? str_replace(['{return}', '{return64}'], [rawurlencode($here), rawurlencode(base64_encode($here))], $logout)
+                : Route::_('index.php?option=com_users&task=user.logout&' . Session::getFormToken() . '=1&return=' . base64_encode($here), false, Route::TLS_IGNORE, true);
+        }
+
         return [
-            'src'   => $site . '/media/mod_mcp_ask/js/embed.js',
-            'key'   => $key,
-            'lang'  => $this->getApplication()->getLanguage()->getTag(),
-            'user'  => $token,
-            'title' => trim((string) $params->get('title')) ?: Text::_('MOD_MCP_ASK_TITLE'),
+            'src'    => $site . '/media/mod_mcp_ask/js/embed.js',
+            'logout' => $logout,
+            'key'    => $key,
+            'lang'   => $this->getApplication()->getLanguage()->getTag(),
+            'user'   => $token,
+            'login'  => $login,
+            'why'    => $why,
+            'size'   => max(0, min(240, (int) $params->get('remote_size', 0))),
+            'title'  => trim((string) $params->get('title')) ?: Text::_('MOD_MCP_ASK_TITLE'),
         ];
     }
 
@@ -225,6 +260,8 @@ class Dispatcher extends AbstractModuleDispatcher
         $data['agentStep']  = $demo ? '' : Route::_('index.php?option=com_mcpask&task=agent.step&format=raw', false);
         $data['agentReport'] = $demo ? '' : Route::_('index.php?option=com_mcpask&task=agent.report&format=raw', false);
         $data['agentHandoff'] = $demo ? '' : Route::_('index.php?option=com_mcpask&task=agent.handoff&format=raw', false);
+        $data['agentList']    = $demo ? '' : Route::_('index.php?option=com_mcpask&task=agent.list&format=raw', false);
+        $data['agentLookup']  = $demo ? '' : Route::_('index.php?option=com_mcpask&task=agent.lookup&format=raw', false);
         [$data['agents'], $data['handoff'], $data['agentLooks']] = $demo ? [[], null, []] : $this->agents();
 
         $this->addAssets($demo, $params->get('theme', 'site') !== 'own');
@@ -245,55 +282,15 @@ class Dispatcher extends AbstractModuleDispatcher
         $user  = $app->getIdentity();
 
         try {
-            if (!class_exists($class) || !$user) {
+            if (!class_exists($class) || !$user || !method_exists($class, 'offer')) {
                 return [[], null, []];
             }
 
-            $agents = (new $class(\Joomla\CMS\Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class)))
-                ->active($app->getLanguage()->getTag(), array_map('intval', $user->getAuthorisedViewLevels()));
+            return (new $class(\Joomla\CMS\Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class)))
+                ->offer($app->getLanguage()->getTag(), $user);
         } catch (\Throwable) {
             return [[], null, []];
         }
-
-        $listed  = [];
-        $handoff = null;
-        $looks   = [];
-        $pets    = 'Gss\\Component\\Mcpask\\Administrator\\Pet\\Pets';
-        $pets    = class_exists($pets) ? new $pets(\Joomla\CMS\Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class)) : null;
-
-        try {
-            $types = $class::types();
-        } catch (\Throwable) {
-            $types = [];
-        }
-
-        foreach ($agents as $agent) {
-            $item = ['id' => (int) $agent->id, 'label' => trim((string) $agent->params->get('suggest_label', '')) ?: (string) $agent->title];
-
-            // Whether people answer now, for agents that pass visitors on to people (office hours)
-            if (isset($types[$agent->type]) && method_exists($types[$agent->type], 'status')) {
-                try {
-                    $item['status'] = (string) $types[$agent->type]->status($agent);
-                } catch (\Throwable) {
-                    // No status: no light
-                }
-            }
-
-            // How each shows itself: its name, and its picture or pet
-            $avatar = $pets && method_exists($pets, 'avatar') ? $pets->avatar((string) $agent->params->get('avatar', ''), (string) $agent->params->get('avatar_image', '')) : null;
-            $looks[(int) $agent->id] = array_filter(['title' => (string) $agent->title, 'avatar' => $avatar]);
-
-            if ($agent->params->get('suggest', 1)) {
-                $listed[] = $item;
-            }
-
-            // The first agent that passes visitors on to people (one that tells whether they answer now)
-            if (isset($item['status']) && !$handoff) {
-                $handoff = $item;
-            }
-        }
-
-        return [\array_slice($listed, 0, 4), $handoff, $looks];
     }
 
     /**

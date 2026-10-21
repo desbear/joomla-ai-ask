@@ -304,19 +304,97 @@ final class UsageLog
 
     public function recent(int $limit, string $flag = ''): array
     {
-        $query = $this->db->getQuery(true)
-            ->select('l.created, l.question, l.status, l.message, l.sources, l.tokens_in, l.tokens_out, l.duration_ms, l.user_id, l.ip, l.rating, l.feedback, l.hint_id, l.flags, l.answer, l.answer_raw, u.name, u.username')
-            ->from($this->db->quoteName('#__mcpask_log', 'l'))
-            ->join('LEFT', $this->db->quoteName('#__users', 'u'), 'u.id = l.user_id')
-            ->order('l.id DESC')
-            ->setLimit($limit);
+        return $this->search(['flag' => $flag], $limit)[0];
+    }
 
-        // Only questions with this mark (a known one: the name goes into the query)
-        if (\in_array($flag, self::FLAGS, true)) {
-            $query->where($this->db->quoteName('l.flags') . ' LIKE ' . $this->db->quote('%' . $flag . '%'));
+    /** Statuses a question may end in, for filtering the log. */
+    public const STATUSES = ['ok', 'empty', 'error', 'blocked', 'aborted', 'started'];
+
+    /**
+     * Questions of the log, newest first, a page at a time (0.20.3): with the account that asked and
+     * the embed key a question came through (another website).
+     *
+     * @param   array{from?: string, to?: string, source?: string, status?: string, rating?: string, flag?: string, who?: string, search?: string}  $filter
+     *          from, to: days (Y-m-d) in the site's time zone; source: "site" (asked here) or "embed:ID";
+     *          status: one of STATUSES or "unanswered"; rating: good, bad or none; who: member or guest
+     *
+     * @return  array{0: object[], 1: int}  Rows and how many in all
+     */
+    public function search(array $filter, int $limit, int $start = 0): array
+    {
+        $db    = $this->db;
+        $query = $db->getQuery(true)
+            ->from($db->quoteName('#__mcpask_log', 'l'))
+            ->join('LEFT', $db->quoteName('#__users', 'u'), 'u.id = l.user_id');
+        $embeds = isset($db->getTableColumns('#__mcpask_log')['embed_id']);
+
+        if ($embeds) {
+            $query->join('LEFT', $db->quoteName('#__mcpask_embeds', 'e'), 'e.id = l.embed_id');
         }
 
-        return $this->db->setQuery($query)->loadObjectList();
+        $zone = Factory::getApplication()->get('offset', 'UTC');
+
+        foreach (['from' => '>=', 'to' => '<'] as $name => $operator) {
+            $day = (string) ($filter[$name] ?? '');
+
+            if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $day)) {
+                // The day as the site counts it; "to" includes its whole day
+                $when = Factory::getDate($day . ($name === 'to' ? ' +1 day' : ''), $zone)->toSql();
+                $query->where('l.created ' . $operator . ' ' . $db->quote($when));
+            }
+        }
+
+        $source = (string) ($filter['source'] ?? '');
+
+        if ($embeds && $source === 'site') {
+            $query->where('l.embed_id = 0');
+        } elseif ($embeds && preg_match('/^embed:(\d+)$/', $source, $match)) {
+            $query->where('l.embed_id = ' . (int) $match[1]);
+        }
+
+        $status = (string) ($filter['status'] ?? '');
+
+        if ($status === 'unanswered') {
+            $query->where('l.status <> ' . $db->quote('ok'));
+        } elseif (\in_array($status, self::STATUSES, true)) {
+            $query->where('l.status = ' . $db->quote($status));
+        }
+
+        match ((string) ($filter['rating'] ?? '')) {
+            'good'  => $query->where('l.rating > 0'),
+            'bad'   => $query->where('l.rating < 0'),
+            'none'  => $query->where('l.rating = 0'),
+            default => null,
+        };
+
+        // Only questions with this mark (a known one: the name goes into the query)
+        if (\in_array($filter['flag'] ?? '', self::FLAGS, true)) {
+            $query->where($db->quoteName('l.flags') . ' LIKE ' . $db->quote('%' . $filter['flag'] . '%'));
+        }
+
+        match ((string) ($filter['who'] ?? '')) {
+            'member' => $query->where('l.user_id > 0'),
+            'guest'  => $query->where('l.user_id = 0'),
+            default  => null,
+        };
+
+        $search = trim((string) ($filter['search'] ?? ''));
+
+        if ($search !== '') {
+            $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $search) . '%';
+            $query->where('(l.question LIKE :search1 OR u.name LIKE :search2 OR u.email LIKE :search3)')
+                ->bind(':search1', $like)
+                ->bind(':search2', $like)
+                ->bind(':search3', $like);
+        }
+
+        $total = (int) $db->setQuery((clone $query)->select('COUNT(*)'))->loadResult();
+
+        $query->select('l.id, l.created, l.question, l.status, l.message, l.sources, l.tokens_in, l.tokens_out, l.duration_ms, l.user_id, l.ip, l.rating, l.feedback, l.hint_id, l.flags, l.answer, l.answer_raw, u.name, u.username')
+            ->select($embeds ? 'l.embed_id, e.title AS embed_title' : '0 AS embed_id, ' . $db->quote('') . ' AS embed_title')
+            ->order('l.id DESC');
+
+        return [$db->setQuery($query, $start, $limit)->loadObjectList(), $total];
     }
 
     private function hash(string $ip): string

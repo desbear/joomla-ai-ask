@@ -19,7 +19,7 @@ use Joomla\CMS\Language\Text;
 /**
  * The latest questions. Used by the dashboard and by the module "AI Ask - Questions Asked".
  *
- * @var array  $displayData  rows: what UsageLog::recent() returned
+ * @var array  $displayData  rows: what UsageLog::recent() or search() returned
  */
 
 $rows = $displayData['rows'];
@@ -45,7 +45,13 @@ $e    = static fn ($value) => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF
 			<tbody>
 				<?php foreach ($rows as $row) : ?>
 					<tr>
-						<td class="text-nowrap"><?php echo HTMLHelper::_('date', $row->created, Text::_('DATE_FORMAT_LC6')); ?></td>
+						<td class="text-nowrap">
+							<?php echo HTMLHelper::_('date', $row->created, Text::_('DATE_FORMAT_LC6')); ?>
+							<?php // Asked on another website, through an embed key: the key's name says which ?>
+							<?php if ((int) ($row->embed_id ?? 0) > 0) : ?>
+								<div><span class="badge bg-info text-dark" title="<?php echo $e(Text::_('COM_MCPASK_QUESTION_VIA_DESC')); ?>"><?php echo $e(Text::sprintf('COM_MCPASK_QUESTION_VIA', ($row->embed_title ?? '') !== '' ? $row->embed_title : '#' . (int) $row->embed_id)); ?></span></div>
+							<?php endif; ?>
+						</td>
 						<td>
 							<?php if ((int) $row->user_id > 0 && !$ban) : ?>
 								<?php // Who asked, and from where, only for those who may see personal data (and ban) ?>

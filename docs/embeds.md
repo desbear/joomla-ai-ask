@@ -17,6 +17,8 @@ The script puts a frame of your Joomla site in a corner of the page: the size of
 
 ## Where the visitor is
 
+Visitors may drag the button anywhere on the page; where they leave it (its side and height) is kept for the website in the browser. `data-size` sets the pet's size in pixels on this website.
+
 The page's address and title go with each question. The page's own scripts may add a few values:
 
 ```js

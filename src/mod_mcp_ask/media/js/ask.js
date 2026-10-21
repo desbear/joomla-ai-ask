@@ -525,8 +525,38 @@
 
   // That website's page lets this frame capture it (embed.js 0.20.0), the browser too
   let hostCapture = false;
+  // That website signs its visitors in itself (embed.js 0.20.3): the sign-in button leads there
+  let hostLogin = false;
+  // ...and signs them out (embed.js 0.20.3): signing out here signs out there, or the next page would sign in again
+  let hostLogout = false;
+
+  // That website lets the button be dragged (embed.js 0.20.4)
+  let hostDrag = false;
 
   onHost('host', (data) => {
+    hostLogin = Boolean(data.login);
+    hostLogout = Boolean(data.logout);
+    hostDrag = Boolean(data.drag);
+    identityHeard.forEach((callback) => callback());
+
+    // Its side, where the visitor left it; the pet's size that website sets
+    roots.filter((root) => root.dataset.mode === 'float').forEach((root) => {
+      if (['left', 'right'].includes(data.side)) {
+        root.dataset.side = data.side;
+      }
+
+      const size = Math.round(Number(data.size) || 0);
+
+      if (size >= 48 && size <= 240 && root.classList.contains('mcp-ask--pet')) {
+        root.style.setProperty('--mcp-ask-pet-wide', `${size}px`);
+        root.style.setProperty('--mcp-ask-pet-mobile', `${size}px`);
+
+        if (root.dataset.state === 'idle') {
+          hostSize('button');
+        }
+      }
+    });
+
     let allowed = true;
 
     try {
@@ -749,6 +779,7 @@
     <div class="mcp-ask-chat__panel">
       <header class="mcp-ask-chat__head">
         <p class="mcp-ask-chat__title"></p>
+        <span class="mcp-ask-chat__who" hidden></span>
         <button type="button" class="mcp-ask-chat__login" hidden></button>
         <button type="button" class="mcp-ask-chat__human" hidden></button>
         <button type="button" class="mcp-ask-chat__new"></button>
@@ -1336,11 +1367,13 @@
   const agentStartUrl = roots.map((root) => root.dataset.agentStart).find(Boolean) || '';
   const agentStepUrl = roots.map((root) => root.dataset.agentStep).find(Boolean) || '';
   const agentReportUrl = roots.map((root) => root.dataset.agentReport).find(Boolean) || '';
+  const agentListUrl = roots.map((root) => root.dataset.agentList).find(Boolean) || '';
+  const agentLookupUrl = roots.map((root) => root.dataset.agentLookup).find(Boolean) || '';
+  const cleanAgent = (item) => (item && Number(item.id) > 0 ? { id: Number(item.id), label: String(item.label || '').slice(0, 100), status: ['open', 'closed'].includes(item.status) ? item.status : '' } : null);
+  const cleanAgents = (list) => (Array.isArray(list) ? list.map(cleanAgent).filter(Boolean) : []);
   const agentList = (() => {
     try {
-      const list = JSON.parse(roots.map((root) => root.dataset.agents).find(Boolean) || '[]');
-
-      return Array.isArray(list) ? list.filter((item) => item && Number(item.id) > 0).map((item) => ({ id: Number(item.id), label: String(item.label || '').slice(0, 100), status: ['open', 'closed'].includes(item.status) ? item.status : '' })) : [];
+      return cleanAgents(JSON.parse(roots.map((root) => root.dataset.agents).find(Boolean) || '[]'));
     } catch (error) {
       return [];
     }
@@ -1621,7 +1654,7 @@
 
   // Suggestions from a service as the visitor types, as a form's own scripts may give them: the
   // one chosen goes into the field, and its other keys into other fields of the card
-  const lookup = (control, settings, form) => {
+  const lookup = (control, settings, form, name) => {
     const list = el('ul', 'mcp-ask-lookup');
     let timer = 0;
     let asked = 0;
@@ -1676,8 +1709,11 @@
         const mine = ++asked;
 
         try {
-          const response = await fetch(settings.url.replace('{query}', encodeURIComponent(query)), { credentials: 'omit' });
-          const data = response.ok ? await response.json() : [];
+          // This site asks the service for the visitor (0.20.3): few services let a browser on
+          // another website read their answers
+          const data = settings.url
+            ? await fetch(settings.url.replace('{query}', encodeURIComponent(query)), { credentials: 'omit' }).then((response) => (response.ok ? response.json() : []))
+            : ((await agentPost(agentLookupUrl, { session: agent ? agent.key : '', field: name, query })) || {}).items;
 
           if (mine !== asked) {
             return;
@@ -1843,7 +1879,7 @@
         wrap.append(control);
 
         if (item.lookup && item.kind !== 'textarea') {
-          lookup(control, item.lookup, form);
+          lookup(control, item.lookup, form, item.name);
         }
       }
 
@@ -2163,11 +2199,9 @@
 
   const HANDOFF_LINK = '#mcp-ask-handoff';
   const agentHandoffUrl = roots.map((root) => root.dataset.agentHandoff).find(Boolean) || '';
-  const handoffAgent = (() => {
+  let handoffAgent = (() => {
     try {
-      const item = JSON.parse(roots.map((root) => root.dataset.handoff).find(Boolean) || 'null');
-
-      return item && Number(item.id) > 0 ? { id: Number(item.id), label: String(item.label || '').slice(0, 100), status: ['open', 'closed'].includes(item.status) ? item.status : '' } : null;
+      return cleanAgent(JSON.parse(roots.map((root) => root.dataset.handoff).find(Boolean) || 'null'));
     } catch (error) {
       return null;
     }
@@ -3098,6 +3132,9 @@
 
   // The agents to try: at most so many as chips (all of them by default), the rest in one button;
   // or, to fit one line, as many as fit
+  // Each list drawn, to draw again when the agents change (an embed learning who the visitor is)
+  const chipLists = [];
+
   const chips = (target, from, { most = Infinity, fit = false } = {}) => {
     const lay = (shown) => {
       target.replaceChildren(
@@ -3106,30 +3143,15 @@
         ...(shown < agentList.length ? [more(agentList.slice(shown), from)] : []),
       );
     };
-
-    if (!agentList.length) {
-      target.replaceChildren();
-
-      return;
-    }
-
-    const all = Math.min(most, agentList.length);
-
-    lay(all);
-
-    if (!fit) {
-      return;
-    }
-
-    // One line: fewer chips while they run over, measured again when the width changes
-    target.classList.add('mcp-ask-try--line');
-
     let width = 0;
 
-    new ResizeObserver(() => {
-      if (target.hidden || !target.clientWidth || target.clientWidth === width) {
+    // One line: fewer chips while they run over, measured again when the width changes
+    const measure = () => {
+      if (!agentList.length || target.hidden || !target.clientWidth || target.clientWidth === width) {
         return;
       }
+
+      const all = Math.min(most, agentList.length);
 
       width = target.clientWidth;
       closeMenu();
@@ -3138,7 +3160,30 @@
       for (let shown = all - 1; shown >= 0 && target.scrollWidth > target.clientWidth + 1; shown--) {
         lay(shown);
       }
-    }).observe(target);
+    };
+
+    const paint = () => {
+      if (!agentList.length) {
+        target.replaceChildren();
+
+        return;
+      }
+
+      lay(Math.min(most, agentList.length));
+
+      if (fit) {
+        width = 0;
+        measure();
+      }
+    };
+
+    paint();
+    chipLists.push(paint);
+
+    if (fit) {
+      target.classList.add('mcp-ask-try--line');
+      new ResizeObserver(measure).observe(target);
+    }
   };
 
   chips(agentChips, () => origin, { fit: true });
@@ -4830,23 +4875,49 @@
   // Embedded: signing in, in a small window of this site; the token it hands back says who the
   // visitor is to this site's server, for this key, for some hours
   const login = dialog.querySelector('.mcp-ask-chat__login');
+  const who = dialog.querySelector('.mcp-ask-chat__who');
 
+  // The name a token the website's server signed gives (only shown, never trusted: the server checks the token)
+  const tokenName = (token) => {
+    try {
+      const body = String(token || '').split('.')[1] || '';
+      const bytes = Uint8Array.from(window.atob(body.replace(/-/g, '+').replace(/_/g, '/')), (char) => char.charCodeAt(0));
+      const json = new TextDecoder().decode(bytes);
+
+      return plain(String(JSON.parse(json).name || ''), 100);
+    } catch (error) {
+      return '';
+    }
+  };
+
+  // Signed in: who, then a button to sign out; otherwise a button to sign in
   const paintLogin = () => {
-    login.hidden = !embed || (!embed.login && !identity);
-    login.textContent = identity ? identity.name || strings.signOut : strings.signIn;
-    login.title = identity ? strings.signOut : '';
-    login.classList.toggle('mcp-ask-chat__login--in', Boolean(identity));
+    const name = identity ? identity.name || tokenName(identity.token) : '';
+
+    login.hidden = !embed || (!embed.login && !hostLogin && !identity);
+    login.textContent = identity ? strings.signOut : strings.signIn;
+    who.hidden = !embed || !name;
+    who.textContent = name;
+    who.title = name;
   };
 
   if (embed) {
     login.addEventListener('click', () => {
       if (identity) {
+        // Signed in by the website: signed out there too
+        if (hostLogout && identity.product) {
+          hostPost('logout');
+        }
+
         keepIdentity(null);
 
         return;
       }
 
-      if (embed.login) {
+      // The website's own sign-in when it has one (single sign-on there), else a small window of this site
+      if (hostLogin) {
+        hostPost('login');
+      } else if (embed.login) {
         window.open(embed.login, 'mcp-ask-login', 'popup,width=480,height=680');
       }
     });
@@ -4880,15 +4951,55 @@
 
   // Helpers listed with the search box, before anything is asked
   launchers.forEach((launcher) => {
-    if (!agentList.length) {
+    // Embedded, there may be some once the visitor is known
+    if (!agentList.length && !(embed && agentListUrl)) {
       return;
     }
 
     const list = el('div', 'mcp-ask__agents');
+    list.hidden = !agentList.length;
     launcher.root.append(list);
     // Beside a pet, two at most: the rest in one button
     chips(list, () => launcher, launcher.root.classList.contains('mcp-ask--pet') ? { most: 2 } : {});
   });
+
+  // Embedded, the frame was made before the other website said who the visitor is: the agents
+  // kept to some user groups are asked for again once it has, and when they sign out (0.20.3)
+  let agentsAskedFor = '';
+  const refreshAgents = () => {
+    const who = identity ? identity.token : '';
+
+    if (!embed || !agentListUrl || who === agentsAskedFor) {
+      return;
+    }
+
+    agentsAskedFor = who;
+    agentPost(agentListUrl, {}).then((data) => {
+      if (!data || data.error || !Array.isArray(data.agents) || who !== (identity ? identity.token : '')) {
+        return;
+      }
+
+      agentList.splice(0, agentList.length, ...cleanAgents(data.agents));
+      handoffAgent = cleanAgent(data.handoff);
+      Object.keys(agentLooks).forEach((id) => { delete agentLooks[id]; });
+      Object.assign(agentLooks, data.looks && typeof data.looks === 'object' ? data.looks : {});
+      closeMenu();
+      chipLists.forEach((paint) => paint());
+      launchers.forEach((launcher) => {
+        const list = launcher.root.querySelector('.mcp-ask__agents');
+
+        if (list) {
+          list.hidden = !agentList.length;
+        }
+      });
+      showAgentMode();
+    }).catch(() => {
+      agentsAskedFor = '';
+    });
+  };
+
+  identityHeard.push(refreshAgents);
+  refreshAgents();
 
   // Beside a pet, the box to type in and the helpers to try are one card that the pet speaks:
   // above it, or below it when the pet sits too high for the card to fit
@@ -4964,6 +5075,97 @@
   const keepSpot = (side, y) => {
     document.cookie = `${SPOT}=${side}:${y.toFixed(4)}; path=/; max-age=31536000; SameSite=Lax${window.location.protocol === 'https:' ? '; Secure' : ''}`;
   };
+
+  // Embedded (0.20.4): the button is dragged in a frame that covers the window meanwhile. Where it was
+  // is told by the website's page once the frame is that big, so it stays under the finger; let go,
+  // the page puts the frame, the button's size again, where the button is, and keeps the place.
+  launchers.filter((launcher) => launcher.float && embed).forEach((launcher) => {
+    const { root, toggle } = launcher;
+    let drag = null;
+
+    onHost('dragging', (data) => {
+      if (!drag || drag.shifted) {
+        return;
+      }
+
+      const dx = Number(data.left) || 0;
+      const dy = Number(data.top) || 0;
+
+      Object.assign(drag, { x: drag.x + dx, y: drag.y + dy, left: drag.left + dx, top: drag.top + dy, shifted: true });
+      root.classList.add('mcp-ask--dragging');
+      Object.assign(root.style, { left: `${drag.left}px`, top: `${drag.top}px`, right: 'auto', bottom: 'auto', visibility: '' });
+    });
+
+    toggle.addEventListener('pointerdown', (event) => {
+      if (!hostDrag || root.dataset.state !== 'idle' || event.button !== 0) {
+        return;
+      }
+
+      const box = root.getBoundingClientRect();
+
+      drag = { id: event.pointerId, x: event.clientX, y: event.clientY, left: box.left, top: box.top, moved: false, shifted: false };
+    });
+
+    toggle.addEventListener('pointermove', (event) => {
+      if (!drag || event.pointerId !== drag.id) {
+        return;
+      }
+
+      if (!drag.moved) {
+        if (Math.hypot(event.clientX - drag.x, event.clientY - drag.y) < DRAG) {
+          return;
+        }
+
+        drag.moved = true;
+        toggle.setPointerCapture(drag.id);
+        // Out of sight until the frame covers the window, or it would show in its corner a moment
+        root.style.visibility = 'hidden';
+        hostPost('drag', { phase: 'start' });
+
+        return;
+      }
+
+      // Until the frame covers the window, where the finger is means something else
+      if (!drag.shifted) {
+        return;
+      }
+
+      const size = root.offsetWidth;
+
+      Object.assign(root.style, {
+        left: `${Math.min(Math.max(0, drag.left + event.clientX - drag.x), window.innerWidth - size)}px`,
+        top: `${Math.min(Math.max(0, drag.top + event.clientY - drag.y), window.innerHeight - size)}px`,
+      });
+    });
+
+    const drop = (event) => {
+      if (!drag || event.pointerId !== drag.id) {
+        return;
+      }
+
+      const { moved } = drag;
+
+      drag = null;
+
+      if (!moved) {
+        return;
+      }
+
+      launcher.dragged = true;
+      window.setTimeout(() => { launcher.dragged = false; }, 0);
+
+      const box = root.getBoundingClientRect();
+      const side = box.left + box.width / 2 < window.innerWidth / 2 ? 'left' : 'right';
+
+      root.classList.remove('mcp-ask--dragging');
+      ['left', 'top', 'right', 'bottom', 'visibility'].forEach((name) => root.style.removeProperty(name));
+      root.dataset.side = side;
+      hostPost('drag', { phase: 'end', side, rect: { top: box.top, height: box.height } });
+    };
+
+    toggle.addEventListener('pointerup', drop);
+    toggle.addEventListener('pointercancel', drop);
+  });
 
   launchers.filter((launcher) => launcher.float && !embed).forEach((launcher) => {
     const { root, toggle } = launcher;
@@ -5115,7 +5317,8 @@
     const phone = window.matchMedia('(max-width: 640px)');
     const hasThumbs = Object.values(data.actions).some((item) => item && item.thumb);
     const fitPhone = () => {
-      stages[0].kind = phone.matches && hasThumbs ? 'thumb' : 'full';
+      // Not in an embed's frame: narrow on any screen
+      stages[0].kind = phone.matches && hasThumbs && !embed ? 'thumb' : 'full';
       root.classList.toggle('mcp-ask--pet-half', stages[0].kind === 'thumb');
     };
 
@@ -5491,7 +5694,16 @@
   const petRoom = () => {
     const launcher = launchers.find((item) => item.root.classList.contains('mcp-ask--pet'));
 
-    return launcher ? Math.round(parseFloat(getComputedStyle(launcher.root).getPropertyValue('--mcp-ask-size')) || 0) + 40 : 0;
+    if (!launcher) {
+      return 0;
+    }
+
+    // The pet and 28 pixels all round it (embedded CSS), for what it does beyond its box: as big as it is
+    // drawn (its size may come from the website, or the phone size in a narrow frame)
+    const pet = launcher.root.querySelector('.mcp-ask-pet');
+    const drawn = Math.max(pet ? pet.offsetWidth : 0, pet ? pet.offsetHeight : 0, launcher.root.offsetWidth, launcher.root.offsetHeight);
+
+    return Math.round(drawn || parseFloat(getComputedStyle(launcher.root).getPropertyValue('--mcp-ask-size')) || 0) + 56;
   };
 
   let origin = launchers[0];
@@ -5501,11 +5713,13 @@
     launcher.root.dataset.state = state;
     launcher.input.readOnly = state === 'pending';
 
+    // The card beside a pet: above it when it fits there, or when there is more room there than below
     if (launcher.card && state !== 'idle') {
-      const top = launcher.root.getBoundingClientRect().top;
-      const pet = launcher.root.querySelector('.mcp-ask-pet');
+      const box = (launcher.root.querySelector('.mcp-ask-pet') || launcher.root).getBoundingClientRect();
+      const above = box.top - 24;
+      const below = window.innerHeight - box.bottom - 24;
 
-      launcher.root.dataset.card = (pet ? pet.getBoundingClientRect().top : top) - launcher.card.offsetHeight - 24 < 0 ? 'below' : 'above';
+      launcher.root.dataset.card = launcher.card.offsetHeight <= above || above >= below ? 'above' : 'below';
     }
 
     if (!launcher.box) {

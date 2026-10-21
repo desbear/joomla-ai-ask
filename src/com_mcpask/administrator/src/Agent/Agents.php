@@ -12,8 +12,10 @@ namespace Gss\Component\Mcpask\Administrator\Agent;
 
 use Gss\Component\Mcpask\Administrator\Ask\Settings;
 use Gss\Component\Mcpask\Administrator\Ask\Vector;
+use Gss\Component\Mcpask\Administrator\Pet\Pets;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Plugin\PluginHelper;
+use Joomla\CMS\User\User;
 use Joomla\Database\DatabaseInterface;
 use Joomla\Event\Event;
 use Joomla\Registry\Registry;
@@ -104,6 +106,57 @@ final class Agents
                 && \in_array((int) $agent->params->get('access', 1), $levels, true)
                 && self::allowsGroups($agent, $groups);
         }));
+    }
+
+    /**
+     * What the module lists for a visitor: the agents offered as buttons (their ID and button text),
+     * the one that passes visitors on to a person, if any, listed or not, and how each shows itself.
+     * The page has them from the start; an embedded one asks again once it knows who the visitor is
+     * (0.20.3), since the frame was made before the other website said so.
+     *
+     * @return  array{0: array<int, array{id: int, label: string}>, 1: array{id: int, label: string}|null, 2: array<int, array>}
+     */
+    public function offer(string $language, User $user): array
+    {
+        $agents  = $this->active($language, array_map('intval', $user->getAuthorisedViewLevels()), array_map('intval', $user->getAuthorisedGroups()));
+        $listed  = [];
+        $handoff = null;
+        $looks   = [];
+        $pets    = class_exists(Pets::class) ? new Pets($this->db) : null;
+
+        try {
+            $types = self::types();
+        } catch (\Throwable) {
+            $types = [];
+        }
+
+        foreach ($agents as $agent) {
+            $item = ['id' => (int) $agent->id, 'label' => trim((string) $agent->params->get('suggest_label', '')) ?: (string) $agent->title];
+
+            // Whether people answer now, for agents that pass visitors on to people (office hours)
+            if (isset($types[$agent->type]) && method_exists($types[$agent->type], 'status')) {
+                try {
+                    $item['status'] = (string) $types[$agent->type]->status($agent);
+                } catch (\Throwable) {
+                    // No status: no light
+                }
+            }
+
+            // How each shows itself: its name, and its picture or pet
+            $avatar = $pets && method_exists($pets, 'avatar') ? $pets->avatar((string) $agent->params->get('avatar', ''), (string) $agent->params->get('avatar_image', '')) : null;
+            $looks[(int) $agent->id] = array_filter(['title' => (string) $agent->title, 'avatar' => $avatar]);
+
+            if ($agent->params->get('suggest', 1)) {
+                $listed[] = $item;
+            }
+
+            // The first agent that passes visitors on to people (one that tells whether they answer now)
+            if (isset($item['status']) && !$handoff) {
+                $handoff = $item;
+            }
+        }
+
+        return [\array_slice($listed, 0, 4), $handoff, $looks];
     }
 
     /**

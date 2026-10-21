@@ -17,7 +17,10 @@
  * chooses to: this page puts the frame aside meanwhile.
  *
  * Optional attributes: data-lang (a language tag), data-user (a token the website's server signed
- * for its signed-in visitor), data-title (the frame's name for screen readers).
+ * for its signed-in visitor), data-login (where the website signs its visitors in: the frame's
+ * sign-in button leads there), data-logout (where it signs them out: signing out in the
+ * conversation goes there), data-size (the pet's size in pixels), data-title (the frame's name
+ * for screen readers). The visitor may drag the button; where they leave it is kept for this website.
  *
  * window.McpAsk: setContext({...}) what this page is about (a few short values), setUser(token,
  * name) or setUser(null), open(), close().
@@ -85,6 +88,44 @@
   let button = 96;
   let context = {};
   let user = script.dataset.user ? { token: script.dataset.user, name: '' } : null;
+  // Where this website signs its visitor out (data-logout): signing out in the conversation goes there
+  const logoutUrl = (() => {
+    try {
+      const url = script.dataset.logout ? new URL(script.dataset.logout, window.location.href) : null;
+
+      return url && ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+    } catch (error) {
+      return '';
+    }
+  })();
+  // The pet's size here (data-size, pixels), when this website sets one (0.20.4)
+  const petSize = Math.min(240, Math.max(48, Number(script.dataset.size) || 0)) || 0;
+  // Where the visitor last dragged the button to on this website: the side, and the height as a
+  // share of the window (0 top, 1 bottom), so it stays put when the window changes size
+  const SPOT = `mcp-ask-embed:${key}`;
+  // Left for this website's sign-in from the conversation: opened again on coming back signed in
+  const REOPEN = `mcp-ask-embed-reopen:${key}`;
+  const REOPEN_WITHIN = 15 * 60 * 1000;
+  let spot = (() => {
+    try {
+      const kept = JSON.parse(window.localStorage.getItem(SPOT));
+
+      return kept && ['left', 'right'].includes(kept.side) && kept.y >= 0 && kept.y <= 1 ? kept : null;
+    } catch (error) {
+      return null;
+    }
+  })();
+  // Where this website signs its visitors in (data-login): the frame's sign-in button leads there
+  // instead of to the frame's own site, and the visitor comes back signed in (0.20.3)
+  const loginUrl = (() => {
+    try {
+      const url = script.dataset.login ? new URL(script.dataset.login, window.location.href) : null;
+
+      return url && ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+    } catch (error) {
+      return '';
+    }
+  })();
   const waiting = [];
 
   const post = (type, data = {}) => {
@@ -119,16 +160,23 @@
 
     frame.style.visibility = ready && capture !== 'hidden' ? 'visible' : 'hidden';
 
-    const full = mode === 'full';
+    // While the button is dragged the frame covers the window, see-through, so it can be put anywhere
+    const full = mode === 'full' || mode === 'drag';
     const wide = Math.min(window.innerWidth, 480);
+    const height = full ? window.innerHeight : Math.min(window.innerHeight, mode === 'bar' ? 260 + Math.max(0, button - 96) : button);
+    const at = spot ? spot.side : side;
+    // Moved by the visitor: at the height they left it, the button's frame; a bigger frame (the open
+    // box) keeps its bottom where the button's was, so the pet stays where it is and the box opens above
+    const buttonTop = spot ? spot.y * Math.max(0, window.innerHeight - Math.min(window.innerHeight, button)) : 0;
+    const top = !full && spot ? Math.round(Math.min(Math.max(0, buttonTop + Math.min(window.innerHeight, button) - height), window.innerHeight - height)) : null;
 
     Object.assign(frame.style, {
-      top: full ? '0' : 'auto',
-      bottom: '0',
-      left: full || side === 'left' ? '0' : 'auto',
-      right: full || side === 'right' ? '0' : 'auto',
+      top: full ? '0' : (top === null ? 'auto' : `${top}px`),
+      bottom: full || top === null ? '0' : 'auto',
+      left: full || at === 'left' ? '0' : 'auto',
+      right: full || at === 'right' ? '0' : 'auto',
       width: full ? '100vw' : `${mode === 'bar' ? Math.min(window.innerWidth, wide + (button > 96 ? button - 40 : 0)) : button}px`,
-      height: full ? '100dvh' : `${mode === 'bar' ? 260 + Math.max(0, button - 96) : button}px`,
+      height: full ? '100dvh' : `${height}px`,
     });
   };
 
@@ -304,13 +352,27 @@
         frame.style.visibility = 'visible';
         sendContext();
         // This page lets the frame capture it, and puts the frame aside meanwhile
-        post('host', { capture: true });
+        post('host', { capture: true, login: Boolean(loginUrl) && !user, logout: Boolean(logoutUrl) && Boolean(user), drag: true, size: petSize, side: spot ? spot.side : side });
 
-        if (user) {
-          post('user', user);
-        }
+        // Who is signed in on this page; nobody (signed out on this website meanwhile): whoever this
+        // website said before is forgotten in the frame too (0.20.3)
+        post('user', user || { token: null });
 
         waiting.splice(0).forEach((callback) => callback());
+
+        // Back from signing in to ask more: the conversation again (it was kept in the frame)
+        try {
+          const left = Number(window.localStorage.getItem(REOPEN)) || 0;
+
+          window.localStorage.removeItem(REOPEN);
+
+          if (user && left && Date.now() - left < REOPEN_WITHIN) {
+            post('open');
+          }
+        } catch (error) {
+          // Not opened again by itself
+        }
+
         break;
       case 'size':
         mode = ['button', 'bar', 'full'].includes(data.mode) ? data.mode : 'button';
@@ -346,6 +408,57 @@
 
         break;
       }
+      // The button is dragged (0.20.4): the frame covers the window meanwhile, and says where it was,
+      // so the button stays under the finger; let go, it is the button's size again where it was put
+      case 'drag': {
+        if (data.phase === 'start' && mode === 'button') {
+          const before = frame.getBoundingClientRect();
+
+          mode = 'drag';
+          place();
+          // Once the frame has its new size (a timer: animation frames wait while a tab is hidden)
+          window.setTimeout(() => post('dragging', { left: before.left, top: before.top }), 30);
+        } else if (data.phase === 'end' && mode === 'drag') {
+          const rect = data.rect || {};
+          const at = data.side === 'left' ? 'left' : 'right';
+          const height = Math.min(window.innerHeight, button);
+          // The frame where the button now is, the button keeping its place in the frame
+          const top = Math.min(Math.max(0, Number(rect.top) + Number(rect.height) + (button - Number(rect.height)) / 2 - height), window.innerHeight - height);
+          const range = window.innerHeight - height;
+
+          spot = { side: at, y: range > 0 ? Math.min(1, Math.max(0, top / range)) : 1 };
+
+          try {
+            window.localStorage.setItem(SPOT, JSON.stringify(spot));
+          } catch (error) {
+            // Where it is until the page is left
+          }
+
+          mode = 'button';
+          place();
+          window.requestAnimationFrame(() => post('sized', { mode }));
+        }
+
+        break;
+      }
+      case 'logout':
+        if (logoutUrl) {
+          window.location.assign(logoutUrl);
+        }
+
+        break;
+      case 'login':
+        if (loginUrl) {
+          try {
+            window.localStorage.setItem(REOPEN, String(Date.now()));
+          } catch (error) {
+            // Not opened again by itself
+          }
+
+          window.location.assign(loginUrl);
+        }
+
+        break;
       case 'handoff':
         handoff(data);
         break;

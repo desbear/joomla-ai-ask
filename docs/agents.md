@@ -27,7 +27,7 @@ The form is shown in the language of the page, from RSForm's own translations, a
 
 - **Fields left out**: names of fields not to show, such as text the form's page hides with CSS.
 - **Field for the page**: a (hidden) field sent with the address of the page the visitor started from.
-- **Look-ups**: a field that suggests values from a JSON service as the visitor types, and fills in other fields from the one chosen (a company found by name, filling in its registration number). The visitor's browser asks the service, so it must allow the website (CORS).
+- **Look-ups**: a field that suggests values from a JSON service as the visitor types, and fills in other fields from the one chosen (a company found by name, filling in its registration number). This site asks the service for the visitor (since 0.20.3), so the service need not allow the website (CORS); it must be on the public internet, and only the address set for the field is asked.
 
 **Analysis report** (optional): once sent, a report written for the visitor from their answers and the site's pages: a result type (as in a personality test), scores, sections each with what it is for and how long, the pages it cites, buttons at the end, a private address kept for some days, and the link e-mailed. You write the types, scores and sections; nothing is filled in for you. Pictures may be the type's own, or made by AI when an image plugin is enabled (see below).
 

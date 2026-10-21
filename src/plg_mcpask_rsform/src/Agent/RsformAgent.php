@@ -179,7 +179,8 @@ final class RsformAgent implements AgentInterface
                 'help'     => $field['help'],
                 'placeholder' => $field['placeholder'],
                 'max'      => $field['max'],
-                'lookup'   => $lookups[$field['name']] ?? null,
+                // Where to ask stays on the server, which asks for the visitor (0.20.3)
+                'lookup'   => isset($lookups[$field['name']]) ? array_diff_key($lookups[$field['name']], ['url' => 1]) : null,
             ];
         }
 
@@ -415,6 +416,16 @@ final class RsformAgent implements AgentInterface
         $form->leaveOut(array_filter(array_map('trim', explode(',', (string) $context->own()->get('skip', '')))));
 
         return $form;
+    }
+
+    /**
+     * Where a field's look-up asks, with {query} where the visitor's words go; null for a field
+     * without one. The site asks for the visitor (0.20.3): a service seldom lets a browser on
+     * another website read its answers (CORS).
+     */
+    public function lookupUrl(Context $context, string $field): ?string
+    {
+        return $this->lookups($context)[$field]['url'] ?? null;
     }
 
     /**

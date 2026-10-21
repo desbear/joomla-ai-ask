@@ -74,6 +74,49 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
   status switched from the desk's card; new waiting chats light up red and ring a bell on the count; ended chats fold
   away; drop-down menus, Mac-like scroll bars, and the work on a calm grey-blue with white cards.
 
+## AI Ask for Joomla 0.20.3
+
+- **Signing in through the site that embeds AI Ask**: in the mode Another site's AI Ask, the conversation's Sign in
+  button takes a visitor who is not signed in to this site's own sign-in (its single sign-on, say; the module's new
+  Sign-in address, or this site's login page) and back to the page, where they are then known; it no longer opens
+  the other site's login. The embed script takes it as `data-login`.
+- **An embedded pet keeps its place**: the phone layout (a framed pet, the card docked at the bottom) is not used in
+  an embed's frame, which is narrow on any screen; the pet is shown whole there, with 28 pixels of room all round it
+  in the frame (it could be cut at a corner: the frame was sized from a value read too early, now from the pet as
+  drawn). Opened where it was dragged to, the box opens upward from the pet, which stays where it was.
+- The card beside a pet opens above it when it fits there or there is more room there, below it otherwise (it
+  could open below and run off the window).
+- **Agents kept to some user groups on the embedding website**: an embedded conversation lists them once the
+  other website says who the visitor is (or they sign in), and stops listing them when they sign out. The frame
+  is made before that is known, so it only listed the agents open to guests.
+- **Look-ups asked by this site**: a form field's look-up (RSForm agent) is asked by this site's server for the
+  visitor, so a service that does not allow the website in browsers (CORS) works too. Only the address set for
+  that field, of the visitor's own agent conversation, on the public internet; the first 8 items come back, with
+  plain values only. The address is no longer sent to the browser.
+- **A dragged pet stays put when opened**: on the website itself too, a pet dragged up the window no longer moves up
+  as the conversation opens (its height was taken from the open button's, smaller than the pet), which could push
+  the card below it or the pet off the top of the window.
+- **Embedded buttons can be dragged**: once the finger moves, the frame covers the window, see-through, and the
+  button follows; let go, the frame is the button's size again where it was put, and the website keeps the side and
+  height for its next pages. The embed script handles it; nothing to set.
+- **The pet's size on the embedding website**: the module's Pet size (another site's AI Ask), passed as `data-size`;
+  the frame is sized to it.
+- When a signed-in visitor cannot be passed on (no secret saved, no valid e-mail address), the page's source says
+  why in a comment.
+- **Who is signed in, then Sign out**: in an embedded conversation the visitor's name is shown, followed by a Sign
+  out button (instead of a button with the name and a dot). Signed in by the embedding website, signing out goes to
+  that website's sign-out (the module's new Sign-out address, or its own, back to the page), since the next page
+  would otherwise sign them in again. In the Sign-in and Sign-out addresses, `{return64}` stands for the page in
+  base64, as Joomla and External Login take it.
+- Signing out on the embedding website signs the visitor out of the conversation too: a page with nobody signed in
+  makes the frame forget whom that website had named (it kept them for up to an hour).
+- **Back from signing in, the conversation opens again**: a visitor who left the conversation for the website's
+  sign-in finds it open when they come back signed in (within a quarter of an hour), what was asked still there.
+- **Question log**: a page of its own (in the menu, and from the dashboard) with every question kept, a page at a
+  time, filtered by days, where it was asked (this site or another website through an embed key), how it ended,
+  its rating, its marks, who asked and words. Questions asked on another website are marked with the embed key's
+  name ("Via GSS Cloud") here and on the dashboard.
+
 ## AI Ask for Joomla 0.20.2
 
 - **A site can show another site's AI Ask, its members known there.** The AI Ask module has a mode **Another site's
