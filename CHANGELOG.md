@@ -74,6 +74,17 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
   status switched from the desk's card; new waiting chats light up red and ring a bell on the count; ended chats fold
   away; drop-down menus, Mac-like scroll bars, and the work on a calm grey-blue with white cards.
 
+## AI Ask for Joomla 0.20.2
+
+- **A site can show another site's AI Ask, its members known there.** The AI Ask module has a mode **Another site's
+  AI Ask (embedded)**: given the other site's address and an embed key with its secret, it writes that site's embed
+  script and, for a signed-in visitor, a token signed on the server (valid an hour; the secret never reaches the
+  page). Answers, agents and chats with people are the other site's, so one staff console serves both sites.
+- **Embed keys can make accounts for members of the other website**: when a correctly signed token gives an e-mail
+  address with no account here, one is made (e-mail and name, the key's group or the group of new users, a password
+  nobody knows, nothing mailed). Off by default.
+- Tokens signed by the other website are now accepted (a PHP notice had turned them away).
+
 ## AI Ask for Joomla 0.20.1
 
 - In a chat with a person, what waits above the box to be sent has a small round button at its corner to take it

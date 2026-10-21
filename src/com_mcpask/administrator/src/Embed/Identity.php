@@ -10,6 +10,7 @@
 
 namespace Gss\Component\Mcpask\Administrator\Embed;
 
+use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
 use Joomla\CMS\User\User;
 use Joomla\CMS\User\UserFactoryInterface;
@@ -130,12 +131,76 @@ final class Identity
             return null;
         }
 
-        $id = (int) $this->db->setQuery(
+        $lower = strtolower($email);
+        $id    = (int) $this->db->setQuery(
             $this->db->getQuery(true)->select('id')->from($this->db->quoteName('#__users'))
-                ->where('LOWER(email) = :email')->bind(':email', strtolower($email))
+                ->where('LOWER(email) = :email')->bind(':email', $lower)
         )->loadResult();
 
+        // A member of the other website with no account here yet: one is made when the key says so
+        if ($id < 1 && $embed->params->get('create_users', 0)) {
+            $id = $this->create($email, (string) ($claims['name'] ?? ''), $embed);
+        }
+
         return $this->active($id);
+    }
+
+    /**
+     * An account for a member the other website vouches for (0.20.2): e-mail and name, in the group
+     * the key gives (else the group of new users), with a password nobody knows, so it is used only
+     * through tokens; nothing is mailed. 0 when it cannot be made.
+     */
+    private function create(string $email, string $name, object $embed): int
+    {
+        $name  = trim(mb_substr(strip_tags($name), 0, 100)) ?: strstr($email, '@', true);
+        $group = (int) $embed->params->get('create_group', 0) ?: (int) ComponentHelper::getParams('com_users')->get('new_usertype', 2);
+        $user  = new User();
+
+        // Bound by reference
+        $data = [
+            'name'         => $name,
+            'username'     => $this->username($email),
+            'email'        => $email,
+            'password'     => bin2hex(random_bytes(24)),
+            'block'        => 0,
+            'activation'   => '',
+            'sendEmail'    => 0,
+            'requireReset' => 0,
+            'groups'       => [$group],
+            'params'       => ['mcpask_embed' => (int) $embed->id],
+        ];
+
+        try {
+            $made = $user->bind($data) && $user->save();
+        } catch (\Throwable) {
+            $made = false;
+        }
+
+        return $made ? (int) $user->id : 0;
+    }
+
+    /**
+     * A user name from the e-mail address, made free when another account has it already.
+     */
+    private function username(string $email): string
+    {
+        $base = mb_substr($email, 0, 140);
+        $name = $base;
+
+        for ($n = 2; $n < 100; $n++) {
+            $taken = (int) $this->db->setQuery(
+                $this->db->getQuery(true)->select('COUNT(*)')->from($this->db->quoteName('#__users'))
+                    ->where('username = :name')->bind(':name', $name)
+            )->loadResult();
+
+            if (!$taken) {
+                break;
+            }
+
+            $name = $base . '-' . $n;
+        }
+
+        return $name;
     }
 
     /**

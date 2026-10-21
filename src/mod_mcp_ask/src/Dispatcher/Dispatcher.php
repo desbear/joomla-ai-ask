@@ -36,15 +36,70 @@ class Dispatcher extends AbstractModuleDispatcher
     {
         $params = new Registry($this->module->params);
 
+        // Another site's AI Ask: this site's answer service is not needed, only that site's address and key
+        if ($params->get('mode') === 'remote') {
+            if ($this->remote($params) !== null) {
+                parent::dispatch();
+            }
+
+            return;
+        }
+
         if ($params->get('demo', 0) || $this->serviceReady()) {
             parent::dispatch();
         }
+    }
+
+    /**
+     * Another site's AI Ask, embedded (0.20.2): the address of its embed script, the key, the
+     * page's language, and for a signed-in visitor a token signed with the key's secret (HS256,
+     * valid an hour) that says who they are. Null when the settings are not complete.
+     *
+     * @return  array{src: string, key: string, lang: string, user: string, title: string}|null
+     */
+    private function remote(Registry $params): ?array
+    {
+        $site = rtrim(trim((string) $params->get('remote_site', '')), '/');
+        $key  = trim((string) $params->get('remote_key', ''));
+        $host = strtolower((string) parse_url($site, PHP_URL_HOST));
+
+        // https only, but for addresses of this computer while trying it out
+        $local = \in_array($host, ['localhost', '127.0.0.1', '[::1]'], true) || str_ends_with($host, '.test') || str_ends_with($host, '.localhost');
+
+        if (!preg_match('#^https://#i', $site) && !($local && preg_match('#^http://#i', $site)) || $host === '' || !preg_match('/^pk_[A-Za-z0-9_-]{6,}$/', $key)) {
+            return null;
+        }
+
+        $user   = $this->getApplication()->getIdentity();
+        $secret = trim((string) $params->get('remote_secret', ''));
+        $token  = '';
+
+        if ($user && !$user->guest && $secret !== '' && filter_var((string) $user->email, FILTER_VALIDATE_EMAIL)) {
+            $now   = time();
+            $part  = static fn (array $data) => rtrim(strtr(base64_encode((string) json_encode($data, JSON_UNESCAPED_UNICODE)), '+/', '-_'), '=');
+            $head  = $part(['alg' => 'HS256', 'typ' => 'JWT']);
+            $body  = $part(['aud' => $key, 'email' => (string) $user->email, 'name' => (string) $user->name, 'iat' => $now, 'exp' => $now + 3600]);
+            $token = $head . '.' . $body . '.' . rtrim(strtr(base64_encode(hash_hmac('sha256', $head . '.' . $body, $secret, true)), '+/', '-_'), '=');
+        }
+
+        return [
+            'src'   => $site . '/media/mod_mcp_ask/js/embed.js',
+            'key'   => $key,
+            'lang'  => $this->getApplication()->getLanguage()->getTag(),
+            'user'  => $token,
+            'title' => trim((string) $params->get('title')) ?: Text::_('MOD_MCP_ASK_TITLE'),
+        ];
     }
 
     protected function getLayoutData(): array
     {
         $data   = parent::getLayoutData();
         $params = $data['params'];
+
+        // Another site's AI Ask: only its embed script is written
+        if ($params->get('mode') === 'remote') {
+            return $data + ['remote' => $this->remote($params)];
+        }
         $demo   = (bool) $params->get('demo', 0);
 
         $title       = trim((string) $params->get('title')) ?: Text::_('MOD_MCP_ASK_TITLE');

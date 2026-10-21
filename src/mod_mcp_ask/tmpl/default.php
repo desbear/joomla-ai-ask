@@ -15,6 +15,7 @@ use Joomla\CMS\Uri\Uri;
 
 /**
  * @var string   $mode         "icon", "box" (always-open search box) or "float" (button fixed to the corner of the window)
+ * @var array|null $remote     Another site's AI Ask, embedded: src, key, lang, user (a signed token or ""), title
  * @var boolean  $start        The icon opens towards the end of the line
  * @var string   $floatAt      Where the floating button sits on the edge of the window: "top", "middle" or "bottom"
  * @var string   $title
@@ -28,6 +29,14 @@ use Joomla\CMS\Uri\Uri;
  */
 
 $e     = static fn ($value) => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
+
+// Another site's AI Ask (0.20.2): its embed script, with who the visitor is when they are signed in
+if (!empty($remote)) {
+    echo '<script src="' . $e($remote['src']) . '" data-key="' . $e($remote['key']) . '" data-lang="' . $e($remote['lang']) . '" data-title="' . $e($remote['title']) . '"'
+        . ($remote['user'] !== '' ? ' data-user="' . $e($remote['user']) . '"' : '') . ' async></script>';
+
+    return;
+}
 $json  = static fn ($value) => $e(json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 $class = 'mcp-ask' . ($mode !== 'icon' ? ' mcp-ask--' . $mode : '') . (!empty($pet) ? ' mcp-ask--pet' : '') . ($start && $mode === 'icon' ? ' mcp-ask--start' : '')
     . ($mode === 'float' && $floatAt !== 'bottom' ? ' mcp-ask--float-' . $floatAt : '');

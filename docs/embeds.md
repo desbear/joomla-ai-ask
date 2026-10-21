@@ -34,7 +34,13 @@ What the other website's page says about who the visitor is never counts unless 
 - **Sign-in button**: a small window of your Joomla site, which may go straight to an External Login server (CAS single sign-on, say) or the site's login page, hands the frame a token for the key (8 hours) and closes. For websites without a sign-in of their own.
 - **Tokens signed by the other website's server** (off by default): a JWT signed HS256 with the key's secret, with `aud` the public key, `email`, `name`, `exp` within an hour, given as `data-user` or `McpAsk.setUser(token)`. The e-mail address must belong to an account on the Joomla site.
 
+- **Accounts for members of the other website** (off by default, with signed tokens): when a correctly signed token gives an e-mail address with no account on this site, one is made with that e-mail and name, in the group the key gives (or the group of new users), with a password nobody knows; nothing is mailed. For websites that share their members with this one, the same single sign-on, say.
+
 A known visitor is the request's user for that request only: questions are logged to the account, its limits and access apply, and agents fill in names and e-mail addresses.
+
+## Another Joomla site with AI Ask
+
+A Joomla site that has AI Ask itself can show this site's AI Ask without writing any code: in its **AI Ask** module, choose the mode **Another site's AI Ask (embedded)** and give this site's address, the key and the secret. The module writes the embed script, and for each signed-in visitor signs a token on its server (valid an hour; the secret is never written into the page). Turn on **Tokens signed by the other website** for the key, and **Make accounts for new members** when its members have no account here yet. Answers, agents and chats with people are then this site's, and the people who answer see the other site's signed-in visitors by name.
 
 ## Chats with people, and showing the screen
 

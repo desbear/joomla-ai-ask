@@ -5,7 +5,7 @@
 	<creationDate>2026-10</creationDate>
 	<copyright>(C) 2026 GSS</copyright>
 	<license>GNU General Public License version 2 or later; see LICENSE</license>
-	<version>0.20.1</version>
+	<version>0.20.2</version>
 	<description>MOD_MCP_ASK_XML_DESCRIPTION</description>
 	<namespace path="src">Gss\Module\McpAsk</namespace>
 	<files>
@@ -39,7 +39,15 @@
 					<option value="icon">MOD_MCP_ASK_FIELD_MODE_ICON</option>
 					<option value="box">MOD_MCP_ASK_FIELD_MODE_BOX</option>
 					<option value="float">MOD_MCP_ASK_FIELD_MODE_FLOAT</option>
+					<option value="remote">MOD_MCP_ASK_FIELD_MODE_REMOTE</option>
 				</field>
+				<field name="remote_note" type="note" class="alert alert-info w-100" description="MOD_MCP_ASK_REMOTE_NOTE" showon="mode:remote"/>
+				<field name="remote_site" type="url" filter="url" validate="url" hint="https://support.example.com" showon="mode:remote"
+					label="MOD_MCP_ASK_REMOTE_SITE" description="MOD_MCP_ASK_REMOTE_SITE_DESC"/>
+				<field name="remote_key" type="text" maxlength="80" filter="string" hint="pk_…" showon="mode:remote"
+					label="MOD_MCP_ASK_REMOTE_KEY" description="MOD_MCP_ASK_REMOTE_KEY_DESC"/>
+				<field name="remote_secret" type="password" maxlength="200" filter="raw" autocomplete="off" showon="mode:remote"
+					label="MOD_MCP_ASK_REMOTE_SECRET" description="MOD_MCP_ASK_REMOTE_SECRET_DESC"/>
 				<field
 					name="float_position"
 					type="list"
