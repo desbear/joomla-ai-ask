@@ -224,7 +224,7 @@ class StaffController extends BaseController
     }
 
     /**
-     * Something done in one of those panels ({room, name, action, text?, ref?}): what it shows now.
+     * Something done in one of those panels ({room, name, action, text?, ref?, note?, choices?}): what it shows now.
      */
     public function panel(): void
     {
@@ -234,6 +234,8 @@ class StaffController extends BaseController
         $input = [
             'text' => \is_string($body['text'] ?? null) ? mb_substr(trim($body['text']), 0, 200) : '',
             'ref'  => \is_string($body['ref'] ?? null) ? mb_substr(trim($body['ref']), 0, 100) : '',
+            'note'    => \is_string($body['note'] ?? null) ? mb_substr(trim($body['note']), 0, 4000) : '',
+            'choices' => \is_array($body['choices'] ?? null) ? \array_slice(array_values(array_filter(array_map(static fn ($choice) => \is_string($choice) ? mb_substr(trim($choice), 0, 100) : '', $body['choices']))), 0, 60) : [],
         ];
         $view  = \Gss\Component\Askdesk\Administrator\Desk\Panels::act((string) ($body['name'] ?? ''), $room, $me, (string) ($body['action'] ?? ''), $input);
 

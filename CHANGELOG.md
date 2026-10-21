@@ -2,6 +2,41 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.2.6
+
+- The side's headings stay in view as it scrolls: those passed stack at the top, those still below at the bottom.
+  One held there brings its part into view (opening it) when clicked; in its place, it folds as before.
+
+## AI Ask Desk 0.2.5
+
+- A panel's labels: the first eight, the rest behind "+N more" (and put away again); up to 200.
+- calc() in the console's styles written without "+", which some optimisers (JCH Optimize) break by taking the
+  spaces around it away.
+
+## AI Ask Desk 0.2.4
+
+- A panel's choices can come in groups, each a row with its name (a CRM's nested note categories, say).
+- A panel can show records of the visitor kept there (their notes before, say): the latest three, cut short, and
+  all of them in a side card that slides in over the side.
+
+## AI Ask Desk 0.2.3
+
+- The bar to take a screenshot with ("take the picture", "cancel") is whole again when the chat window is in
+  another site: centred by its margins, it no longer had only half of the narrow frame to lay out in, its words a
+  character a line and its buttons cut off (seen first in Safari).
+
+## AI Ask Desk 0.2.2
+
+- A panel's note can say who it will be written as, or why it can't be sent (sending is then off), and offer
+  choices to tick before sending, one at least (the note's categories in a CRM, say), drawn as pills.
+
+## AI Ask Desk 0.2.1
+
+- **A note in a panel**: a plugin's panel can carry a note the person answering reads, changes and sends on
+  themselves (to keep the chat in a CRM, say): AI drafts it from the chat, nothing goes until they confirm, and
+  once sent it shows when and where it went. `Summary::write()` drafts it, as a brief (request, done, next) or as
+  the chat made short, one "Q:"/"A:" line a turn.
+
 ## AI Ask Desk 0.2.0
 
 - **Panels from plugins**: beside a chat, plugins of the new `askdesk` group can show a section of their own at the

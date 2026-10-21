@@ -736,11 +736,12 @@
     .mcp-ask-capture__button:focus-visible { outline: none; box-shadow: 0 0 0 2px #a6d2ff; }
     .mcp-ask-capture__primary { border: 0; background: linear-gradient(45deg, #33cfff, #0e86fe); color: #fff; box-shadow: 0 6px 10px rgba(14, 134, 254, 0.3); }
     .mcp-ask-capture__primary:hover { color: #fff; filter: brightness(1.05); }
-    .mcp-ask-capture-bar { position: fixed; inset-block-end: 20px; inset-inline-start: 50%; z-index: 2147483647; display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 16px; border-radius: 24px; background: rgba(20, 24, 33, 0.92); color: #fff; font: 14px/1 system-ui, -apple-system, "PingFang TC", sans-serif; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); transform: translateX(-50%); animation: mcp-ask-capture-rise 0.3s ease-out; }
+    /* Centred by its margins, the whole width to lay out in: half of it (left 50%) is too little in a frame as narrow as the bar, as when the chat window is in another site */
+    .mcp-ask-capture-bar { position: fixed; inset-block-end: 20px; inset-inline: 0; z-index: 2147483647; display: flex; align-items: center; gap: 10px; box-sizing: border-box; inline-size: max-content; max-inline-size: calc(100vw - 16px); margin-inline: auto; padding: 8px 8px 8px 16px; border-radius: 24px; background: rgba(20, 24, 33, 0.92); color: #fff; font: 14px/1 system-ui, -apple-system, "PingFang TC", sans-serif; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3); animation: mcp-ask-capture-up 0.3s ease-out; }
     .mcp-ask-capture-bar__dot { inline-size: 10px; block-size: 10px; border-radius: 50%; background: #ff3b30; animation: mcp-ask-capture-blink 1s ease-in-out infinite; }
     .mcp-ask-capture-bar__time { font-variant-numeric: tabular-nums; opacity: 0.8; }
-    .mcp-ask-capture-bar--shot { gap: 8px; padding: 8px 8px 8px 18px; }
-    .mcp-ask-capture-bar--shot .mcp-ask-capture-bar__label { max-inline-size: 46vw; opacity: 0.85; font-size: 13px; line-height: 1.4; white-space: normal; }
+    .mcp-ask-capture-bar--shot { inset-block-end: max(12px, env(safe-area-inset-bottom)); gap: 8px; padding: 8px 8px 8px 18px; }
+    .mcp-ask-capture-bar--shot .mcp-ask-capture-bar__label { flex: 1 1 auto; min-inline-size: 8em; max-inline-size: 46vw; opacity: 0.85; font-size: 13px; line-height: 1.4; white-space: normal; }
     .mcp-ask-capture-bar__take, .mcp-ask-capture-bar__leave { min-block-size: 34px; padding: 0 16px; border: 0; border-radius: 17px; font: inherit; font-weight: 500; cursor: pointer; white-space: nowrap; }
     .mcp-ask-capture-bar__take { background: linear-gradient(45deg, #33cfff, #0e86fe); color: #fff; box-shadow: 0 6px 10px rgba(14, 134, 254, 0.35); }
     .mcp-ask-capture-bar__leave { background: rgba(255, 255, 255, 0.12); color: #fff; }
@@ -748,6 +749,7 @@
     .mcp-ask-capture-bar__stop { min-block-size: 32px; padding: 0 14px; border: 0; border-radius: 16px; background: #ff3b30; color: #fff; font: inherit; font-weight: 500; cursor: pointer; }
     @keyframes mcp-ask-capture-pop { from { opacity: 0; transform: scale(0.94); } }
     @keyframes mcp-ask-capture-rise { from { opacity: 0; transform: translate(-50%, 12px); } }
+    @keyframes mcp-ask-capture-up { from { opacity: 0; transform: translateY(12px); } }
     @keyframes mcp-ask-capture-blink { 50% { opacity: 0.35; } }
     @media (prefers-reduced-motion: reduce) { .mcp-ask-capture__card, .mcp-ask-capture-bar, .mcp-ask-capture-bar__dot { animation: none; } }
   `;

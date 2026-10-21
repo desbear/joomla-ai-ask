@@ -58,7 +58,9 @@ It is a package of its own, `pkg_askdesk`, which needs AI Ask 0.20.0 or later:
   who the visitor is in a CRM. It answers the `onAskdeskPanels` event with an object implementing
   `Gss\Component\Askdesk\Administrator\Desk\PanelInterface`: `view()` says what to show for a chat (a title,
   fields, labels, an https link, a search box and results to choose from), `act()` handles a search, a choice or a
-  refresh. The console draws it all as text; whatever the plugin calls stays on the server.
+  refresh. A panel may also carry a note (0.2.1): drafted by AI from the chat with `Summary::write()`, changed
+  by the person answering and sent only when they confirm. The console draws it all as text; whatever the plugin
+  calls stays on the server.
 - On a narrower screen these open over the chat with **Reference**.
 
 ## Links, search and typing

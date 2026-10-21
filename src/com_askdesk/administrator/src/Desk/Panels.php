@@ -86,7 +86,7 @@ final class Panels
     {
         $panel = self::all()[$name] ?? null;
 
-        if (!$panel || !\in_array($action, ['search', 'choose', 'refresh'], true)) {
+        if (!$panel || !\in_array($action, ['search', 'choose', 'refresh', 'draft', 'send'], true)) {
             return null;
         }
 
@@ -109,6 +109,8 @@ final class Panels
         $text  = static fn ($value, int $length = 300) => \is_scalar($value) ? mb_substr(trim((string) $value), 0, $length) : '';
         $https = static fn ($value) => \is_string($value) && preg_match('#^https://[^\s"<>]+$#i', $value) ? $value : '';
         $list  = static fn ($value) => \is_array($value) ? array_values($value) : [];
+        $note  = \is_array($view['note'] ?? null) ? $view['note'] : null;
+        $items = \is_array($view['list'] ?? null) ? $view['list'] : null;
         $link  = \is_array($view['link'] ?? null) && $https($view['link']['url'] ?? null) !== '' ? ['title' => $text($view['link']['title'] ?? '', 80), 'url' => $https($view['link']['url'])] : null;
 
         return [
@@ -118,9 +120,35 @@ final class Panels
             'state'    => \in_array($view['state'] ?? '', ['found', 'none', 'error', 'setup'], true) ? $view['state'] : 'none',
             'message'  => $text($view['message'] ?? '', 300),
             'fields'   => array_slice(array_values(array_filter(array_map(static fn ($field) => \is_array($field) ? ['label' => $text($field['label'] ?? '', 60), 'value' => $text($field['value'] ?? '', 400)] : null, $list($view['fields'] ?? [])), static fn ($field) => $field && $field['value'] !== '')), 0, 30),
-            'tags'     => array_slice(array_values(array_filter(array_map(static fn ($tag) => $text($tag, 60), $list($view['tags'] ?? [])))), 0, 30),
+            'tags'     => array_slice(array_values(array_filter(array_map(static fn ($tag) => $text($tag, 80), $list($view['tags'] ?? [])))), 0, 200),
             'link'     => $link,
             'search'   => \is_array($view['search'] ?? null) ? ['placeholder' => $text($view['search']['placeholder'] ?? '', 80)] : null,
+            'note'     => $note ? [
+                'title'   => $text($note['title'] ?? '', 80),
+                'text'    => $text($note['text'] ?? '', 4000),
+                'hint'    => $text($note['hint'] ?? '', 200),
+                'sent'    => $text($note['sent'] ?? '', 200),
+                'author'  => $text($note['author'] ?? '', 200),
+                'blocked' => $text($note['blocked'] ?? '', 300),
+                'choices' => array_slice(array_values(array_filter(array_map(static fn ($choice) => \is_array($choice) && $text($choice['value'] ?? '', 100) !== '' ? [
+                    'value'   => $text($choice['value'], 100),
+                    'label'   => $text(($choice['label'] ?? '') ?: $choice['value'], 60),
+                    'group'   => $text($choice['group'] ?? '', 60),
+                    'checked' => !empty($choice['checked']),
+                ] : null, $list($note['choices'] ?? [])))), 0, 60),
+            ] : null,
+            'list'     => $items ? [
+                'title' => $text($items['title'] ?? '', 80),
+                'empty' => $text($items['empty'] ?? '', 160),
+                'total' => max(0, (int) ($items['total'] ?? 0)),
+                'more'  => \is_array($items['more'] ?? null) && $https($items['more']['url'] ?? null) !== '' ? ['title' => $text($items['more']['title'] ?? '', 80), 'url' => $https($items['more']['url'])] : null,
+                'items' => array_slice(array_values(array_filter(array_map(static fn ($item) => \is_array($item) ? [
+                    'title' => $text($item['title'] ?? '', 120),
+                    'meta'  => $text($item['meta'] ?? '', 160),
+                    'text'  => $text($item['text'] ?? '', 4000),
+                    'tags'  => array_slice(array_values(array_filter(array_map(static fn ($tag) => $text($tag, 60), $list($item['tags'] ?? [])))), 0, 10),
+                ] : null, $list($items['items'] ?? [])), static fn ($item) => $item && ($item['title'] !== '' || $item['text'] !== ''))), 0, 50),
+            ] : null,
             'results'  => array_slice(array_values(array_filter(array_map(static fn ($item) => \is_array($item) && $text($item['ref'] ?? '', 100) !== '' ? ['ref' => $text($item['ref'], 100), 'title' => $text($item['title'] ?? '', 120), 'meta' => $text($item['meta'] ?? '', 200)] : null, $list($view['results'] ?? [])))), 0, 20),
         ];
     }

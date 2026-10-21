@@ -26,6 +26,15 @@ namespace Gss\Component\Askdesk\Administrator\Desk;
  *  - fields (list of {label, value}), tags (list of strings), link ({title, url}: https only)
  *  - search ({placeholder}): the person may look for another match; results ({ref, title, meta}),
  *    one to choose
+ *  - note ({title, text, hint, sent, author, blocked, choices}): a note the person answering reads,
+ *    changes and sends on themselves (to keep the chat in a CRM, say): text the draft in the box,
+ *    sent a line once it went (the box is then shown, not changed), author who it goes as, blocked
+ *    why it can't go (sending is then off), choices ({value, label, group, checked}) to tick, one
+ *    at least (a note's categories, say; those of a group shown together). Summary::write() drafts
+ *    one from the chat.
+ *  - list ({title, empty, total, more, items: {title, meta, text, tags}}): records of the visitor
+ *    kept there (notes before, say): the latest few shown, all of them in a side card; more a link
+ *    (https) to the rest when there are more than given.
  *
  * Text only: nothing in it is read as HTML.
  *
@@ -47,7 +56,9 @@ interface PanelInterface
     public function view(object $room, object $staff): array;
 
     /**
-     * Something the person answering did in it: "search" ({text}), "choose" ({ref}), "refresh".
+     * Something the person answering did in it: "search" ({text}), "choose" ({ref}), "refresh",
+     * "draft" (the note written again by AI) or "send" ({note, choices}: the note as they confirmed
+     * it, the choices ticked).
      *
      * @param   array<string, mixed>  $input
      *

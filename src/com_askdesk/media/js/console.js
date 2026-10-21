@@ -1045,12 +1045,11 @@
   const intro = el('div', 'askdesk-intro');
   const list = el('div', 'askdesk-list');
   const aside = el('aside', 'askdesk-room__aside');
-  // What scrolls in the side is a layer within it: its fading edges are cut there, while the side
-  // itself keeps its corners and its shadow
+  // What scrolls in the side is a layer within it, the side itself keeping its corners and its
+  // shadow; no fading edges there, the headings held at its top and bottom saying there is more
   const asideScroll = el('div', 'askdesk-room__aside-scroll');
 
   aside.append(asideScroll);
-  fades(asideScroll);
   const composer = el('form', 'askdesk-composer');
   const box = el('div', 'askdesk-composer__box');
   const field = el('textarea', 'askdesk-composer__field');
@@ -2169,16 +2168,88 @@
   const suggestList = el('div', 'askdesk-suggest');
   const historyList = el('div', 'askdesk-history');
 
-  // A part of the side panel, that folds
+  // A part of the side panel, that folds. Its heading and what is under it are put in the card side
+  // by side (the part itself draws no box), so the heading can stay in view while the side scrolls:
+  // stacked at the top once passed, at the bottom while still below. Like a details element, it has
+  // .open, data-state and a "toggle" event
   const panel = (title, iconName, content) => {
-    const details = el('details', 'askdesk-panel');
-    const summary = el('summary', 'askdesk-panel__title');
+    const section = el('div', 'askdesk-panel');
+    const mark = el('i', 'askdesk-panel__mark');
+    const head = el('button', 'askdesk-panel__title');
+    const body = el('div', 'askdesk-panel__body');
+    let moving = null;
 
-    summary.append(icon(iconName), el('span', '', title));
-    details.open = true;
-    details.append(summary, content);
+    head.type = 'button';
+    head.setAttribute('aria-expanded', 'true');
+    head.append(icon(iconName), el('span', '', title));
+    body.append(content);
+    section.append(mark, head, body);
+    section.dataset.state = 'open';
 
-    return smooth(details);
+    const show = (open, animate) => {
+      if (section.dataset.state === (open ? 'open' : 'closed')) {
+        return;
+      }
+
+      section.dataset.state = open ? 'open' : 'closed';
+      head.setAttribute('aria-expanded', String(open));
+
+      if (moving) {
+        moving.cancel();
+        moving = null;
+      }
+
+      body.hidden = false;
+
+      if (animate && !reduced.matches) {
+        const full = body.scrollHeight;
+
+        body.style.overflow = 'hidden';
+        moving = body.animate(
+          [{ height: `${open ? 0 : full}px`, opacity: open ? 0 : 1 }, { height: `${open ? full : 0}px`, opacity: open ? 1 : 0 }],
+          { duration: open ? 260 : 200, easing: EASE },
+        );
+
+        const current = moving;
+
+        current.finished.then(() => {
+          body.hidden = !open;
+          body.style.overflow = '';
+          moving = null;
+        }, () => {
+          body.style.overflow = '';
+        });
+      } else {
+        body.hidden = !open;
+      }
+
+      section.dispatchEvent(new Event('toggle'));
+    };
+
+    Object.defineProperty(section, 'open', {
+      get: () => section.dataset.state === 'open',
+      set: (open) => show(Boolean(open), false),
+    });
+
+    // A heading held at the top or the bottom brings its part into view (opened); in its place, it folds
+    head.addEventListener('click', () => {
+      const at = head.getBoundingClientRect().top;
+      const own = mark.getBoundingClientRect().top;
+
+      if (Math.abs(at - own) < 2) {
+        show(section.dataset.state !== 'open', true);
+
+        return;
+      }
+
+      show(true, true);
+
+      const above = Number(head.style.getPropertyValue('--above')) || 0;
+
+      asideScroll.scrollBy({ top: own - asideScroll.getBoundingClientRect().top - above * head.offsetHeight, behavior: reduced.matches ? 'auto' : 'smooth' });
+    });
+
+    return section;
   };
 
   // The library in Dropfiles: one's own files and the shared ones, to send in the chat
@@ -2222,8 +2293,256 @@
   panels.append(panel(t.suggestions, 'bulb', suggestList), panel(t.history, 'history', historyList), libraryPanel);
   asideScroll.append(search, results, panels);
 
+  // The headings' places in the stack: how many above each, how many below; and whether each is held
+  // now (a line of shadow on the side toward the rest)
+  const restack = () => {
+    const parts = [...panels.children].filter((part) => part.classList.contains('askdesk-panel'));
+
+    parts.forEach((part, index) => {
+      const head = part.querySelector(':scope > .askdesk-panel__title');
+
+      head.style.setProperty('--above', String(index));
+      head.style.setProperty('--below', String(parts.length - 1 - index));
+    });
+    held();
+  };
+
+  let holding = 0;
+
+  const held = () => {
+    window.cancelAnimationFrame(holding);
+    holding = window.requestAnimationFrame(() => {
+      panels.querySelectorAll(':scope > .askdesk-panel').forEach((part) => {
+        const head = part.querySelector(':scope > .askdesk-panel__title');
+        const shift = head.getBoundingClientRect().top - part.querySelector(':scope > .askdesk-panel__mark').getBoundingClientRect().top;
+
+        head.classList.toggle('is-held-top', shift > 1);
+        head.classList.toggle('is-held-bottom', shift < -1);
+      });
+    });
+  };
+
+  asideScroll.addEventListener('scroll', held, { passive: true });
+  new MutationObserver(restack).observe(panels, { childList: true });
+
+  if ('ResizeObserver' in window) {
+    new ResizeObserver(held).observe(asideScroll);
+    new ResizeObserver(held).observe(panels);
+  }
+
+  restack();
+
   // What plugins add beside a chat (a CRM's customer, say): drawn from their view, all as text
   const addons = new Map();
+  const noteEdits = new Map();
+  const noteTicks = new Map();
+
+  // Records kept elsewhere (notes before, in a CRM): one, short or whole
+  const paintRecord = (item, short) => {
+    const record = el('article', short ? 'askdesk-addon__record is-short' : 'askdesk-addon__record');
+    const head = el('div', 'askdesk-addon__record-head');
+
+    head.append(el('strong', '', item.title));
+
+    if (item.meta) {
+      head.append(el('span', '', item.meta));
+    }
+
+    record.append(head);
+
+    if (item.tags.length) {
+      const tags = el('div', 'askdesk-addon__record-tags');
+
+      item.tags.forEach((tag) => tags.append(el('span', '', tag)));
+      record.append(tags);
+    }
+
+    if (item.text) {
+      record.append(el('p', 'askdesk-addon__record-text', item.text));
+    }
+
+    return record;
+  };
+
+  // All of them in a card over the side, sliding in from its edge
+  const drawer = el('section', 'askdesk-drawer');
+  const drawerHead = el('div', 'askdesk-drawer__head');
+  const drawerTitle = el('strong', 'askdesk-drawer__title');
+  const drawerBody = el('div', 'askdesk-drawer__body');
+  const drawerClose = button('askdesk-drawer__close', '', () => closeDrawer());
+
+  drawer.hidden = true;
+  drawer.setAttribute('role', 'dialog');
+  drawer.setAttribute('aria-modal', 'false');
+  drawerClose.setAttribute('aria-label', t.panelListClose);
+  drawerClose.append(icon('close'));
+  drawerHead.append(drawerTitle, drawerClose);
+  drawer.append(drawerHead, drawerBody);
+  fades(drawerBody);
+  aside.append(drawer);
+
+  const closeDrawer = () => {
+    if (drawer.hidden || drawer.classList.contains('is-leaving')) {
+      return;
+    }
+
+    drawer.classList.add('is-leaving');
+    window.setTimeout(() => {
+      drawer.hidden = true;
+      drawer.classList.remove('is-leaving');
+    }, 220);
+  };
+
+  const openDrawer = (list) => {
+    drawerTitle.textContent = list.title;
+    drawerBody.replaceChildren(...list.items.map((item) => paintRecord(item, false)));
+
+    if (list.more) {
+      const more = el('a', 'askdesk-addon__link askdesk-drawer__more');
+
+      more.href = list.more.url;
+      more.target = '_blank';
+      more.rel = 'noopener noreferrer';
+      more.append(el('span', '', list.more.title), icon('external'));
+      drawerBody.append(more);
+    }
+
+    drawer.classList.remove('is-leaving');
+    drawer.hidden = false;
+    drawerBody.scrollTop = 0;
+    drawerClose.focus();
+  };
+
+  drawer.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeDrawer();
+    }
+  });
+
+  const paintList = (view) => {
+    const list = view.list;
+    const box = el('div', 'askdesk-addon__records');
+    const head = el('div', 'askdesk-addon__records-head');
+    const count = Math.max(list.total, list.items.length);
+
+    head.append(icon('history'), el('strong', '', list.title));
+
+    if (count) {
+      head.append(el('span', 'askdesk-addon__records-count', String(count)));
+    }
+
+    box.append(head);
+
+    if (!list.items.length) {
+      box.append(el('p', 'askdesk-panel__hint', list.empty));
+
+      return box;
+    }
+
+    list.items.slice(0, 3).forEach((item) => box.append(paintRecord(item, true)));
+
+    if (list.items.length > 3 || list.more) {
+      box.append(button('askdesk-addon__records-all', t.panelListAll.replace('%s', String(count)), () => openDrawer(list)));
+    }
+
+    return box;
+  };
+
+  // A note to keep elsewhere: changed in the box, sent only when the person confirms it
+  const paintNote = (view) => {
+    const note = view.note;
+    const key = `${view.name}:${state.open}`;
+    const box = el('div', 'askdesk-addon__memo');
+    const head = el('div', 'askdesk-addon__memo-head');
+
+    head.append(icon(note.sent ? 'check' : 'quote'), el('strong', '', note.title));
+    box.append(head);
+
+    if (note.sent) {
+      box.classList.add('is-sent');
+      box.append(el('p', 'askdesk-addon__memo-sent', note.sent), el('p', 'askdesk-addon__memo-text', note.text));
+
+      return box;
+    }
+
+    const field = el('textarea', 'askdesk-addon__memo-field');
+    const actions = el('div', 'askdesk-addon__memo-actions');
+    const ticked = noteTicks.get(key) || new Set(note.choices.filter((choice) => choice.checked).map((choice) => choice.value));
+    const ready = () => !note.blocked && field.value.trim() !== '' && (!note.choices.length || ticked.size > 0);
+    const draft = button('askdesk-addon__memo-draft', '', () => actAddon(view.name, 'draft', {}));
+    const send = button('askdesk-addon__memo-send', t.panelNoteSend, () => {
+      if (ready()) {
+        actAddon(view.name, 'send', { note: field.value.trim(), choices: [...ticked] });
+      }
+    });
+
+    field.rows = 6;
+    field.placeholder = t.panelNotePlaceholder;
+    field.value = noteEdits.has(key) ? noteEdits.get(key) : note.text;
+    send.disabled = !ready();
+    field.addEventListener('input', () => {
+      noteEdits.set(key, field.value);
+      send.disabled = !ready();
+    });
+
+    // Its categories, ticked as pills, those of a group on a row of their own: one at least
+    if (note.choices.length) {
+      const chips = el('div', 'askdesk-addon__chips');
+      const rows = new Map();
+
+      chips.setAttribute('role', 'group');
+      chips.setAttribute('aria-label', t.panelNoteChoose);
+      note.choices.forEach((choice) => {
+        if (!rows.has(choice.group)) {
+          const row = el('div', 'askdesk-addon__chip-row');
+
+          if (choice.group) {
+            row.append(el('span', 'askdesk-addon__chip-group', choice.group));
+          }
+
+          rows.set(choice.group, row);
+          chips.append(row);
+        }
+
+        const chip = button('askdesk-addon__chip', choice.label, () => {
+          if (ticked.has(choice.value)) {
+            ticked.delete(choice.value);
+          } else {
+            ticked.add(choice.value);
+          }
+
+          noteTicks.set(key, ticked);
+          chip.setAttribute('aria-pressed', String(ticked.has(choice.value)));
+          chips.classList.toggle('is-empty', ticked.size === 0);
+          send.disabled = !ready();
+        });
+
+        chip.title = choice.value;
+        chip.setAttribute('aria-pressed', String(ticked.has(choice.value)));
+        rows.get(choice.group).append(chip);
+      });
+      chips.classList.toggle('is-empty', ticked.size === 0);
+      chips.append(el('span', 'askdesk-addon__chips-hint', t.panelNoteChoose));
+      box.append(chips);
+    }
+    draft.append(icon('sparkles'), el('span', '', field.value.trim() ? t.panelNoteRedraft : t.panelNoteDraft));
+    actions.append(draft, send);
+    box.append(field);
+
+    if (note.blocked) {
+      box.append(el('p', 'askdesk-addon__memo-blocked', note.blocked));
+    } else if (note.author) {
+      box.append(el('p', 'askdesk-addon__memo-hint', note.author));
+    }
+
+    if (note.hint) {
+      box.append(el('p', 'askdesk-addon__memo-hint', note.hint));
+    }
+
+    box.append(actions);
+
+    return box;
+  };
 
   const paintAddon = (body, view) => {
     const parts = [];
@@ -2252,10 +2571,36 @@
       parts.push(list);
     }
 
+    // Labels: the first few, the rest behind "+N" (and put away again)
     if (view.tags.length) {
       const tags = el('div', 'askdesk-addon__tags');
+      const FEW = 8;
 
-      view.tags.forEach((tag) => tags.append(el('span', 'askdesk-addon__tag', tag)));
+      view.tags.forEach((tag, index) => {
+        const pill = el('span', 'askdesk-addon__tag', tag);
+
+        pill.hidden = index >= FEW;
+        pill.title = tag;
+        tags.append(pill);
+      });
+
+      if (view.tags.length > FEW) {
+        const toggle = button('askdesk-addon__tag askdesk-addon__tag--more', '', () => {
+          const open = toggle.getAttribute('aria-expanded') !== 'true';
+
+          tags.querySelectorAll('.askdesk-addon__tag:not(.askdesk-addon__tag--more)').forEach((pill, index) => {
+            pill.hidden = !open && index >= FEW;
+          });
+          toggle.setAttribute('aria-expanded', String(open));
+          toggle.textContent = open ? t.panelTagsLess : t.panelTagsMore.replace('%s', String(view.tags.length - FEW));
+          tags.append(toggle);
+        });
+
+        toggle.setAttribute('aria-expanded', 'false');
+        toggle.textContent = t.panelTagsMore.replace('%s', String(view.tags.length - FEW));
+        tags.append(toggle);
+      }
+
       parts.push(tags);
     }
 
@@ -2298,6 +2643,14 @@
         results.append(row);
       });
       parts.push(results);
+    }
+
+    if (view.list) {
+      parts.push(paintList(view));
+    }
+
+    if (view.note) {
+      parts.push(paintNote(view));
     }
 
     const foot = el('div', 'askdesk-addon__foot');
@@ -2380,10 +2733,19 @@
       return;
     }
 
-    entry.body.replaceChildren(skeleton(3));
+    entry.body.replaceChildren(...(action === 'draft' ? [el('p', 'askdesk-panel__hint', t.panelNoteWriting), skeleton(4)] : [skeleton(3)]));
 
     try {
       const data = await post(config.urls.panel, { room, name, action, ...extra });
+
+      // A new draft, or the note sent: what was being changed in the box is done with
+      if (data.panel && (action === 'draft' || (action === 'send' && data.panel.note && data.panel.note.sent))) {
+        noteEdits.delete(`${name}:${room}`);
+
+        if (action === 'send') {
+          noteTicks.delete(`${name}:${room}`);
+        }
+      }
 
       if (room === state.open && data.panel) {
         paintAddon(entry.body, data.panel);
@@ -2789,6 +3151,7 @@
   const openRoom = (id) => {
     if (state.open !== id) {
       clearTray();
+      closeDrawer();
       state.open = id;
       state.after = 0;
       state.detail = null;
