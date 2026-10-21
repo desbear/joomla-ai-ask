@@ -6966,12 +6966,9 @@ button.askdesk-me {
   padding: 0;
   border: 0;
   border-radius: 50%;
-  background:
-    radial-gradient(70% 70% at 80% 20%, rgba(47, 143, 240, 0.9), transparent 70%),
-    linear-gradient(135deg, #4515c6, #5a3be0 55%, #2f8ff0);
-  box-shadow:
-    0 8px 18px -6px rgba(69, 21, 198, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  /* Flat: violet above, blue below; a violet shadow under it */
+  background: linear-gradient(180deg, #7c3aed 0%, #2563eb 100%);
+  box-shadow: 0 6px 14px -6px rgba(124, 58, 237, 0.55);
   color: #fff;
   cursor: pointer;
   opacity: clamp(0, (var(--askdesk-search-p, 0) - 0.5) * 2, 1);
@@ -6988,10 +6985,12 @@ button.askdesk-me {
     pointer-events: auto;
   }
 
+  /* Pointed at: its violet shadow deeper and its edge clearer, a ring of violet round it */
   &:hover {
     box-shadow:
-      0 10px 24px -6px rgba(69, 21, 198, 0.75),
-      0 0 0 4px rgba(124, 58, 237, 0.16);
+      0 0 0 2px #fff,
+      0 0 0 4px rgba(124, 58, 237, 0.55),
+      0 10px 22px -6px rgba(124, 58, 237, 0.7);
   }
 
   &:focus-visible {

@@ -2,6 +2,11 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.3.8
+
+- The round search: a magnifier, flat, violet above and blue below, a violet shadow; pointed at, a clearer violet
+  edge.
+
 ## AI Ask Desk 0.3.7
 
 - The side's search is a pill. As the side scrolls down it shrinks away toward the top end and a round

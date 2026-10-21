@@ -2670,7 +2670,7 @@
   });
   let shrinking = 0;
 
-  searchDot.append(icon('sparkles'));
+  searchDot.append(icon('search'));
   searchDot.setAttribute('aria-label', t.search);
   searchDot.tabIndex = -1;
   aside.append(searchDot);
