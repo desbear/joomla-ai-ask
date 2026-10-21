@@ -2,6 +2,11 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.4.2
+
+- Opened from an iPhone's home screen, the status bar is see-through: the console's colour runs up behind it
+  instead of a white band, and the console starts below it.
+
 ## AI Ask Desk 0.4.1
 
 - **An AI's reading as a card of its own**: a panel with `look: "ai"` is drawn as a blue-violet card above the

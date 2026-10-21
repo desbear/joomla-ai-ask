@@ -101,7 +101,8 @@ class HtmlView extends BaseHtmlView
             $document->setMetaData('theme-color', '#3b1fc9');
             $document->setMetaData('mobile-web-app-capable', 'yes');
             $document->setMetaData('apple-mobile-web-app-capable', 'yes');
-            $document->setMetaData('apple-mobile-web-app-status-bar-style', 'default');
+            // Opened from the home screen, the status bar is see-through: the console's colour runs up under it
+            $document->setMetaData('apple-mobile-web-app-status-bar-style', 'black-translucent');
             $document->setMetaData('apple-mobile-web-app-title', Text::_('COM_ASKDESK_PWA_SHORT'));
 
             $assets = $document->getWebAssetManager();

@@ -7287,3 +7287,10 @@ button.askdesk-me {
     box-shadow: 0 -9px 0 var(--askdesk-canvas);
   }
 }
+
+/* ---------- Under the status bar (0.4.2): opened from an iPhone's home screen the status bar is
+   see-through, so the console starts below it and its colour runs up behind it, no white band ---------- */
+.askdesk {
+  box-sizing: border-box;
+  padding-block-start: env(safe-area-inset-top, 0px);
+}
