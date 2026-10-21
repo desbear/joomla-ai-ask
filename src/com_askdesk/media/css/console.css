@@ -7007,3 +7007,15 @@ button.askdesk-me {
 .askdesk-panels .askdesk-panel__title {
   transition: box-shadow 0.2s, padding 0.25s ease;
 }
+
+/* The side beside the chat starts where the chat's card does: its search at rest, its held headings once
+   scrolled, level with the card's top */
+@media (min-width: 1181px) {
+  .askdesk-room .askdesk-room__aside {
+    margin-block-start: 0;
+  }
+
+  .askdesk-room__aside-scroll > :first-child {
+    margin-block-start: 0;
+  }
+}
