@@ -99,6 +99,11 @@ final class Rooms
         $this->db->insertObject('#__askdesk_rooms', $row, 'id');
         $this->forgetOld();
 
+        // Someone new waits: the people answering are told (a message left, by its message)
+        if ($row->status === 'waiting') {
+            Push::waiting((int) $row->id);
+        }
+
         return ['key' => $key, 'id' => (int) $row->id];
     }
 
@@ -1535,6 +1540,11 @@ final class Rooms
 
         $this->db->insertObject('#__askdesk_messages', $row, 'id');
         $this->update((int) $room->id, ['last_message' => (int) $row->id]);
+
+        // What a visitor writes (or sends) reaches the people answering, on their phones too
+        if ($author === 'visitor') {
+            Push::message((int) $room->id, (int) $row->id);
+        }
 
         return (int) $row->id;
     }

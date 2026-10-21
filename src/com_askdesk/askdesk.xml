@@ -5,7 +5,7 @@
 	<creationDate>2026-10</creationDate>
 	<copyright>(C) 2026 GSS</copyright>
 	<license>GNU General Public License version 2 or later; see LICENSE</license>
-	<version>0.2.7</version>
+	<version>0.3.7</version>
 	<description>COM_ASKDESK_XML_DESCRIPTION</description>
 	<namespace path="src">Gss\Component\Askdesk</namespace>
 
@@ -41,6 +41,7 @@
 		<filename>joomla.asset.json</filename>
 		<filename>recorder.html</filename>
 		<folder>css</folder>
+		<folder>images</folder>
 		<folder>js</folder>
 		<folder>vendor</folder>
 	</media>

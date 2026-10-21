@@ -5815,9 +5815,12 @@ button.askdesk-me {
   }
 }
 
-/* The side card: over the whole side, sliding in from its edge */
-.askdesk-room .askdesk-room__aside {
-  position: relative;
+/* The side card: over the whole side, sliding in from its edge. The side holds it: beside the chat it
+   is placed for that; over the chat (narrower screens) it is already, floating */
+@media (min-width: 1181px) {
+  .askdesk-room .askdesk-room__aside {
+    position: relative;
+  }
 }
 
 .askdesk-drawer {
@@ -5953,4 +5956,1055 @@ button.askdesk-me {
   > .askdesk-panels {
     margin-block-end: 16px;
   }
+}
+
+/* ---------- Phones: one thing at a time, the whole width ----------
+   Kept last, so the wider layouts above (the side's width, the stage's card) don't reach in */
+@media (max-width: 760px) {
+  /* The list: the colour under the whole of it, not only a side's width */
+  .askdesk__wash {
+    inline-size: 100%;
+  }
+
+  /* Nothing wider than the phone: no sideways scrolling of the whole */
+  .askdesk {
+    overflow: hidden;
+  }
+
+  /* A chat: its title close to the edges, the conversation's card the rest of the height, even margins */
+  .askdesk-room__head {
+    padding: 10px 14px 8px;
+  }
+
+  .askdesk-room__body {
+    gap: 0;
+    margin: 0;
+    padding: 0 8px max(8px, env(safe-area-inset-bottom));
+    border-radius: 0;
+  }
+
+  .askdesk-room__column {
+    border-radius: 18px;
+  }
+
+  .askdesk-composer {
+    padding-inline: 8px;
+  }
+
+  /* The side panel over the chat: almost the whole width */
+  .askdesk-room__aside {
+    inline-size: calc(100% - 16px);
+  }
+}
+
+/* Where the keyboard is on the screen: what is written in is never under 16px, or the phone zooms in
+   on it and the page shifts; the console keeps to what is visible above the keyboard (console.js) */
+@media (pointer: coarse) {
+  .askdesk input,
+  .askdesk textarea,
+  .askdesk select {
+    font-size: max(16px, 1em);
+  }
+}
+
+.askdesk {
+  inset-block: var(--askdesk-top, 0px) auto;
+  block-size: var(--askdesk-height, 100%);
+}
+
+/* A word under the bell, for a few seconds (notifications turned on or off, how to get them) */
+.askdesk-bubble {
+  position: fixed;
+  inset-block-start: calc(var(--askdesk-top, 0px) + 64px);
+  inset-inline-end: 12px;
+  z-index: 60;
+  box-sizing: border-box;
+  max-inline-size: min(340px, calc(100vw - 24px));
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(22, 26, 35, 0.92);
+  box-shadow: 0 12px 30px -10px rgba(10, 10, 40, 0.45);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.5;
+  animation: askdesk-bubble-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  transition: opacity 0.4s, transform 0.4s;
+
+  &.askdesk-bubble--out {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes askdesk-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+}
+
+/* ---------- The side: a logo at the top, one's account at the foot (0.3.0) ---------- */
+
+/* Its parts one under the other, so the account can keep to the bottom however few chats there are */
+.askdesk-inbox {
+  display: flex;
+  flex-direction: column;
+
+  > * {
+    flex: none;
+  }
+}
+
+/* The site's own logo in place of the card: white on the colour, no card around it */
+.askdesk-brand--logo .askdesk-presence {
+  flex: none;
+}
+
+.askdesk-brand--logo {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: 14px;
+  padding: 6px 4px 2px;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.askdesk-brand__logo {
+  display: flex;
+  align-items: center;
+  block-size: 34px;
+  padding-inline: 6px;
+
+  img {
+    display: block;
+    max-inline-size: 100%;
+    block-size: 100%;
+    object-fit: contain;
+    object-position: left center;
+  }
+}
+
+.askdesk-brand__mark {
+  display: none !important;
+}
+
+.askdesk-brand--narrow .askdesk-brand__logo:has(.askdesk-brand__mark) {
+  .askdesk-brand__full {
+    display: none;
+  }
+
+  .askdesk-brand__mark {
+    display: block !important;
+  }
+}
+
+/* One's account, kept at the bottom of the side as it scrolls: frosted over what passes under it */
+.askdesk-account {
+  position: sticky;
+  inset-block-end: -20px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: auto -14px -20px;
+  padding: 12px 18px max(14px, env(safe-area-inset-bottom));
+  border-block-start: 0.5px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+
+  .askdesk-me {
+    inline-size: 36px;
+    block-size: 36px;
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+  }
+}
+
+.askdesk-account__text {
+  display: grid;
+  min-inline-size: 0;
+
+  .askdesk-bar__staff {
+    margin: 0;
+    overflow: hidden;
+    color: rgba(255, 255, 255, 0.72);
+    font-size: 11.5px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.askdesk-account__name {
+  justify-self: start;
+  max-inline-size: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: none;
+  color: #fff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6);
+    border-radius: 4px;
+  }
+}
+
+/* One's profile, opened from the account: upward, from the foot of the side */
+.askdesk-profile--side {
+  inset-block: auto 76px;
+  inset-inline: 12px auto;
+  max-block-size: calc(100% - 96px);
+  transform-origin: bottom left;
+}
+
+/* The handle to drag the side's width: on the light side of the edge, in grey; blue when held */
+.askdesk-splitter::after {
+  inset-inline-start: 5px;
+  background: rgba(35, 35, 50, 0.18);
+  box-shadow: none;
+}
+
+.askdesk-splitter:hover::after,
+.askdesk-splitter:focus-visible::after,
+.askdesk--dragging .askdesk-splitter::after {
+  background: var(--askdesk-accent);
+}
+
+/* On a phone the side is the whole screen: the full logo, whatever width it was given on a computer */
+@media (max-width: 760px) {
+  .askdesk-brand--narrow .askdesk-brand__logo:has(.askdesk-brand__mark) {
+    .askdesk-brand__full {
+      display: block;
+    }
+
+    .askdesk-brand__mark {
+      display: none !important;
+    }
+  }
+}
+
+/* ---------- No bar above the work (0.3.1): its things at the side's foot ---------- */
+
+/* The work's own colour up to the top; the bar only with the side folded away (its things then in it) */
+.askdesk-stage > .askdesk-room {
+  grid-row: 2;
+}
+
+.askdesk-main:not(.askdesk-main--folded) .askdesk-stage > .askdesk-bar {
+  display: none;
+}
+
+.askdesk-stage > .askdesk-bar {
+  border: 0;
+  background: transparent;
+}
+
+/* The account at the foot: set apart from the list above by a shadow; whether visitors can chat now
+   in a line of its own, white; then one's face, name, the language and the bell */
+.askdesk-account {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  border-block-start: 0;
+  box-shadow: 0 -12px 24px -14px rgba(10, 10, 60, 0.55);
+}
+
+.askdesk-account__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-inline-size: 0;
+}
+
+.askdesk-account__text {
+  flex: 1;
+}
+
+.askdesk-account__tools {
+  display: flex;
+  flex: none;
+  gap: 4px;
+
+  .askdesk-bell,
+  .askdesk-globe__button {
+    inline-size: 32px;
+    block-size: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.14);
+    color: #fff;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.26);
+    }
+  }
+
+  .askdesk-bell--on {
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--askdesk-accent);
+  }
+}
+
+.askdesk-account .askdesk-reach {
+  align-self: flex-start;
+  max-inline-size: 100%;
+  padding: 0;
+  background: none;
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-shadow: 0 1px 6px rgba(10, 10, 60, 0.35);
+
+  i {
+    inline-size: 8px;
+    block-size: 8px;
+    background: #4ade80;
+    box-shadow: 0 0 0 3px rgba(74, 222, 128, 0.25);
+  }
+
+  &.askdesk-reach--away i {
+    background: #fbbf24;
+    box-shadow: 0 0 0 3px rgba(251, 191, 36, 0.25);
+  }
+
+  small {
+    color: rgba(255, 255, 255, 0.75);
+  }
+}
+
+/* One's face, ringed in the colour of one's status (plainly: green, amber, grey); its menu the statuses
+   and one's profile, growing upward from the foot of the side */
+.askdesk-avatar {
+  position: relative;
+  flex: none;
+
+  .askdesk-me {
+    inline-size: 38px;
+    block-size: 38px;
+    box-shadow:
+      0 0 0 2.5px var(--askdesk-status-ring, #22c55e),
+      0 0 0 5px rgba(255, 255, 255, 0.25);
+    transition: box-shadow 0.25s;
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset-block-end: -1px;
+    inset-inline-end: -1px;
+    inline-size: 11px;
+    block-size: 11px;
+    border: 2px solid #fff;
+    border-radius: 50%;
+    background: var(--askdesk-status-ring, #22c55e);
+    pointer-events: none;
+  }
+
+  &[data-status="busy"] {
+    --askdesk-status-ring: #f59e0b;
+  }
+
+  &[data-status="away"] {
+    --askdesk-status-ring: #9ca3af;
+  }
+}
+
+.askdesk-account .askdesk-menu {
+  inset-block: auto calc(100% - -10px);
+  inset-inline: 0 auto;
+  transform-origin: bottom left;
+  transform: translateY(6px) scaleY(0.6);
+}
+
+.askdesk-account .askdesk-dropdown--open > .askdesk-menu {
+  transform: none;
+}
+
+.askdesk-account__tools .askdesk-menu {
+  inset-inline: auto 0;
+  transform-origin: bottom right;
+}
+
+.askdesk-menu__line {
+  margin: 4px 6px;
+  border: 0;
+  border-block-start: 0.5px solid rgba(35, 35, 50, 0.12);
+}
+
+.askdesk-menu__item--action {
+  justify-content: flex-start;
+  gap: 10px;
+
+  .askdesk-icon {
+    color: rgba(35, 35, 50, 0.55);
+  }
+}
+
+/* The bar, when the side is folded away: the face and the reach line on the work's colour */
+.askdesk-bar .askdesk-avatar .askdesk-me {
+  inline-size: 34px;
+  block-size: 34px;
+}
+
+/* A word from the bell: by the bell, at the foot of the side */
+.askdesk-bubble {
+  inset-block: auto calc(96px + env(safe-area-inset-bottom));
+  inset-inline: 16px auto;
+}
+
+/* A chat on its way: three dots bouncing in the middle */
+.askdesk-room__loading {
+  display: flex;
+  grid-row: 1 / -1;
+  align-items: center;
+  align-self: stretch;
+  justify-content: center;
+  gap: 8px;
+  min-block-size: 240px;
+
+  i {
+    inline-size: 10px;
+    block-size: 10px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--askdesk-ai-3), var(--askdesk-ai));
+    animation: askdesk-loading-bounce 1s cubic-bezier(0.3, 0, 0.3, 1) infinite;
+  }
+
+  i:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+
+  i:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+}
+
+@keyframes askdesk-loading-bounce {
+  0%,
+  60%,
+  100% {
+    opacity: 0.45;
+    transform: translateY(0);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(-10px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk-room__loading i {
+    animation-duration: 2s;
+    animation-name: askdesk-check-pulse;
+  }
+}
+
+/* On a phone: no bar at all (the list has the foot; a chat has its back button) */
+@media (max-width: 760px) {
+  .askdesk-stage > .askdesk-bar {
+    display: none;
+  }
+}
+
+/* The visitor's conversation with AI before the chat: a deep blue-violet, as the side's colour, the
+   words white on it (0.3.1) */
+.askdesk-before {
+  --askdesk-muted: rgba(255, 255, 255, 0.72);
+
+  border: 0;
+  background:
+    radial-gradient(60% 90% at 100% 0%, rgba(106, 166, 242, 0.55), transparent 70%) top left / 100% 320px no-repeat,
+    radial-gradient(50% 80% at 0% 100%, rgba(127, 101, 255, 0.6), transparent 72%) top left / 100% 320px no-repeat,
+    linear-gradient(120deg, #3b1fc9 0%, #5a2fe6 45%, #3f6ff0 100%);
+  box-shadow: 0 10px 26px -14px rgba(59, 31, 201, 0.7);
+  color: #fff;
+
+  summary {
+    background: none;
+    color: #fff;
+
+    .askdesk-icon {
+      color: #c9d8ff;
+    }
+  }
+
+  a {
+    color: #fff;
+    text-decoration: underline;
+    text-decoration-color: rgba(255, 255, 255, 0.5);
+  }
+}
+
+.askdesk-before__turn {
+  border-block-start-color: rgba(255, 255, 255, 0.18);
+}
+
+.askdesk-before__who {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* ---------- Phones: a chat is a page that slides over the list (0.3.3) ---------- */
+@media (max-width: 760px) {
+  /* Opened: in from the right edge, the whole width */
+  .askdesk-main--room .askdesk-stage {
+    animation: askdesk-page-in 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  }
+
+  .askdesk-main--room .askdesk-room {
+    animation: none;
+  }
+
+  /* Dragged back from the left edge, or going back: the list under it, a little behind, coming forward */
+  .askdesk-main--room.askdesk-main--peek {
+    .askdesk-inbox {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      display: flex;
+      transform: translateX(-30%);
+    }
+
+    .askdesk-stage {
+      z-index: 1;
+      box-shadow: -14px 0 32px -10px rgba(10, 10, 40, 0.35);
+    }
+  }
+}
+
+@keyframes askdesk-page-in {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+@media (max-width: 760px) and (prefers-reduced-motion: reduce) {
+  .askdesk-main--room .askdesk-stage {
+    animation: none;
+  }
+}
+
+/* ---------- The account (0.3.4): who answers now beside the reach line; the face's menu ---------- */
+
+.askdesk-account__reach {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-inline-size: 0;
+}
+
+/* Who answers now: their faces overlapping, how many; a click lists them, upward */
+.askdesk-people {
+  position: relative;
+  flex: none;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.askdesk-people__faces {
+  display: flex;
+  align-items: center;
+  padding: 2px 8px 2px 2px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.2s;
+
+  &:hover,
+  .askdesk-people--open > & {
+    background: rgba(255, 255, 255, 0.26);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6);
+  }
+
+  .askdesk-people__face + .askdesk-people__face {
+    margin-inline-start: -8px;
+  }
+}
+
+.askdesk-people__face {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 24px;
+  block-size: 24px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(59, 31, 201, 0.85);
+  color: var(--askdesk-accent);
+  font-size: 11px;
+  font-weight: 500;
+
+  img {
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: contain;
+  }
+}
+
+.askdesk-people__count {
+  margin-inline-start: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.askdesk-people__list {
+  position: absolute;
+  inset-block-end: calc(100% - -10px);
+  inset-inline-end: 0;
+  z-index: 50;
+  display: grid;
+  gap: 2px;
+  min-inline-size: 200px;
+  max-block-size: 50vh;
+  overflow-y: auto;
+  padding: 8px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow:
+    0 0 0 0.5px rgba(35, 35, 50, 0.1),
+    0 18px 40px -12px rgba(10, 10, 60, 0.35);
+  color: #232332;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(6px) scale(0.97);
+  transform-origin: bottom right;
+  transition:
+    opacity 0.18s ease,
+    transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.1),
+    visibility 0s 0.25s;
+
+  .askdesk-people--open > & {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+    transition:
+      opacity 0.18s ease,
+      transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+  }
+
+  .askdesk-people__face {
+    inline-size: 28px;
+    block-size: 28px;
+    background: var(--askdesk-accent-soft);
+    box-shadow: none;
+  }
+}
+
+.askdesk-people__title {
+  padding: 2px 6px 6px;
+  color: rgba(35, 35, 50, 0.55);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.askdesk-people__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px;
+  border-radius: 10px;
+  font-size: 13.5px;
+
+  .askdesk-menu__dot {
+    margin-inline-start: auto;
+  }
+}
+
+.askdesk-people__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The face's menu: a little wider; a switch for notifications, the language unfolding in place */
+.askdesk-avatar .askdesk-menu {
+  min-inline-size: 240px;
+}
+
+.askdesk-menu__switch .askdesk-menu__label,
+.askdesk-menu__fold .askdesk-menu__label {
+  flex: 1;
+}
+
+.askdesk-switch {
+  position: relative;
+  flex: none;
+  inline-size: 36px;
+  block-size: 22px;
+  border-radius: 999px;
+  background: rgba(35, 35, 50, 0.18);
+  transition: background 0.2s;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset-block-start: 2px;
+    inset-inline-start: 2px;
+    inline-size: 18px;
+    block-size: 18px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(10, 10, 40, 0.3);
+    transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  }
+
+  &.askdesk-switch--on {
+    background: #22c55e;
+
+    &::after {
+      transform: translateX(14px);
+    }
+  }
+}
+
+.askdesk-menu__value {
+  color: rgba(35, 35, 50, 0.55);
+  font-size: 12.5px;
+}
+
+.askdesk-menu__fold {
+  > .askdesk-icon:last-child {
+    inline-size: 14px;
+    block-size: 14px;
+    opacity: 0.6;
+    transition: transform 0.2s;
+  }
+
+  &[aria-expanded="true"] > .askdesk-icon:last-child {
+    transform: rotate(180deg);
+  }
+}
+
+.askdesk-menu__sub {
+  display: grid;
+  gap: 2px;
+  margin: 0 0 4px 30px;
+
+  &[hidden] {
+    display: none;
+  }
+
+  .askdesk-menu__item {
+    padding-block: 7px;
+    font-size: 13.5px;
+  }
+}
+
+/* Rows that do something (not a choice): their icons always shown, in grey (a choice's check shows only
+   on the one chosen) */
+.askdesk-menu__item.askdesk-menu__item--action .askdesk-icon {
+  color: rgba(35, 35, 50, 0.55);
+  opacity: 1;
+}
+
+/* ---------- Marking a message dealt with (0.3.4): a green gradient button ---------- */
+.askdesk-button--done {
+  block-size: 36px;
+  padding: 0 18px 0 14px;
+  border: 0;
+  background: linear-gradient(135deg, #34d399 0%, #16a34a 100%);
+  box-shadow:
+    0 8px 18px -8px rgba(22, 163, 74, 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  color: #fff;
+
+  .askdesk-icon {
+    color: #fff;
+  }
+
+  &:hover,
+  &:focus-visible {
+    border: 0;
+    background: linear-gradient(135deg, #3ee0a6 0%, #15b04f 100%);
+    box-shadow:
+      0 10px 22px -8px rgba(22, 163, 74, 0.75),
+      inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    color: #fff;
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+}
+
+/* Pressed: it says done, glows green all round, then sinks in and stays so (not to be pressed again) */
+.askdesk-button--done-on,
+.askdesk-button--done-on:hover,
+.askdesk-button--done-on:focus-visible {
+  border: 0;
+  background: linear-gradient(135deg, #1fa463 0%, #15803d 100%);
+  color: rgba(255, 255, 255, 0.92);
+  cursor: default;
+  pointer-events: none;
+  animation: askdesk-done-sink 0.9s cubic-bezier(0.3, 0.7, 0.3, 1) forwards;
+}
+
+.askdesk-button--done-still {
+  animation: none;
+  box-shadow:
+    inset 0 2px 6px rgba(5, 60, 30, 0.45),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+  transform: translateY(1px);
+}
+
+@keyframes askdesk-done-sink {
+  0% {
+    box-shadow: 0 8px 18px -8px rgba(22, 163, 74, 0.65);
+    transform: none;
+  }
+
+  35% {
+    box-shadow:
+      0 0 0 6px rgba(34, 197, 94, 0.16),
+      0 12px 34px -4px rgba(34, 197, 94, 0.6);
+    transform: scale(1.03);
+  }
+
+  100% {
+    box-shadow:
+      inset 0 2px 6px rgba(5, 60, 30, 0.45),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.12);
+    transform: translateY(1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk-button--done-on {
+    animation-duration: 0.01s;
+  }
+}
+
+/* The chat's buttons at the top end where the search box below ends (the side's inner edge), with the
+   side panel beside the chat */
+@media (min-width: 1181px) {
+  .askdesk-room__head .askdesk-room__actions {
+    margin-inline-end: 22px;
+  }
+}
+
+/* Faces without a picture: the person's first letter in the side's violet (the side's own colours are
+   white on white here) */
+.askdesk-people .askdesk-people__face {
+  background: #fff;
+  color: #3b1fc9;
+}
+
+.askdesk-people__list .askdesk-people__face {
+  background: #eef0ff;
+  color: #3b1fc9;
+}
+
+/* Online is green wherever it is shown, as on one's face */
+.askdesk-menu__dot--online {
+  background: #22c55e;
+}
+
+/* ---------- The colour under the whole window, the work a card on it (0.3.5) ---------- */
+
+/* Online: a deep blue-violet, richer: violet at the start, blue through the middle, sky toward the end,
+   with a glow of cyan and one of violet near the top and the side (busy, away: their own) */
+.askdesk {
+  --askdesk-wash-0: #4515c6;
+  --askdesk-wash-1: #3f2bcf;
+  --askdesk-wash-2: #4565dc;
+  --askdesk-wash-3: #61a6ec;
+  --askdesk-wash-4: #2f8ff0;
+  --askdesk-wash-5: #8a55ea;
+}
+
+.askdesk[data-status="busy"] {
+  --askdesk-wash-4: #f0a43a;
+  --askdesk-wash-5: #d9641a;
+}
+
+.askdesk[data-status="away"] {
+  --askdesk-wash-4: #5b6474;
+  --askdesk-wash-5: #3a404c;
+}
+
+.askdesk__wash::before {
+  background:
+    radial-gradient(22% 30% at 86% 20%, var(--askdesk-wash-4) 0%, transparent 72%),
+    radial-gradient(18% 34% at 98% 46%, var(--askdesk-wash-5) 0%, transparent 72%),
+    radial-gradient(30% 40% at 6% 92%, var(--askdesk-wash-5) 0%, transparent 74%),
+    radial-gradient(38% 42% at 12% 18%, var(--askdesk-wash-0) 0%, transparent 72%),
+    radial-gradient(40% 44% at 34% 70%, var(--askdesk-wash-1) 0%, transparent 72%),
+    radial-gradient(44% 40% at 70% 30%, var(--askdesk-wash-2) 0%, transparent 72%),
+    radial-gradient(42% 44% at 88% 82%, var(--askdesk-wash-3) 0%, transparent 72%),
+    linear-gradient(115deg, var(--askdesk-wash-0) 0%, var(--askdesk-wash-1) 35%, var(--askdesk-wash-2) 65%, var(--askdesk-wash-3) 100%);
+  animation-duration: 18s;
+}
+
+@media (min-width: 761px) {
+  /* The colour under all of it, not only the side */
+  .askdesk__wash {
+    inline-size: 100%;
+  }
+
+  /* The work: a card on the colour, apart from the window's top, end and bottom by 15px; against the side */
+  .askdesk-main > .askdesk-stage {
+    margin: 15px 15px 15px 0;
+    overflow: hidden;
+    border-radius: 20px;
+    box-shadow:
+      0 0 0 0.5px rgba(255, 255, 255, 0.18),
+      0 24px 60px -24px rgba(10, 10, 60, 0.5);
+  }
+
+  /* The side folded away: apart from the start too */
+  .askdesk-main--folded > .askdesk-stage {
+    margin-inline-start: 15px;
+  }
+}
+
+/* ---------- Corners (0.3.6): the work's card 8px at its top, square where it meets the window's bottom;
+   everything in it a little less (6px for its cards, 4px within them); pills stay pills ---------- */
+@media (min-width: 761px) {
+  .askdesk-main > .askdesk-stage {
+    margin-block-end: 0;
+    border-radius: 8px 8px 0 0;
+  }
+}
+
+.askdesk-stage {
+  --askdesk-radius: 6px;
+  --askdesk-radius-sm: 4px;
+
+  .askdesk-search,
+  .askdesk-composer__box,
+  .askdesk-panels,
+  .askdesk-drawer,
+  .askdesk-before,
+  .askdesk-room__column {
+    border-radius: 6px;
+  }
+
+  .askdesk-panels .askdesk-panel__title.is-held-top.is-first::before {
+    border-radius: 6px 6px 0 0;
+  }
+
+  .askdesk-panels .askdesk-panel__title.is-held-bottom.is-last::before {
+    border-radius: 0 0 6px 6px;
+  }
+
+  .askdesk-addon__memo,
+  .askdesk-addon__memo-field,
+  .askdesk-addon__memo-blocked,
+  .askdesk-addon__record {
+    border-radius: 4px;
+  }
+}
+
+@media (max-width: 1180px) {
+  .askdesk-room .askdesk-room__aside {
+    border-radius: 6px;
+  }
+}
+
+@media (max-width: 760px) {
+  .askdesk-stage .askdesk-room__column {
+    border-radius: 6px;
+  }
+}
+
+/* The side never scrolls sideways (its foot reaches to its edges): no bar for it */
+.askdesk-inbox {
+  overflow-x: hidden;
+}
+
+/* ---------- The side's search (0.3.7): a pill; shrinking into a round button as the side scrolls ---------- */
+.askdesk-stage .askdesk-search,
+.askdesk-stage .askdesk-room__aside .askdesk-search {
+  border-radius: 999px;
+}
+
+/* Away toward the top end as the side scrolls: smaller, then gone (--askdesk-search-p: 0 at the top, 1
+   once scrolled past it) */
+.askdesk-room__aside .askdesk-search {
+  opacity: calc(1 - var(--askdesk-search-p, 0) * 1.4);
+  transform: scale(calc(1 - var(--askdesk-search-p, 0) * 0.3));
+  transform-origin: right top;
+  will-change: transform, opacity;
+}
+
+/* In its place, at the top end of the side: a round search, blue-violet, growing as the search goes */
+.askdesk-search-dot {
+  position: absolute;
+  inset-block-start: 6px;
+  inset-inline-end: 34px;
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  inline-size: 36px;
+  block-size: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(70% 70% at 80% 20%, rgba(47, 143, 240, 0.9), transparent 70%),
+    linear-gradient(135deg, #4515c6, #5a3be0 55%, #2f8ff0);
+  box-shadow:
+    0 8px 18px -6px rgba(69, 21, 198, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  color: #fff;
+  cursor: pointer;
+  opacity: clamp(0, (var(--askdesk-search-p, 0) - 0.5) * 2, 1);
+  transform: scale(clamp(0.2, (var(--askdesk-search-p, 0) - 0.5) * 2, 1));
+  pointer-events: none;
+  transition: box-shadow 0.2s;
+
+  .askdesk-icon {
+    inline-size: 17px;
+    block-size: 17px;
+  }
+
+  .askdesk-room__aside--compact & {
+    pointer-events: auto;
+  }
+
+  &:hover {
+    box-shadow:
+      0 10px 24px -6px rgba(69, 21, 198, 0.75),
+      0 0 0 4px rgba(124, 58, 237, 0.16);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 0 0 5px #7c3aed;
+  }
+}
+
+/* The heading held at the top makes room at its end for the round search */
+.askdesk-room__aside--compact .askdesk-panels .askdesk-panel__title.is-held-top {
+  padding-inline-end: 56px;
+}
+
+.askdesk-panels .askdesk-panel__title {
+  transition: box-shadow 0.2s, padding 0.25s ease;
 }

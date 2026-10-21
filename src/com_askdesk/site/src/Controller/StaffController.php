@@ -42,9 +42,18 @@ class StaffController extends BaseController
             $rooms->tidy();
         }
 
+        // Who answers now, with the name and face they show (stacked in the console beside whether
+        // visitors can chat)
+        $present  = $staff->present();
+        $profiles = $staff->profiles(array_column($present, 'id'));
+        $present  = array_map(static fn ($person) => array_merge($person, [
+            'name' => $profiles[$person['id']]['name'] ?? $person['name'],
+            'face' => $profiles[$person['id']]['face']['src'] ?? '',
+        ]), $present);
+
         $result = [
             'me'     => ['id' => (int) $me->user_id, 'status' => $me->status, 'language' => $me->language],
-            'staff'  => $staff->present(),
+            'staff'  => $present,
             'rooms'  => $rooms->inbox((int) $me->user_id),
         ];
 
@@ -240,6 +249,38 @@ class StaffController extends BaseController
         $view  = \Gss\Component\Askdesk\Administrator\Desk\Panels::act((string) ($body['name'] ?? ''), $room, $me, (string) ($body['action'] ?? ''), $input);
 
         $this->send($view === null ? ['error' => Text::_('JERROR_ALERTNOAUTHOR')] : ['panel' => $view]);
+    }
+
+    /**
+     * This browser to be notified, even with the console closed ({endpoint, p256dh, auth}): Web Push.
+     */
+    public function pushSubscribe(): void
+    {
+        [, , $me, $body] = $this->check();
+
+        try {
+            \Gss\Component\Askdesk\Administrator\Desk\Push::make()->subscribe(
+                (int) $me->user_id,
+                \is_string($body['endpoint'] ?? null) ? mb_substr($body['endpoint'], 0, 2000) : '',
+                \is_string($body['p256dh'] ?? null) ? $body['p256dh'] : '',
+                \is_string($body['auth'] ?? null) ? $body['auth'] : ''
+            );
+        } catch (\InvalidArgumentException) {
+            $this->send(['error' => Text::_('COM_ASKDESK_CONSOLE_ERROR')]);
+        }
+
+        $this->send(['ok' => true]);
+    }
+
+    /**
+     * This browser no longer notified ({endpoint}).
+     */
+    public function pushForget(): void
+    {
+        [, , $me, $body] = $this->check();
+
+        \Gss\Component\Askdesk\Administrator\Desk\Push::make()->forget(\is_string($body['endpoint'] ?? null) ? $body['endpoint'] : '', (int) $me->user_id);
+        $this->send(['ok' => true]);
     }
 
     /**

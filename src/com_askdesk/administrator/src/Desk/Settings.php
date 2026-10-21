@@ -43,6 +43,23 @@ final class Settings
     }
 
     /**
+     * The console's own logo at the top of its side, and its mark (where there is little room), as
+     * addresses; empty for the desk's own (0.3.0).
+     *
+     * @return  array{logo: string, mark: string}
+     */
+    public function logo(): array
+    {
+        $clean = static function (string $value): string {
+            $url = \Joomla\CMS\HTML\HTMLHelper::_('cleanImageURL', $value)->url ?? '';
+
+            return $url === '' ? '' : (preg_match('#^(https?:)?//#i', $url) ? $url : \Joomla\CMS\Uri\Uri::root(true) . '/' . ltrim($url, '/'));
+        };
+
+        return ['logo' => $clean((string) $this->params->get('console_logo', '')), 'mark' => $clean((string) $this->params->get('console_mark', ''))];
+    }
+
+    /**
      * Whether messages are translated (with AI Ask's AI service).
      */
     public function translates(): bool

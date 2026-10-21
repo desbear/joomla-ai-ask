@@ -63,6 +63,17 @@ It is a package of its own, `pkg_askdesk`, which needs AI Ask 0.20.0 or later:
   calls stays on the server.
 - On a narrower screen these open over the chat with **Reference**.
 
+## On a phone, and notifications
+
+The console works on a phone: the list, then a chat full screen, its side panel over it. It can be added to the
+home screen as an app (Share → Add to Home Screen on an iPhone; Install on Android and on computers). The bell
+in its bar turns on notifications for that device: pushed by the site itself (Web Push, VAPID), they come with the
+console closed: someone new waiting (to everyone not away), a message in one's own chat (to the one answering it),
+a message left (to everyone). A tap opens the console at that chat. On iPhone and iPad (iOS 16.4 or later) only
+the app added to the home screen can be notified. The site needs HTTPS. Nothing else is set up: the desk makes its
+keys the first time; the browsers subscribed are kept in their own table, and let go when the push service no
+longer knows them.
+
 ## Links, search and typing
 
 - **Links to the site's articles** that the people answering write or paste are made short (the article's number,

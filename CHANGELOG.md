@@ -2,6 +2,73 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.3.7
+
+- The side's search is a pill. As the side scrolls down it shrinks away toward the top end and a round
+  blue-violet search grows there in its place (following how far the side is scrolled); back at the top, the
+  search opens again. A tap on the round one brings it back.
+
+## AI Ask Desk 0.3.6
+
+- The work's card: 8px corners at its top, down to the window's bottom edge (no gap there); the cards in it 6px,
+  what is in those 4px.
+- The side no longer shows a scrollbar along its bottom (its foot reached a little past its edges).
+
+## AI Ask Desk 0.3.5
+
+- **The colour under the whole window**: the work is a card on it, 15px from the window's top, end and bottom,
+  its corners rounded. Online's colour is a richer blue-violet, with glows of cyan and violet; it drifts a little
+  faster.
+
+## AI Ask Desk 0.3.4
+
+- **One menu on one's face**: the statuses, then notifications on this device (a switch), the language (the
+  others unfolding in place) and one's profile; the bell and the globe are no longer buttons of their own.
+- **Who answers now**, beside whether visitors can chat: their faces stacked with how many; a click lists them
+  with their statuses.
+- The side is 267px at its narrowest; narrower, it folds away.
+- **Marking a message dealt with**: a green gradient button, ending where the search box below ends; pressed, it
+  says done, glows and sinks in, not to be pressed again.
+- Online shows green everywhere.
+
+## AI Ask Desk 0.3.3
+
+- **A chat on a phone is a page over the list**: it slides in from the right; a swipe from the left edge takes it
+  back, following the finger, the list showing under it. Going back (the button, the swipe, the browser's own
+  back or swipe) always comes to the list, and back from the list stays in the console: it no longer leaves for
+  the page before it (the sign-in page, say).
+
+## AI Ask Desk 0.3.2
+
+- **No bar above the work**: the work's colour reaches the top. What the bar held is at the side's foot, set apart
+  by a shadow: whether visitors can chat now (in white, said shorter: "Chats open", "Messages only"), then one's
+  face, name, the language and the bell. The bar shows only with the side folded away, they in it.
+- **One's status on one's face**: ringed green, amber or grey, with a dot; a click opens the statuses and one's
+  profile, upward.
+- A chat being opened shows three dots bouncing until it is there.
+- The visitor's conversation with AI before the chat: a deep blue-violet, its words white.
+
+## AI Ask Desk 0.3.1
+
+- **A logo of one's own**: the desk's options take a logo for the top of the console's side (in place of its
+  card and title; white on transparency suits the colour), and a mark alone for when the side is narrow.
+- **One's account at the foot of the side**: face, name and who else answers now, kept at the bottom as the list
+  scrolls; a click opens one's profile upward from there. With the side folded away the face goes to the bar.
+- The handle to drag the side's width sits on the light side of the edge, in grey (blue when held).
+
+## AI Ask Desk 0.3.0
+
+- **The console as an app, notified on the phone**: it can be added to a phone's home screen (or installed on a
+  computer) as an app of its own, with its icon and name. The bell then subscribes the device to push
+  notifications, the console closed or not: someone new waiting, a message in one's own chat, a message left (to
+  everyone not away). A tap opens the console at that chat. Sent by the site itself (Web Push, encrypted for each
+  device, signed with keys the desk makes once), with no outside service or library; a device the push service no
+  longer knows is let go. On an iPhone or iPad, from iOS 16.4: add to the home screen first, then turn the bell on
+  there (the console says so).
+- **Phones**: the list fills the screen in its colour; a chat takes the whole height, even margins; the side panel
+  opens over the chat as on a narrower computer (it had dropped below it); the box to write in no longer makes an
+  iPhone zoom in, and keeps above the keyboard.
+
 ## AI Ask Desk 0.2.7
 
 - The held headings: the topmost takes the card's top corners and the bottommost its bottom ones; a shadow only

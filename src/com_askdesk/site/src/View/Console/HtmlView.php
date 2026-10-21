@@ -64,6 +64,9 @@ class HtmlView extends BaseHtmlView
             $settings = Settings::load();
             $profile  = (new Staff(Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class), $settings))->profiles([(int) $user->id])[(int) $user->id] ?? ['name' => (string) $user->name, 'face' => null];
             $task     = static fn (string $name) => Route::_('index.php?option=com_askdesk&task=staff.' . $name . '&format=raw', false);
+            // Routed as the console is (a bare index.php may be sent on to a language's address, and a
+            // worker's script may not be); its reach widened to the whole site by the header it comes with
+            $pwa      = static fn (string $name) => Route::_('index.php?option=com_askdesk&task=pwa.' . $name . '&format=raw', false);
             $languages = [];
 
             foreach (LanguageHelper::getKnownLanguages(JPATH_SITE) as $tag => $language) {
@@ -81,9 +84,25 @@ class HtmlView extends BaseHtmlView
                 'browser'   => $settings->translates() && $settings->browserTranslate(),
                 'library'   => \Gss\Component\Askdesk\Administrator\Desk\Library::available(),
                 'languages' => $languages,
-                'urls'      => ['poll' => $task('poll'), 'take' => $task('take'), 'send' => $task('message'), 'close' => $task('close'), 'status' => $task('status'), 'translate' => $task('translate'), 'reply' => $task('reply'), 'suggest' => $task('suggest'), 'history' => $task('history'), 'past' => $task('past'), 'search' => $task('search'), 'upload' => $task('upload'), 'profile' => $task('profile'), 'saveProfile' => $task('saveProfile'), 'library' => $task('library'), 'libraryAdd' => $task('libraryAdd'), 'librarySend' => $task('librarySend'), 'libraryKeep' => $task('libraryKeep'), 'endCheck' => $task('endCheck'), 'stickers' => $task('stickers'), 'phrases' => $task('phrases'), 'phraseSave' => $task('phraseSave'), 'phraseDelete' => $task('phraseDelete'), 'panels' => $task('panels'), 'panel' => $task('panel')],
+                'urls'      => ['poll' => $task('poll'), 'take' => $task('take'), 'send' => $task('message'), 'close' => $task('close'), 'status' => $task('status'), 'translate' => $task('translate'), 'reply' => $task('reply'), 'suggest' => $task('suggest'), 'history' => $task('history'), 'past' => $task('past'), 'search' => $task('search'), 'upload' => $task('upload'), 'profile' => $task('profile'), 'saveProfile' => $task('saveProfile'), 'library' => $task('library'), 'libraryAdd' => $task('libraryAdd'), 'librarySend' => $task('librarySend'), 'libraryKeep' => $task('libraryKeep'), 'endCheck' => $task('endCheck'), 'stickers' => $task('stickers'), 'phrases' => $task('phrases'), 'phraseSave' => $task('phraseSave'), 'phraseDelete' => $task('phraseDelete'), 'panels' => $task('panels'), 'panel' => $task('panel'), 'pushSubscribe' => $task('pushSubscribe'), 'pushForget' => $task('pushForget'), 'worker' => $pwa('worker')],
+                'push'      => \Gss\Component\Askdesk\Administrator\Desk\Push::possible() ? \Gss\Component\Askdesk\Administrator\Desk\Push::make()->publicKey() : '',
+                'scope'     => Uri::root(true) . '/',
+                'logo'      => $settings->logo(),
                 'strings'   => $this->strings(),
             ];
+
+            // An app on a phone's home screen, or a computer's: its manifest, icon, colour, name
+            $images = Uri::root(true) . '/media/com_askdesk/images/';
+
+            $here = Uri::getInstance();
+
+            $document->addHeadLink($pwa('manifest') . '&start=' . rawurlencode($here->getPath() . ($here->getQuery() ? '?' . $here->getQuery() : '')), 'manifest');
+            $document->addHeadLink($images . 'apple-touch-icon.png', 'apple-touch-icon');
+            $document->setMetaData('theme-color', '#3b1fc9');
+            $document->setMetaData('mobile-web-app-capable', 'yes');
+            $document->setMetaData('apple-mobile-web-app-capable', 'yes');
+            $document->setMetaData('apple-mobile-web-app-status-bar-style', 'default');
+            $document->setMetaData('apple-mobile-web-app-title', Text::_('COM_ASKDESK_PWA_SHORT'));
 
             $assets = $document->getWebAssetManager();
             $assets->getRegistry()->addExtensionRegistryFile('com_askdesk');
@@ -100,7 +119,7 @@ class HtmlView extends BaseHtmlView
     {
         $keys = [
             'waiting', 'active', 'message', 'closed', 'mine', 'none', 'take', 'close', 'send', 'placeholder', 'original', 'translation',
-            'translatedTo', 'untranslated', 'translateMine', 'before', 'page', 'pagesVisited', 'pagesAll', 'remove', 'phrases', 'phrasesMore', 'phrasesAll', 'phrasesShared', 'phrasesMine', 'phrasesSearch', 'phrasesNone', 'phraseSaveMine', 'phraseSaved', 'phrasePin', 'phraseDelete', 'phraseFailed', 'panelSearch', 'panelChoose', 'panelRefresh', 'panelError', 'panelSetup', 'panelNoteDraft', 'panelNoteRedraft', 'panelNoteSend', 'panelNotePlaceholder', 'panelNoteWriting', 'panelNoteChoose', 'panelListAll', 'panelListClose', 'panelTagsMore', 'panelTagsLess', 'member', 'guest', 'email', 'online', 'busy', 'away',
+            'translatedTo', 'untranslated', 'translateMine', 'before', 'page', 'pagesVisited', 'pagesAll', 'remove', 'phrases', 'phrasesMore', 'phrasesAll', 'phrasesShared', 'phrasesMine', 'phrasesSearch', 'phrasesNone', 'phraseSaveMine', 'phraseSaved', 'phrasePin', 'phraseDelete', 'phraseFailed', 'panelSearch', 'panelChoose', 'panelRefresh', 'panelError', 'panelSetup', 'panelNoteDraft', 'panelNoteRedraft', 'panelNoteSend', 'panelNotePlaceholder', 'panelNoteWriting', 'panelNoteChoose', 'panelListAll', 'panelListClose', 'panelTagsMore', 'panelTagsLess', 'pushOn', 'pushOff', 'pushInstall', 'pushDenied', 'pushFailed', 'notifications', 'doneOn', 'member', 'guest', 'email', 'online', 'busy', 'away',
             'language', 'notify', 'notifyOn', 'unread', 'back', 'taken', 'error', 'signedOut', 'expired', 'visitor', 'ai', 'pick',
             'staffNow', 'answeredBy', 'reply', 'question', 'report', 'replyPlaceholder', 'replySend', 'replyNote', 'replyOpened', 'done', 'showInbox', 'resize', 'suggestions', 'suggesting', 'noSuggestion', 'useReply', 'openPage', 'relevance', 'history', 'pastChats', 'pastQuestions', 'noHistory', 'guestHistory', 'answered', 'notAnswered', 'helpful', 'notHelpful', 'reference', 'messages', 'search', 'searchPlaceholder', 'searching', 'noResults', 'insert', 'confirmEnd', 'confirmEndNote', 'cancel', 'all', 'awaiting', 'awaitingNote', 'endedUnanswered', 'justNow', 'minutes', 'hours', 'rated', 'notRated', 'attach', 'uploading', 'expiresIn', 'expired', 'download', 'tooLarge', 'imageTooLarge', 'profile', 'displayName', 'pet', 'noPet', 'petNoThanks', 'picture', 'thanksPicture', 'save', 'saved', 'clearFace', 'library', 'libraryMine', 'libraryShared', 'libraryAdd', 'libraryEmpty', 'librarySend', 'libraryNone', 'keepMine', 'keepShared', 'kept', 'endChecking', 'endOk', 'endWait', 'endCheckFailed', 'endAnyway', 'dropHere', 'stickers', 'noStickers', 'newChat', 'uploadOwn', 'faceTile', 'faceHint', 'thanksTile', 'thanksHint', 'choosePicture', 'change', 'reachOpen', 'reachAway', 'reachOutside', 'reachClosedDay', 'reachNoOne', 'reachNoAgent', 'translating', 'draft', 'quick', 'untranslatedSent',
         ];

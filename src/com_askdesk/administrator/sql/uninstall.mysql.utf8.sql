@@ -6,3 +6,5 @@ DROP TABLE IF EXISTS `#__askdesk_handled`;
 DROP TABLE IF EXISTS `#__askdesk_files`;
 DROP TABLE IF EXISTS `#__askdesk_stickers`;
 DROP TABLE IF EXISTS `#__askdesk_phrases`;
+DROP TABLE IF EXISTS `#__askdesk_push`;
+DROP TABLE IF EXISTS `#__askdesk_secrets`;

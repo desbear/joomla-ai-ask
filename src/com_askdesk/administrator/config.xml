@@ -43,6 +43,10 @@
 			<option value="0">JNO</option>
 			<option value="1">JYES</option>
 		</field>
+		<field name="console_logo" type="media" preview="false" types="images"
+			label="COM_ASKDESK_CONFIG_LOGO" description="COM_ASKDESK_CONFIG_LOGO_DESC" />
+		<field name="console_mark" type="media" preview="false" types="images"
+			label="COM_ASKDESK_CONFIG_MARK" description="COM_ASKDESK_CONFIG_MARK_DESC" />
 	</fieldset>
 	<fieldset name="privacy" label="COM_ASKDESK_CONFIG_PRIVACY" description="COM_ASKDESK_CONFIG_PRIVACY_DESC">
 		<field name="keep_days" type="number" default="365" min="1" max="3650" filter="integer"

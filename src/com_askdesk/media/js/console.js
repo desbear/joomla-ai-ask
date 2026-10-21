@@ -152,6 +152,9 @@
 
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
   const EASE = 'cubic-bezier(0.2, 0.8, 0.2, 1)';
+  const phone = window.matchMedia('(max-width: 760px)');
+  // Messages marked dealt with in this console (their button stays, sunk in, once they are closed)
+  const markedDone = new Set();
 
   // A <details> opens and closes by growing and shrinking, its content fading; its state
   // (data-state) changes at once, so the arrow turns with it
@@ -240,12 +243,9 @@
   const title = el('h1', 'askdesk-bar__title', document.title);
   const statusSelect = el('select', 'askdesk-select');
   const languageSelect = el('select', 'askdesk-select');
-  // Notifications: a bell, lit once they may be shown
-  const notify = button('askdesk-bell', '', () => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission().then(paintNotify);
-    }
-  });
+  // Notifications: a bell, lit once they may be shown. Where the browser can (a phone with the console
+  // added to its home screen, most computers) they come by push: with the console closed too
+  const notify = button('askdesk-bell', '', () => toggleNotify());
   const presence = el('p', 'askdesk-bar__staff');
 
   ['online', 'busy', 'away'].forEach((status) => {
@@ -266,33 +266,193 @@
   languageSelect.setAttribute('aria-label', t.language);
   languageSelect.hidden = !config.translate;
 
-  const paintNotify = () => {
-    const on = 'Notification' in window && Notification.permission === 'granted';
+  // ---------- Push: the console as an app that is told, closed or not ----------
 
-    notify.hidden = !('Notification' in window) || Notification.permission === 'denied';
+  const pushing = { possible: false, on: false, worker: null };
+  // An iPhone or iPad: push only from the console added to the home screen and opened from there
+  const apple = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+  const paintNotify = () => {
+    const granted = 'Notification' in window && Notification.permission === 'granted';
+    const on = pushing.possible ? pushing.on : granted;
+
+    notify.hidden = !pushing.possible && !(apple && !standalone) && (!('Notification' in window) || Notification.permission === 'denied');
     notify.classList.toggle('askdesk-bell--on', on);
-    notify.title = on ? t.notifyOn : t.notify;
+    notify.title = on ? (pushing.possible ? t.pushOn : t.notifyOn) : t.notify;
     notify.setAttribute('aria-label', notify.title);
   };
 
+  // A word under the bell, for a few seconds
+  const bubble = (text) => {
+    const word = el('div', 'askdesk-bubble', text);
+
+    word.setAttribute('role', 'status');
+    root.append(word);
+    window.setTimeout(() => word.classList.add('askdesk-bubble--out'), 5200);
+    window.setTimeout(() => word.remove(), 5600);
+  };
+
+  const keyOf = (base64) => {
+    const raw = window.atob((base64 + '='.repeat((4 - (base64.length % 4)) % 4)).replace(/-/g, '+').replace(/_/g, '/'));
+
+    return Uint8Array.from(raw, (char) => char.charCodeAt(0));
+  };
+
+  const b64 = (buffer) => window.btoa(String.fromCharCode(...new Uint8Array(buffer))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+  const subscribe = async () => {
+    const permission = await Notification.requestPermission();
+
+    if (permission !== 'granted') {
+      bubble(t.pushDenied);
+
+      return;
+    }
+
+    const subscription = await pushing.worker.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyOf(config.push) });
+    const data = await post(config.urls.pushSubscribe, {
+      endpoint: subscription.endpoint,
+      p256dh: b64(subscription.getKey('p256dh')),
+      auth: b64(subscription.getKey('auth')),
+    });
+
+    if (data.error) {
+      throw new Error(data.error);
+    }
+
+    pushing.on = true;
+    bubble(t.pushOn);
+  };
+
+  const unsubscribe = async () => {
+    const subscription = await pushing.worker.pushManager.getSubscription();
+
+    if (subscription) {
+      await post(config.urls.pushForget, { endpoint: subscription.endpoint }).catch(() => null);
+      await subscription.unsubscribe();
+    }
+
+    pushing.on = false;
+    bubble(t.pushOff);
+  };
+
+  const toggleNotify = async () => {
+    // On an iPhone, in Safari: add to the home screen first
+    if (!pushing.possible && apple && !standalone) {
+      bubble(t.pushInstall);
+
+      return;
+    }
+
+    if (!pushing.possible) {
+      if ('Notification' in window && Notification.permission === 'default') {
+        await Notification.requestPermission();
+      }
+
+      paintNotify();
+
+      return;
+    }
+
+    notify.disabled = true;
+
+    try {
+      await (pushing.on ? unsubscribe() : subscribe());
+    } catch (error) {
+      bubble(t.pushFailed);
+    }
+
+    notify.disabled = false;
+    paintNotify();
+  };
+
+  // The worker that shows them, and whether this browser is told already (renewed with this site's
+  // key, in case the subscription was made with another or lost on the server)
+  const startPush = async () => {
+    if (!config.push || !config.urls.worker || !('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
+      return;
+    }
+
+    try {
+      pushing.worker = await navigator.serviceWorker.register(config.urls.worker, { scope: config.scope || '/' });
+      await navigator.serviceWorker.ready;
+      pushing.possible = true;
+
+      const subscription = await pushing.worker.pushManager.getSubscription();
+
+      if (subscription && Notification.permission === 'granted') {
+        pushing.on = true;
+        post(config.urls.pushSubscribe, { endpoint: subscription.endpoint, p256dh: b64(subscription.getKey('p256dh')), auth: b64(subscription.getKey('auth')) }).catch(() => null);
+      }
+    } catch (error) {
+      pushing.possible = false;
+    }
+
+    paintNotify();
+  };
+
+  // What the worker says: a push while the console is in front (its own sound), a notification clicked
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (event) => {
+      const data = event.data || {};
+
+      if (data.askdesk === 'open' && data.room) {
+        wanted = data.room;
+        later(true);
+      }
+    });
+  }
+
+  // A chat asked for by the address (a notification opened the console at it): opened once it is there
+  let wanted = Number((window.location.hash.match(/^#room=(\d+)$/) || [])[1]) || 0;
+
+  if (wanted) {
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  }
+
   paintNotify();
+  startPush();
 
   const tile = el('span', 'askdesk-tile');
   const heading = el('div', 'askdesk-bar__heading');
 
   tile.append(icon('headset'));
-  heading.append(title, presence);
+  heading.append(title);
 
-  // At the top of the side: the desk's card, as a logo would be
+  // At the top of the side: the desk's card, as a logo would be; or the site's own logo, set in the
+  // desk's options (its mark alone where the side is narrow)
   const brand = el('div', 'askdesk-brand');
+  const logos = config.logo || {};
 
-  brand.append(tile, heading);
+  if (logos.logo) {
+    const logo = el('span', 'askdesk-brand__logo');
+    const full = el('img', 'askdesk-brand__full');
+
+    full.src = logos.logo;
+    full.alt = title.textContent;
+    logo.append(full);
+
+    if (logos.mark) {
+      const mark = el('img', 'askdesk-brand__mark');
+
+      mark.src = logos.mark;
+      mark.alt = title.textContent;
+      logo.append(mark);
+    }
+
+    brand.classList.add('askdesk-brand--logo');
+    brand.append(logo);
+  } else {
+    brand.append(tile, heading);
+  }
 
   // In the bar, at the far end: who one is
   // In the bar, at the far end: who one is; a click to change how one shows oneself
-  const meFace = button('askdesk-me', '', () => openProfile());
+  const meFace = button('askdesk-me', '', () => {});
 
   const paintMeFace = (name, src) => {
+    accountName.textContent = name || '';
     meFace.replaceChildren();
     meFace.title = `${name || ''} · ${t.profile}`;
     meFace.setAttribute('aria-label', meFace.title);
@@ -307,6 +467,82 @@
       meFace.textContent = Array.from(String(name || '?').trim() || '?')[0].toUpperCase();
     }
   };
+
+  // At the foot of the side, as an account's: whether visitors can chat now, in a line of its own;
+  // under it one's face, ringed in the colour of one's status (a click: the statuses, and one's
+  // profile), one's name, who else answers, the language and the bell. With the side folded away
+  // they all go to the bar
+  const account = el('div', 'askdesk-account');
+  const accountRow = el('div', 'askdesk-account__row');
+  const accountName = button('askdesk-account__name', '', () => openProfile());
+  const accountText = el('span', 'askdesk-account__text');
+  const avatar = el('div', 'askdesk-avatar');
+  const reachRow = el('div', 'askdesk-account__reach');
+  // Who answers now: their faces stacked, how many; a click lists them
+  const people = el('div', 'askdesk-people');
+  const peopleButton = button('askdesk-people__faces', '', () => {
+    people.classList.toggle('askdesk-people--open');
+    peopleButton.setAttribute('aria-expanded', String(people.classList.contains('askdesk-people--open')));
+  });
+  const peopleList = el('div', 'askdesk-people__list');
+
+  peopleButton.setAttribute('aria-expanded', 'false');
+  peopleButton.setAttribute('aria-haspopup', 'true');
+  peopleList.setAttribute('role', 'list');
+  people.append(peopleButton, peopleList);
+  people.hidden = true;
+  reachRow.append(people);
+  document.addEventListener('pointerdown', (event) => {
+    if (!people.contains(event.target)) {
+      people.classList.remove('askdesk-people--open');
+      peopleButton.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  const faceOf = (person, className) => {
+    const face = el('span', className);
+
+    if (person.face && /^(https?:|\/)/.test(person.face)) {
+      const picture = el('img', '');
+
+      picture.src = person.face;
+      picture.alt = '';
+      face.append(picture);
+    } else {
+      face.textContent = Array.from(String(person.name || '?').trim() || '?')[0].toUpperCase();
+    }
+
+    return face;
+  };
+
+  const paintPeople = (staff) => {
+    const list = Array.isArray(staff) ? staff : [];
+    const key = list.map((person) => `${person.id}:${person.status}:${person.face}:${person.name}`).join('|');
+
+    people.hidden = !list.length;
+
+    if (people.dataset.key === key) {
+      return;
+    }
+
+    people.dataset.key = key;
+    peopleButton.replaceChildren(...list.slice(0, 3).map((person) => faceOf(person, 'askdesk-people__face')), el('span', 'askdesk-people__count', String(list.length)));
+    peopleButton.title = `${t.staffNow}: ${list.map((person) => person.name).join(', ')}`;
+    peopleButton.setAttribute('aria-label', peopleButton.title);
+    peopleList.replaceChildren(el('strong', 'askdesk-people__title', `${t.staffNow} · ${list.length}`), ...list.map((person) => {
+      const row = el('div', 'askdesk-people__row');
+
+      row.setAttribute('role', 'listitem');
+      row.append(faceOf(person, 'askdesk-people__face'), el('span', 'askdesk-people__name', person.name), el('i', `askdesk-menu__dot askdesk-menu__dot--${person.status}`));
+
+      return row;
+    }));
+  };
+
+  avatar.append(meFace);
+  accountText.append(accountName, presence);
+  accountRow.append(avatar, accountText);
+  account.append(accountRow);
 
   paintMeFace(config.meName, config.meFace);
 
@@ -346,7 +582,7 @@
 
   // A list to choose from, drawn here: a button, and below it a menu that grows down, the current one
   // ticked (the list kept, unseen, as the value: its change is what happens on a choice)
-  const dropdown = (host, trigger, select, decorate = () => {}) => {
+  const dropdown = (host, trigger, select, decorate = () => {}, extras = []) => {
     const menu = el('div', 'askdesk-menu');
 
     menu.setAttribute('role', 'menu');
@@ -378,6 +614,33 @@
         item.setAttribute('aria-checked', String(current));
         decorate(item, option);
         item.append(el('span', 'askdesk-menu__label', option.textContent), icon('check'));
+        menu.append(item);
+      });
+
+      // Other things to do from the same button, under a line
+      extras.forEach((extra, index) => {
+        if (index === 0) {
+          menu.append(el('hr', 'askdesk-menu__line'));
+        }
+
+        // A row of its own drawing (a switch, a list that unfolds), or one that does something and closes
+        if (extra.draw) {
+          const drawn = extra.draw(close);
+
+          if (drawn) {
+            menu.append(...[].concat(drawn));
+          }
+
+          return;
+        }
+
+        const item = button('askdesk-menu__item askdesk-menu__item--action', '', () => {
+          close();
+          extra.run();
+        });
+
+        item.setAttribute('role', 'menuitem');
+        item.append(icon(extra.icon), el('span', 'askdesk-menu__label', extra.label));
         menu.append(item);
       });
 
@@ -416,10 +679,75 @@
 
   presenceTrigger.append(el('i', 'askdesk-presence__dot'), presenceText, icon('down'));
   presenceButton.append(presenceTrigger);
-  // Each status in the menu with its own coloured dot
-  dropdown(presenceButton, presenceTrigger, statusSelect, (item, option) => {
+  // Each status in the menu with its own coloured dot; the menu is the face's, one's profile after them
+  dropdown(avatar, meFace, statusSelect, (item, option) => {
     item.append(el('i', `askdesk-menu__dot askdesk-menu__dot--${option.value}`));
-  });
+  }, [
+    // Notifications on this device: a switch (push where it can, the browser's own otherwise)
+    {
+      draw: () => {
+        if (notify.hidden) {
+          return null;
+        }
+
+        const knob = el('span', 'askdesk-switch');
+        const row = button('askdesk-menu__item askdesk-menu__item--action askdesk-menu__switch', '', async () => {
+          await toggleNotify();
+          paint();
+        });
+        const paint = () => {
+          const on = notify.classList.contains('askdesk-bell--on');
+
+          row.setAttribute('aria-checked', String(on));
+          knob.classList.toggle('askdesk-switch--on', on);
+        };
+
+        row.setAttribute('role', 'menuitemcheckbox');
+        row.append(icon('bell'), el('span', 'askdesk-menu__label', t.notifications), knob);
+        paint();
+
+        return row;
+      },
+    },
+    // The language one works in: the current one, the others unfolding under it
+    {
+      draw: (close) => {
+        if (!config.translate) {
+          return null;
+        }
+
+        const current = languageSelect.options[languageSelect.selectedIndex];
+        const list = el('div', 'askdesk-menu__sub');
+        const head = button('askdesk-menu__item askdesk-menu__item--action askdesk-menu__fold', '', () => {
+          list.hidden = !list.hidden;
+          head.setAttribute('aria-expanded', String(!list.hidden));
+        });
+
+        list.hidden = true;
+        head.setAttribute('aria-expanded', 'false');
+        head.append(icon('globe'), el('span', 'askdesk-menu__label', t.language), el('span', 'askdesk-menu__value', current ? current.textContent : ''), icon('down'));
+        [...languageSelect.options].forEach((option) => {
+          const on = option.value === languageSelect.value;
+          const item = button(`askdesk-menu__item${on ? ' askdesk-menu__item--on' : ''}`, '', () => {
+            close();
+
+            if (!on) {
+              languageSelect.value = option.value;
+              languageSelect.dispatchEvent(new Event('change'));
+            }
+          });
+
+          item.setAttribute('role', 'menuitemradio');
+          item.setAttribute('aria-checked', String(on));
+          item.append(el('span', 'askdesk-menu__label', option.textContent), icon('check'));
+          list.append(item);
+        });
+
+        return [head, list];
+      },
+    },
+    { label: t.profile, icon: 'user', run: () => openProfile() },
+  ]);
   globeButton.append(icon('globe'));
   globe.append(globeButton);
   dropdown(globe, globeButton, languageSelect);
@@ -429,7 +757,10 @@
     const option = [...statusSelect.options].find((each) => each.value === status);
 
     presenceButton.dataset.status = status;
+    avatar.dataset.status = status;
+    presence.textContent = option ? option.textContent : status;
     root.dataset.status = status;
+    meFace.title = `${option ? option.textContent : status} · ${t.profile}`;
     presenceText.textContent = option ? option.textContent : status;
   };
 
@@ -448,11 +779,13 @@
   const wash = el('span', 'askdesk__wash');
 
   wash.setAttribute('aria-hidden', 'true');
-  // Whether visitors can chat now, said beside one's status
-  // The status switch is part of the desk's card at the top of the side; with the side folded away it
-  // comes to the start of the bar, where the card was
-  brand.append(presenceButton);
-  bar.append(opener, reach, el('span', 'askdesk-bar__space'), globe, notify, meFace);
+  // No bar above the work while the side is there: its things are at the side's foot (above). The bar
+  // shows with the side folded away, and they come to it
+  const barSpace = el('span', 'askdesk-bar__space');
+
+  reachRow.prepend(reach);
+  account.prepend(reachRow);
+  bar.append(opener);
 
   const paintReach = (visitors) => {
     if (!visitors || !Array.isArray(visitors.agents)) {
@@ -521,6 +854,22 @@
   // The console is the whole window, like an application
   document.documentElement.classList.add('askdesk-app');
 
+  // What is visible of it: on a phone the keyboard takes the bottom of the screen, and the console
+  // keeps to what is left above it (its box at the top of what shows, its height that of it), so the
+  // box to write in stays in sight and nothing is pushed aside
+  const viewport = window.visualViewport;
+
+  if (viewport) {
+    const fit = () => {
+      root.style.setProperty('--askdesk-top', `${Math.round(viewport.offsetTop)}px`);
+      root.style.setProperty('--askdesk-height', `${Math.round(viewport.height)}px`);
+    };
+
+    viewport.addEventListener('resize', fit);
+    viewport.addEventListener('scroll', fit);
+    fit();
+  }
+
   // ---------- State ----------
 
   const state = {
@@ -540,7 +889,8 @@
 
   const SIDE = 'askdesk:side';
   const SIDE_DEFAULT = 280;
-  const SIDE_MIN = 100;
+  // Its narrowest: anything narrower folds it away
+  const SIDE_MIN = 267;
 
   const setSide = (width, keep = true) => {
     const max = Math.max(SIDE_MIN, Math.round(main.clientWidth * 0.3));
@@ -555,11 +905,14 @@
     main.classList.toggle('askdesk-main--folded', folded);
     opener.hidden = !folded;
 
-    if (folded && presenceButton.parentElement !== bar) {
-      opener.after(presenceButton);
-    } else if (!folded && presenceButton.parentElement !== brand) {
-      brand.append(presenceButton);
+    if (folded && avatar.parentElement !== bar) {
+      bar.append(reach, barSpace, avatar);
+    } else if (!folded && avatar.parentElement !== accountRow) {
+      reachRow.prepend(reach);
+      accountRow.prepend(avatar);
     }
+
+    brand.classList.toggle('askdesk-brand--narrow', size < 200);
     splitter.setAttribute('aria-valuenow', String(size));
     splitter.setAttribute('aria-valuemax', String(max));
 
@@ -613,6 +966,9 @@
       const stored = window.localStorage.getItem(SIDE);
 
       kept = stored === null ? SIDE_DEFAULT : Number(stored);
+
+      // Kept narrower than it may be now (before 0.3.4): at its narrowest instead; folded stays folded
+      kept = kept > 0 && kept < SIDE_MIN ? SIDE_MIN : kept;
     } catch (error) {
       // The default
     }
@@ -675,7 +1031,7 @@
   const tell = (text) => {
     ring();
 
-    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+    if (document.hidden && !pushing.on && 'Notification' in window && Notification.permission === 'granted') {
       try {
         const note = new Notification(document.title, { body: text, tag: 'askdesk' });
 
@@ -987,7 +1343,7 @@
     const bar = el('span', 'askdesk-inbox__bar');
 
     bar.setAttribute('aria-hidden', 'true');
-    inbox.append(bar);
+    inbox.append(bar, account);
 
     if (open) {
       const where = () => {
@@ -1564,9 +1920,7 @@
       return;
     }
 
-    const back = button('askdesk-button askdesk-button--text askdesk-room__back', t.back, () => {
-      main.classList.remove('askdesk-main--room');
-    });
+    const back = button('askdesk-button askdesk-button--text askdesk-room__back', t.back, () => goBack());
     const who = el('div', 'askdesk-room__who');
     const line = el('div', 'askdesk-room__name');
 
@@ -1599,17 +1953,22 @@
     if (room.status !== 'closed' && (room.staff === config.me || !room.staff)) {
       // A message left is just dealt with; a chat ends for the visitor too, so it is asked once more
       if (room.status === 'message') {
-        // A button with a tick: pressed, it fills green and the tick bounces, then the message is dealt with
+        // A green button with a tick: pressed, it says done, glows, and sinks in (not to be pressed
+        // again); then the message is dealt with
+        const label = el('span', '', t.done);
         const done = button('askdesk-button askdesk-button--done', '', () => {
           if (done.classList.contains('askdesk-button--done-on')) {
             return;
           }
 
           done.classList.add('askdesk-button--done-on');
-          window.setTimeout(() => act('close'), reduced.matches ? 0 : 650);
+          done.setAttribute('aria-disabled', 'true');
+          label.textContent = t.doneOn;
+          markedDone.add(room.id);
+          window.setTimeout(() => act('close'), reduced.matches ? 0 : 900);
         });
 
-        done.append(icon('check'), el('span', '', t.done));
+        done.append(icon('check'), label);
         actions.append(done);
       } else {
         const end = button('askdesk-button askdesk-button--alarm askdesk-room__end', t.close, () => confirmEnd(end));
@@ -1618,6 +1977,15 @@
 
         actions.append(end);
       }
+    }
+
+    // Dealt with here a moment ago: the button stays, sunk in
+    if (room.status === 'closed' && markedDone.has(room.id)) {
+      const done = el('span', 'askdesk-button askdesk-button--done askdesk-button--done-on askdesk-button--done-still');
+
+      done.setAttribute('aria-disabled', 'true');
+      done.append(icon('check'), el('span', '', t.doneOn));
+      actions.append(done);
     }
 
     if (room.status === 'active' && room.staff !== config.me && room.staffName) {
@@ -2292,6 +2660,36 @@
 
   panels.append(panel(t.suggestions, 'bulb', suggestList), panel(t.history, 'history', historyList), libraryPanel);
   asideScroll.append(search, results, panels);
+
+  // The search, as the side scrolls down, shrinks away toward the top end, and a round search button
+  // grows there in its place; scrolled back to the top, the search opens again. Both follow how far the
+  // side is scrolled (0 to 1 over the search's own height), not a switch
+  const searchDot = button('askdesk-search-dot', '', () => {
+    asideScroll.scrollTo({ top: 0, behavior: reduced.matches ? 'auto' : 'smooth' });
+    window.setTimeout(() => searchField.focus({ preventScroll: true }), reduced.matches ? 0 : 380);
+  });
+  let shrinking = 0;
+
+  searchDot.append(icon('sparkles'));
+  searchDot.setAttribute('aria-label', t.search);
+  searchDot.tabIndex = -1;
+  aside.append(searchDot);
+
+  const shrink = () => {
+    window.cancelAnimationFrame(shrinking);
+    shrinking = window.requestAnimationFrame(() => {
+      const reach = Math.max(1, search.offsetHeight + 12);
+      const progress = Math.min(1, Math.max(0, asideScroll.scrollTop / reach));
+      const compact = progress > 0.75;
+
+      aside.style.setProperty('--askdesk-search-p', progress.toFixed(3));
+      aside.classList.toggle('askdesk-room__aside--compact', compact);
+      searchDot.tabIndex = compact ? 0 : -1;
+    });
+  };
+
+  asideScroll.addEventListener('scroll', shrink, { passive: true });
+  shrink();
 
   // The headings' places in the stack: how many above each, how many below; and whether each is held
   // now (a line of shadow on the side toward the rest)
@@ -3157,6 +3555,17 @@
     suggestNow();
   };
 
+  // A chat on its way: three dots bouncing where it will be
+  const loadingRoom = () => {
+    const box = el('div', 'askdesk-room__loading');
+
+    box.setAttribute('role', 'status');
+    box.setAttribute('aria-label', '…');
+    box.append(el('i', ''), el('i', ''), el('i', ''));
+
+    return box;
+  };
+
   const openRoom = (id) => {
     if (state.open !== id) {
       clearTray();
@@ -3165,12 +3574,64 @@
       state.after = 0;
       state.detail = null;
       state.messages = [];
-      pane.replaceChildren(el('p', 'askdesk-room__empty', '…'));
+      pane.replaceChildren(loadingRoom());
     }
 
     main.classList.add('askdesk-main--room');
+
+    // On a phone the chat is a page over the list: a step in the history, so going back (the button,
+    // a swipe, the browser's own) comes to the list
+    if (phone.matches && !(window.history.state && window.history.state.askdesk === 'room')) {
+      window.history.pushState({ askdesk: 'room', room: id }, '');
+    }
+
     paintInbox();
     later(true);
+  };
+
+  // ---------- On a phone: the list, a chat over it, and back ----------
+
+  // The chat slid away to the right, the list under it; then the list alone
+  let leaving = false;
+
+  const toList = (animate = true) => {
+    if (!main.classList.contains('askdesk-main--room') || leaving) {
+      return;
+    }
+
+    const done = () => {
+      leaving = false;
+      main.classList.remove('askdesk-main--room', 'askdesk-main--peek');
+      stage.style.transform = '';
+      inbox.style.transform = '';
+    };
+
+    if (!animate || !phone.matches || reduced.matches) {
+      done();
+
+      return;
+    }
+
+    const from = new DOMMatrix(getComputedStyle(stage).transform).m41;
+
+    leaving = true;
+    main.classList.add('askdesk-main--peek');
+    stage.animate([{ transform: `translateX(${from}px)` }, { transform: 'translateX(100%)' }], { duration: 260, easing: 'cubic-bezier(0.3, 0.7, 0.3, 1)', fill: 'forwards' })
+      .finished.then((animation) => {
+        done();
+        animation.cancel();
+      }, () => done());
+    inbox.animate([{ transform: inbox.style.transform || 'translateX(-30%)' }, { transform: 'none' }], { duration: 260, easing: 'cubic-bezier(0.3, 0.7, 0.3, 1)' });
+  };
+
+  // Back from a chat: the chat slides away, and the history steps back with it when the chat is a
+  // step in it (its popstate then finds the list already there)
+  const goBack = () => {
+    toList();
+
+    if (window.history.state && window.history.state.askdesk === 'room') {
+      window.history.back();
+    }
   };
 
   const heardRoom = (room) => {
@@ -4055,7 +4516,14 @@
     actions.append(save);
     box.append(el('strong', '', t.profile), preview, label(t.displayName, nameField), el('span', 'askdesk-profile__label', t.pet), pets, el('span', 'askdesk-profile__label', t.uploadOwn), uploads, clear, problem, actions);
     paintPreview(data.face ? data.face.src : '');
-    bar.append(box);
+    // From the foot of the side, upward; from the bar (the side folded away), downward
+    if (account.contains(meFace)) {
+      box.classList.add('askdesk-profile--side');
+      main.append(box);
+    } else {
+      bar.append(box);
+    }
+
     profileBox = box;
     nameField.focus();
 
@@ -4104,7 +4572,7 @@
   }
 
   document.addEventListener('pointerdown', (event) => {
-    if (profileBox && !profileBox.contains(event.target) && !meFace.contains(event.target)) {
+    if (profileBox && !profileBox.contains(event.target) && !meFace.contains(event.target) && !account.contains(event.target)) {
       closeProfile();
     }
   });
@@ -4196,9 +4664,16 @@
         }
 
         paintReach(data.visitors);
-        presence.textContent = (data.staff || []).length ? `${t.staffNow}: ${(data.staff || []).map((person) => person.name).join(', ')}` : '';
+        paintPeople(data.staff);
         heardRooms(Array.isArray(data.rooms) ? data.rooms : []);
         heardRoom(data.room);
+
+        if (wanted && state.rooms.some((room) => room.id === wanted)) {
+          const id = wanted;
+
+          wanted = 0;
+          openRoom(id);
+        }
       }
     } catch (error) {
       // Asked again in a moment
@@ -4226,6 +4701,113 @@
       later(true);
     }
   });
+
+  // The history of a phone (or of the console as an app): a first step under the list, so going back
+  // from the list stays in the console instead of leaving it (for the sign-in page, say); a step for a
+  // chat over it (openRoom). Back to the list from a chat; back from the list: still the list
+  const app = () => phone.matches || window.matchMedia('(display-mode: standalone)').matches;
+
+  if (app() && !(window.history.state && window.history.state.askdesk)) {
+    window.history.replaceState({ askdesk: 'base' }, '');
+    window.history.pushState({ askdesk: 'list' }, '');
+  }
+
+  window.addEventListener('popstate', (event) => {
+    const step = (event.state && event.state.askdesk) || '';
+
+    if (step === 'room') {
+      if (state.open) {
+        main.classList.add('askdesk-main--room');
+      }
+
+      return;
+    }
+
+    // Back by the browser itself (Safari's swipe has drawn its own going): the list at once
+    toList(false);
+
+    if (step === 'base' || (!step && app())) {
+      window.history.pushState({ askdesk: 'list' }, '');
+    }
+  });
+
+  // A swipe from the left edge of a chat takes it back to the list, the chat following the finger and
+  // the list showing under it (Safari's own swipe back, where it wins, ends at the list too)
+  let swipe = null;
+
+  stage.addEventListener('touchstart', (event) => {
+    if (!phone.matches || !main.classList.contains('askdesk-main--room') || event.touches.length !== 1 || event.touches[0].clientX > 32) {
+      swipe = null;
+
+      return;
+    }
+
+    swipe = { x: event.touches[0].clientX, y: event.touches[0].clientY, t: Date.now(), dx: 0, on: false };
+  }, { passive: true });
+
+  stage.addEventListener('touchmove', (event) => {
+    if (!swipe) {
+      return;
+    }
+
+    const touch = event.touches[0];
+    const dx = touch.clientX - swipe.x;
+    const dy = touch.clientY - swipe.y;
+
+    if (!swipe.on) {
+      if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) {
+        swipe = null;
+
+        return;
+      }
+
+      if (dx < 10) {
+        return;
+      }
+
+      swipe.on = true;
+      main.classList.add('askdesk-main--peek');
+    }
+
+    event.preventDefault();
+    swipe.dx = Math.max(0, dx);
+
+    const width = stage.clientWidth || window.innerWidth;
+
+    stage.style.transform = `translateX(${swipe.dx}px)`;
+    inbox.style.transform = `translateX(${-30 + 30 * Math.min(1, swipe.dx / width)}%)`;
+  }, { passive: false });
+
+  const swipeEnd = () => {
+    if (!swipe || !swipe.on) {
+      swipe = null;
+
+      return;
+    }
+
+    const width = stage.clientWidth || window.innerWidth;
+    const fast = swipe.dx / Math.max(1, Date.now() - swipe.t) > 0.6;
+    const away = swipe.dx > width * 0.35 || fast;
+
+    swipe = null;
+
+    if (away) {
+      goBack();
+
+      return;
+    }
+
+    // Not far enough: back where it was
+    const from = stage.style.transform;
+
+    stage.animate([{ transform: from }, { transform: 'translateX(0)' }], { duration: 200, easing: 'cubic-bezier(0.3, 0.7, 0.3, 1)' });
+    stage.style.transform = '';
+    inbox.style.transform = '';
+    window.setTimeout(() => main.classList.remove('askdesk-main--peek'), 200);
+  };
+
+  stage.addEventListener('touchend', swipeEnd);
+  stage.addEventListener('touchcancel', swipeEnd);
 
   poll();
 })(window, document);
