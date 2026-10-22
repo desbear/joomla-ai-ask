@@ -7294,3 +7294,103 @@ button.askdesk-me {
   box-sizing: border-box;
   padding-block-start: env(safe-area-inset-top, 0px);
 }
+
+/* ---------- No chat open: one's dashboard (0.5.0), for now its sources ---------- */
+.askdesk-home {
+  display: grid;
+  gap: 8px;
+  width: min(520px, 100%);
+  text-align: start;
+
+  > * {
+    width: 100%;
+    text-align: start;
+  }
+}
+
+.askdesk-home__title {
+  margin: 0;
+  color: var(--askdesk-text);
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.askdesk-home__lead,
+.askdesk-home__none {
+  margin: 0;
+  color: var(--askdesk-muted);
+  font-size: 13px;
+}
+
+.askdesk-home__head {
+  margin: 12px 0 0;
+  color: var(--askdesk-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.askdesk-home__sources {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.askdesk-home__source {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 0.5px solid var(--askdesk-line-strong);
+  border-radius: 12px;
+  background: var(--askdesk-surface);
+}
+
+.askdesk-home__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--askdesk-faint);
+
+  .is-on & {
+    background: #16a34a;
+  }
+}
+
+.askdesk-home__what {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  color: var(--askdesk-text);
+  font-size: 13px;
+
+  b {
+    font-weight: 500;
+  }
+
+  span {
+    overflow: hidden;
+    color: var(--askdesk-muted);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.askdesk-home__go {
+  flex: none;
+  color: var(--askdesk-accent);
+  font-size: 13px;
+  text-decoration: none;
+
+  &.is-main {
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #5ac8fa, #1e6ff0);
+    box-shadow: 0 6px 16px rgba(30, 111, 240, 0.35);
+    color: #fff;
+    font-weight: 500;
+  }
+}

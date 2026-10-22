@@ -151,3 +151,10 @@ CREATE TABLE IF NOT EXISTS "#__askdesk_secrets" (
   "value" text NOT NULL,
   PRIMARY KEY ("name")
 );
+
+CREATE TABLE IF NOT EXISTS "#__askdesk_boards" (
+  "user_id" integer NOT NULL,
+  "layout" text NOT NULL,
+  "updated" timestamp without time zone NOT NULL,
+  PRIMARY KEY ("user_id")
+);

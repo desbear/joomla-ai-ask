@@ -552,7 +552,65 @@
   const inbox = el('nav', 'askdesk-inbox');
   const splitter = el('div', 'askdesk-splitter');
   const pane = el('section', 'askdesk-room');
-  const empty = el('p', 'askdesk-room__empty', t.pick);
+  // No chat open: one's dashboard (0.5.0). For now the sources it will draw from and whether one is
+  // connected to each; the widgets come next
+  const empty = el('div', 'askdesk-room__empty');
+  const home = el('div', 'askdesk-home');
+  let homeAt = 0;
+
+  const paintHome = async () => {
+    if (!config.urls.board || Date.now() - homeAt < 30000) {
+      return;
+    }
+
+    homeAt = Date.now();
+
+    try {
+      const data = await post(config.urls.board, {});
+      const sources = el('ul', 'askdesk-home__sources');
+
+      (data.sources || []).forEach((source) => {
+        const row = el('li', `askdesk-home__source${source.connected ? ' is-on' : ''}`);
+        const what = el('div', 'askdesk-home__what');
+
+        what.append(el('b', '', source.title));
+
+        if (!source.ready) {
+          what.append(el('span', '', t.homeNotReady));
+        } else if (source.connected) {
+          what.append(el('span', '', t.homeConnected.replace('%s', source.account)));
+        }
+
+        row.append(el('i', 'askdesk-home__dot'), what);
+
+        const link = source.ready && !source.connected ? source.connect : source.manage;
+
+        if (link) {
+          const go = el('a', `askdesk-home__go${source.connected ? '' : ' is-main'}`, source.connected ? t.homeManage : t.homeConnect.replace('%s', source.title));
+
+          go.href = link;
+          row.append(go);
+        }
+
+        sources.append(row);
+      });
+
+      const parts = [el('h2', 'askdesk-home__title', t.homeTitle), el('p', 'askdesk-home__lead', t.homeEmpty), el('h3', 'askdesk-home__head', t.homeSources)];
+
+      parts.push((data.sources || []).length ? sources : el('p', 'askdesk-home__none', t.homeNone));
+
+      if ((data.widgets || []).length) {
+        parts.push(el('p', 'askdesk-home__none', t.homeWidgets.replace('%d', String(data.widgets.length))));
+      }
+
+      home.replaceChildren(...parts);
+    } catch (error) {
+      homeAt = 0;
+    }
+  };
+
+  home.append(el('p', 'askdesk-home__lead', t.pick));
+  empty.append(home);
   const opener = button('askdesk-button askdesk-button--text askdesk-bar__inbox', '', () => setSide(state.lastSide || SIDE_DEFAULT));
 
   opener.append(icon('sidebar'));
@@ -828,6 +886,7 @@
 
   pane.append(empty);
   stage.append(bar, pane);
+  paintHome();
 
   // What scrolls fades at an edge only where there is more beyond it: at the top once scrolled down,
   // at the bottom until the end is reached
@@ -3640,6 +3699,7 @@
   const paintRoom = () => {
     if (!state.detail) {
       pane.replaceChildren(empty);
+      paintHome();
 
       return;
     }

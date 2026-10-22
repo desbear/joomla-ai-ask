@@ -572,6 +572,109 @@ class StaffController extends BaseController
     /**
      * @return  array{0: Rooms, 1: Staff, 2: object, 3: array}
      */
+    /**
+     * One's dashboard (0.5.0): its widgets, and the sources they can draw from with whether one can use
+     * them ({}).
+     */
+    public function board(): void
+    {
+        [, , $me] = $this->check();
+
+        $this->send([
+            'widgets' => \Gss\Component\Askdesk\Administrator\Desk\Boards::make()->get((int) $me->user_id),
+            'sources' => \Gss\Component\Askdesk\Administrator\Desk\Sources::list($me),
+        ]);
+    }
+
+    /**
+     * One's dashboard kept ({widgets}): what was kept.
+     */
+    public function boardSave(): void
+    {
+        [, , $me, $body] = $this->check();
+
+        $this->send(['widgets' => \Gss\Component\Askdesk\Administrator\Desk\Boards::make()->save((int) $me->user_id, $body['widgets'] ?? [])]);
+    }
+
+    /**
+     * A source's templates one can see ({source, query?, page?}).
+     */
+    public function sourceTemplates(): void
+    {
+        [, , $me, $body] = $this->check();
+
+        $this->fromSource($body, fn ($source) => \Gss\Component\Askdesk\Administrator\Desk\Sources::templates($source, $me, \is_string($body['query'] ?? null) ? $body['query'] : '', (int) ($body['page'] ?? 1)));
+    }
+
+    /**
+     * A template's fields ({source, template}).
+     */
+    public function sourceFields(): void
+    {
+        [, , $me, $body] = $this->check();
+
+        $this->fromSource($body, fn ($source) => \Gss\Component\Askdesk\Administrator\Desk\Sources::fields($source, $me, $this->templateOf($body)));
+    }
+
+    /**
+     * A page of a template's records ({source, template, page?, size?, query?, mine?}).
+     */
+    public function sourceRows(): void
+    {
+        [, , $me, $body] = $this->check();
+
+        $this->fromSource($body, fn ($source) => \Gss\Component\Askdesk\Administrator\Desk\Sources::rows($source, $me, $this->templateOf($body), [
+            'page'  => (int) ($body['page'] ?? 1),
+            'size'  => (int) ($body['size'] ?? 100),
+            'query' => \is_string($body['query'] ?? null) ? $body['query'] : '',
+            'mine'  => !empty($body['mine']),
+        ]));
+    }
+
+    /**
+     * One value of a record changed ({source, template, row, field, value}): the record after.
+     */
+    public function sourceUpdate(): void
+    {
+        [, , $me, $body] = $this->check();
+
+        $value = $body['value'] ?? '';
+        $value = \is_array($value) ? \array_slice(array_values(array_filter($value, 'is_scalar')), 0, 50) : (\is_scalar($value) ? $value : '');
+
+        $this->fromSource($body, fn ($source) => ['row' => \Gss\Component\Askdesk\Administrator\Desk\Sources::row($source->update(
+            $me,
+            $this->templateOf($body),
+            \is_scalar($body['row'] ?? null) ? mb_substr((string) $body['row'], 0, 100) : '',
+            \is_scalar($body['field'] ?? null) ? mb_substr((string) $body['field'], 0, 100) : '',
+            $value
+        ))]);
+    }
+
+    /**
+     * What a source answers, or why it can't: sign in first ({signin: where}), or what went wrong.
+     */
+    private function fromSource(array $body, callable $work): never
+    {
+        $source = \Gss\Component\Askdesk\Administrator\Desk\Sources::get(\is_string($body['source'] ?? null) ? $body['source'] : '');
+
+        if (!$source) {
+            $this->send(['error' => Text::_('JERROR_ALERTNOAUTHOR')], 404);
+        }
+
+        try {
+            $this->send($work($source));
+        } catch (\Gss\Component\Askdesk\Administrator\Desk\SignInNeeded $e) {
+            $this->send(['signin' => $e->connect, 'error' => Text::sprintf('COM_ASKDESK_CONSOLE_SOURCE_SIGNIN', $source->title())]);
+        } catch (\Throwable $e) {
+            $this->send(['error' => Text::sprintf('COM_ASKDESK_CONSOLE_SOURCE_ERROR', $source->title()), 'detail' => mb_substr($e->getMessage(), 0, 200)]);
+        }
+    }
+
+    private function templateOf(array $body): string
+    {
+        return \is_scalar($body['template'] ?? null) ? mb_substr(trim((string) $body['template']), 0, 100) : '';
+    }
+
     private function check(): array
     {
         $body = $this->body();

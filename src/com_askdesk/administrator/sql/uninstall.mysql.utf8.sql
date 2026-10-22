@@ -8,3 +8,4 @@ DROP TABLE IF EXISTS `#__askdesk_stickers`;
 DROP TABLE IF EXISTS `#__askdesk_phrases`;
 DROP TABLE IF EXISTS `#__askdesk_push`;
 DROP TABLE IF EXISTS `#__askdesk_secrets`;
+DROP TABLE IF EXISTS `#__askdesk_boards`;

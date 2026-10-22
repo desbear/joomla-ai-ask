@@ -67,6 +67,17 @@ It is a package of its own, `pkg_askdesk`, which needs AI Ask 0.20.0 or later:
   console draws it all as text; whatever the plugin calls stays on the server.
 - On a narrower screen these open over the chat with **Reference**.
 
+## The dashboard (0.5.0, being built)
+
+With no chat open, the console is to show each person's dashboard: widgets on 12 columns, each one template of
+a source drawn as a table or a chart. A plugin of the `askdesk` group gives a source by answering the
+`onAskdeskSources` event with an object implementing `Gss\Component\Askdesk\Administrator\Desk\SourceInterface`:
+its templates, a template's fields (text, number, date, select or multi), its records a page at a time (by
+words, or only the person's own), and one value of a record changed, all read as the person looking. When they
+must sign in to the other system first, it throws `SignInNeeded` with where that starts. Each person's widgets
+are kept on the server (`#__askdesk_boards`). So far the console lists the sources and whether one is
+connected to each, with the way to connect.
+
 ## On a phone, and notifications
 
 The console works on a phone: the list, then a chat full screen, its side panel over it. It can be added to the

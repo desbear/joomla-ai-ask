@@ -155,3 +155,10 @@ CREATE TABLE IF NOT EXISTS `#__askdesk_secrets` (
   `value` text NOT NULL,
   PRIMARY KEY (`name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `#__askdesk_boards` (
+  `user_id` int unsigned NOT NULL,
+  `layout` mediumtext NOT NULL,
+  `updated` datetime NOT NULL,
+  PRIMARY KEY (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci;

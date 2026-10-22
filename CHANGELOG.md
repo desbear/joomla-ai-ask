@@ -2,6 +2,16 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.5.0
+
+- **The dashboard's groundwork**: plugins can give the dashboard sources (event `onAskdeskSources`, a
+  `SourceInterface` each): another system's templates, their fields in a few kinds (text, number, date,
+  select, multi), its records a page at a time, and one value of a record changed, all read as the person
+  looking; a source that needs them to sign in first says where. Each person's dashboard (its widgets, where
+  and how big on 12 columns, what each shows) is kept on the server.
+- With no chat open, the console shows the sources and whether one is connected to each, with the way to
+  connect; the dashboard itself comes next.
+
 ## AI Ask Desk 0.4.2
 
 - Opened from an iPhone's home screen, the status bar is see-through: the console's colour runs up behind it
