@@ -2,6 +2,16 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.5.5
+
+- Adding a widget, its form template picked in a select with a search (Vittal Design's Combobox): the
+  templates asked for by name as written, and a page more as the list's end comes near, so a source with
+  hundreds of templates has them all within reach (until now only the first hundred were listed).
+
+## AI Ask Desk 0.5.4
+
+- The dashboard's search boxes (and its inputs) with no outline inside their blue border when written in.
+
 ## AI Ask Desk 0.5.3
 
 - The chat list's filters (all, waiting) with their word at the start and their count at the end.

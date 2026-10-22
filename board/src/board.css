@@ -698,3 +698,114 @@ body.adb-resizing, body.adb-resizing * { cursor: col-resize !important; user-sel
 @media (prefers-color-scheme: dark) {
   .adb-dt__row:hover td, .adb-dt__row.is-sel td { background: #1d2230; }
 }
+
+/* Inputs that show focus by their own (or their box's) blue border: no outline over it */
+.adb .adb-search input:focus-visible,
+.adb .adb-dt__search input:focus-visible,
+.adb .adb-row input:focus-visible,
+.adb .adb-row select:focus-visible,
+.adb .adb-ed__input:focus-visible {
+  outline: none;
+}
+
+/* ---------- Combobox (Vittal): a select's trigger; its popup a search bar, then the list ---------- */
+.adb-combo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+  padding: 0 6px 0 12px;
+  border: 1px solid var(--vt-g300);
+  border-radius: 4px;
+  background: var(--vt-white);
+  color: var(--vt-g800);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.adb-combo > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adb-combo .adb-icon { flex: none; width: 14px; height: 14px; color: var(--vt-g700); }
+.adb-combo:hover { border-color: var(--vt-g500); }
+.adb .adb-combo:focus-visible, .adb-combo[data-open] { border-color: var(--vt-primary-500); outline: none; }
+.adb-combo[data-placeholder] { color: var(--vt-g400); }
+.adb-combo:disabled { background: var(--vt-g200); color: var(--vt-g500); cursor: default; }
+
+.adb-combo__pop {
+  position: fixed;
+  z-index: 140;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-width: 144px;
+  max-height: 300px;
+  padding: 8px 0;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--vt-white);
+  box-shadow: var(--vt-shadow-emphasis);
+  font-size: 14px;
+  animation: adb-combo-in 0.1s ease-out;
+}
+@keyframes adb-combo-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } }
+.adb-combo__search { padding: 8px 16px; }
+.adb-combo__search label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  box-sizing: border-box;
+  padding: 0 16px 0 8px;
+  border: 1px solid var(--vt-g300);
+  border-radius: 20px;
+  background: var(--vt-white);
+  color: var(--vt-g500);
+  transition: border-color 0.2s, color 0.2s;
+}
+.adb-combo__search label:hover { border-color: var(--vt-g500); }
+.adb-combo__search label:focus-within { border-color: var(--vt-primary-500); color: var(--vt-primary-500); }
+.adb-combo__search .adb-icon { flex: none; width: 18px; height: 18px; }
+.adb .adb-combo__search input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--vt-g800);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.adb-combo__search input::placeholder { color: var(--vt-g400); }
+.adb-combo__search input::-webkit-search-cancel-button { display: none; }
+.adb-combo__pop ul { min-height: 0; margin: 0; padding: 0; overflow: auto; list-style: none; scrollbar-width: none; }
+.adb-combo__pop ul::-webkit-scrollbar { width: 0; }
+.adb-combo__pop li {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 32px 6px 20px;
+  color: var(--vt-g800);
+  line-height: 20px;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+}
+.adb-combo__pop li[data-highlighted] { background: var(--vt-g100); }
+.adb-combo__pop li:active { background: var(--vt-g200); }
+.adb-combo__pop li .adb-icon { position: absolute; right: 20px; width: 12px; height: 12px; color: var(--vt-primary-500); }
+.adb-combo__empty { margin: 0; padding: 24px 16px; color: var(--vt-g500); text-align: center; }
+.adb-combo__pop ul + .adb-combo__empty { padding: 8px 16px; }
+.adb .adb-combo { color: var(--vt-g800); }
+.adb .adb-combo[data-placeholder] { color: var(--vt-g400); }
+.adb .adb-combo:disabled { color: var(--vt-g500); }

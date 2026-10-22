@@ -6,6 +6,7 @@ import { Icon, Grip } from './icons.jsx';
 import { COLS, KINDS, isGrid, needs, recommend, settle, firstFree, bottom, fmt, ymd } from './kinds.js';
 import { SignIn } from './api.js';
 import { Grid } from './widgets/Grid.jsx';
+import { Combobox } from './widgets/Combobox.jsx';
 import { NumberW, BatteryW, ChartW, GanttW } from './widgets/Simple.jsx';
 
 const ROW = 64;
@@ -254,8 +255,9 @@ const Adder = ({ entry, sources, api, ctx, onAdd, onClose }) => {
   const { t } = ctx;
   const usable = sources.filter((s) => s.connected);
   const [source, setSource] = useState(usable[0] ? usable[0].name : '');
-  const [templates, setTemplates] = useState(null);
   const [template, setTemplate] = useState('');
+  const [templateName, setTemplateName] = useState('');
+  const [listed, setListed] = useState(false);
   const [all, setAll] = useState(null);
   const [keys, setKeys] = useState([]);
   const [kind, setKind] = useState(entry === 'chart' ? null : entry);
@@ -264,8 +266,12 @@ const Adder = ({ entry, sources, api, ctx, onAdd, onClose }) => {
 
   useEffect(() => {
     if (!source) return;
-    setTemplates(null);
-    api.templates(source).then((got) => { setTemplates(got.items); setTemplate(got.items[0] ? got.items[0].id : ''); }, setFailed);
+    setListed(false);
+    api.templates(source).then((got) => {
+      setListed(true);
+      setTemplate(got.items[0] ? got.items[0].id : '');
+      setTemplateName(got.items[0] ? got.items[0].name : '');
+    }, setFailed);
   }, [source]);
 
   useEffect(() => {
@@ -286,6 +292,9 @@ const Adder = ({ entry, sources, api, ctx, onAdd, onClose }) => {
     }, setFailed);
   }, [template]);
 
+  // The source's templates as asked for by name, a page at a time
+  const loadTemplates = useCallback((query, page) => api.templates(source, query, page), [api, source]);
+
   const fields = all ? all.fields.filter((f) => keys.includes(f.key)) : [];
   const rec = recommend(fields);
   const using = kind && !needs(kind, fields) ? kind : (needs(rec, fields) ? 'table' : rec);
@@ -298,11 +307,11 @@ const Adder = ({ entry, sources, api, ctx, onAdd, onClose }) => {
         <div className="adb-dlg__body">
           <div>
             {usable.length > 1 ? <label className="adb-row">{t('source')}<select value={source} onChange={(e) => setSource(e.target.value)}>{usable.map((s) => <option key={s.name} value={s.name}>{s.title}</option>)}</select></label> : null}
-            <label className="adb-row">{t('template')}
-              <select value={template} onChange={(e) => setTemplate(e.target.value)} disabled={!templates}>
-                {templates ? templates.map((x) => <option key={x.id} value={x.id}>{x.name}</option>) : <option>{t('loading')}</option>}
-              </select>
-            </label>
+            <div className="adb-row">{t('template')}
+              <Combobox value={template} label={listed ? templateName : t('loading')} disabled={!listed}
+                load={loadTemplates} onPick={(x) => { setTemplate(x.id); setTemplateName(x.name); }}
+                placeholder={t('pickTemplate')} searchPlaceholder={t('searchTemplates')} empty={t('noTemplates')} loading={t('loading')} />
+            </div>
             <label className="adb-row">{t('name')}<input type="text" value={title} placeholder={all ? `${all.name}・${t(`k_${using}`)}` : ''} onChange={(e) => setTitle(e.target.value)} /></label>
             <h5>{t('useFields')}</h5>
             <div className="adb-fields">
