@@ -54,6 +54,8 @@ export const makeApi = (config) => {
   return {
     board: () => post(config.urls.board, {}),
     save: (widgets) => post(config.urls.boardSave, { widgets }),
+    // A Super User's board, as the dashboard template for everyone
+    saveTemplate: (widgets) => post(config.urls.boardTemplate, { widgets }),
     templates: (source, query = '', page = 1) => post(config.urls.sourceTemplates, { source, query, page }),
 
     fields(source, template) {
@@ -70,11 +72,11 @@ export const makeApi = (config) => {
     },
 
     // A page of records
-    rows: ({ source, template, page = 1, size = 100, query = '', mine = false }) => queued(() => post(config.urls.sourceRows, { source, template, page, size, query, mine })),
+    rows: ({ source, template, page = 1, size = 100, query = '', mine = 'all', range = 'all' }) => queued(() => post(config.urls.sourceRows, { source, template, page, size, query, ...whose(mine), ...rangeDays(range) })),
 
     // Records for sums: the first pages, shared by all widgets of the template; partial when there are more
-    all({ source, template, query = '', mine = false }) {
-      const key = JSON.stringify([source, template, query, mine]);
+    all({ source, template, query = '', mine = 'all', range = 'all' }) {
+      const key = JSON.stringify([source, template, query, mine, range]);
 
       if (!sums.has(key)) {
         const asked = (async () => {
@@ -82,7 +84,7 @@ export const makeApi = (config) => {
           let total = 0;
 
           for (let page = 1; page <= PAGES_FOR_SUMS; page += 1) {
-            const got = await queued(() => post(config.urls.sourceRows, { source, template, page, size: 100, query, mine }));
+            const got = await queued(() => post(config.urls.sourceRows, { source, template, page, size: 100, query, ...whose(mine), ...rangeDays(range) }));
 
             rows.push(...got.rows);
             total = got.total;
@@ -116,3 +118,25 @@ export const makeApi = (config) => {
     },
   };
 };
+
+// The times the dashboard can cover, and their days (from, to; Y-m-d, here): none for all time
+export const RANGES = ['all', 'today', 'd7', 'd30', 'month', 'lastMonth', 'year'];
+
+export const rangeDays = (range) => {
+  const day = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const now = new Date();
+  const back = (n) => new Date(now.getFullYear(), now.getMonth(), now.getDate() - n);
+
+  switch (range) {
+    case 'today': return { from: day(now), to: day(now) };
+    case 'd7': return { from: day(back(6)), to: day(now) };
+    case 'd30': return { from: day(back(29)), to: day(now) };
+    case 'month': return { from: day(new Date(now.getFullYear(), now.getMonth(), 1)), to: day(now) };
+    case 'lastMonth': return { from: day(new Date(now.getFullYear(), now.getMonth() - 1, 1)), to: day(new Date(now.getFullYear(), now.getMonth(), 0)) };
+    case 'year': return { from: day(new Date(now.getFullYear(), 0, 1)), to: day(now) };
+    default: return {};
+  }
+};
+
+// Whose records: one's own (mine), another person's (person: their id), or everyone's
+export const whose = (who) => ({ mine: who === 'me' || who === true, person: /^\d+$/.test(String(who)) ? Number(who) : 0 });

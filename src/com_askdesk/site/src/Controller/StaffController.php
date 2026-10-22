@@ -51,10 +51,15 @@ class StaffController extends BaseController
             'face' => $profiles[$person['id']]['face']['src'] ?? '',
         ]), $present);
 
+        // The list of the tab looked at, as far as it was scrolled; with what goes on now, whatever the tab
+        $inbox  = $rooms->inbox((int) $me->user_id, (string) ($body['list'] ?? 'all'), (int) ($body['limit'] ?? 30), (string) ($body['sort'] ?? ''));
         $result = [
             'me'     => ['id' => (int) $me->user_id, 'status' => $me->status, 'language' => $me->language],
             'staff'  => $present,
-            'rooms'  => $rooms->inbox((int) $me->user_id),
+            'rooms'  => $inbox['rooms'],
+            'counts' => $inbox['counts'],
+            'more'   => $inbox['more'],
+            'live'   => $inbox['live'],
         ];
 
         // Whether a visitor asking for a person now gets a chat, and why not
@@ -545,6 +550,22 @@ class StaffController extends BaseController
         $this->send(['ok' => true]);
     }
 
+    /**
+     * Closes (結案) a chat that ended unanswered, or a message left, once dealt with.
+     */
+    public function settle(): void
+    {
+        [$rooms, , $me, $body] = $this->check();
+
+        try {
+            $rooms->settle($this->room($rooms, $body), (int) $me->user_id);
+        } catch (\RuntimeException $e) {
+            $this->send(['error' => $e->getMessage()]);
+        }
+
+        $this->send(['ok' => true]);
+    }
+
     public function status(): void
     {
         [, $staff, $me, $body] = $this->check();
@@ -578,11 +599,25 @@ class StaffController extends BaseController
      */
     public function board(): void
     {
-        [, , $me] = $this->check();
+        [, $staff, $me] = $this->check();
+
+        // Whom the dashboard can be narrowed to: oneself, and (when others' cases may be seen) each of
+        // the people answering
+        $own    = Settings::load()->keptToOwn($this->app->getIdentity());
+        $names  = $own ? [] : $staff->names(array_map(static fn ($p) => (int) $p->id, $staff->people()));
+        $people = [];
+
+        foreach ($names as $id => $name) {
+            if ((int) $id !== (int) $me->user_id) {
+                $people[] = ['id' => (int) $id, 'name' => (string) $name];
+            }
+        }
 
         $this->send([
-            'widgets' => \Gss\Component\Askdesk\Administrator\Desk\Boards::make()->get((int) $me->user_id),
+            'widgets' => \Gss\Component\Askdesk\Administrator\Desk\Boards::make()->forPerson((int) $me->user_id, $this->templater()),
             'sources' => \Gss\Component\Askdesk\Administrator\Desk\Sources::list($me),
+            'people'  => $people,
+            'others'  => !$own,
         ]);
     }
 
@@ -593,7 +628,31 @@ class StaffController extends BaseController
     {
         [, , $me, $body] = $this->check();
 
-        $this->send(['widgets' => \Gss\Component\Askdesk\Administrator\Desk\Boards::make()->save((int) $me->user_id, $body['widgets'] ?? [])]);
+        // The template's widgets stay (a Super User may take them off their own board)
+        $this->send(['widgets' => \Gss\Component\Askdesk\Administrator\Desk\Boards::make()->savePerson((int) $me->user_id, $body['widgets'] ?? [], $this->templater())]);
+    }
+
+    /**
+     * A Super User's board saved as the dashboard template for everyone.
+     */
+    public function boardTemplate(): void
+    {
+        [, , $me, $body] = $this->check();
+
+        if (!$this->templater()) {
+            $this->send(['error' => Text::_('JERROR_ALERTNOAUTHOR')], 403);
+        }
+
+        $boards = \Gss\Component\Askdesk\Administrator\Desk\Boards::make();
+        $boards->saveTemplate($body['widgets'] ?? []);
+
+        $this->send(['widgets' => $boards->savePerson((int) $me->user_id, $body['widgets'] ?? [], true)]);
+    }
+
+    /** Whether this person sets the dashboard template (given it in the desk's permissions; Super Users) */
+    private function templater(): bool
+    {
+        return Settings::may($this->app->getIdentity(), 'askdesk.template');
     }
 
     /**
@@ -628,6 +687,10 @@ class StaffController extends BaseController
             'size'  => (int) ($body['size'] ?? 100),
             'query' => \is_string($body['query'] ?? null) ? $body['query'] : '',
             'mine'  => !empty($body['mine']),
+            // Another person's (not when others' cases may not be seen)
+            'person' => Settings::load()->keptToOwn($this->app->getIdentity()) ? 0 : max(0, (int) ($body['person'] ?? 0)),
+            'from'  => \is_string($body['from'] ?? null) ? $body['from'] : '',
+            'to'    => \is_string($body['to'] ?? null) ? $body['to'] : '',
         ]));
     }
 
@@ -705,13 +768,25 @@ class StaffController extends BaseController
             session_write_close();
         }
 
-        return [new Rooms($db, $settings), $staff, $me, $body];
+        $rooms = new Rooms($db, $settings);
+
+        // Others' chats not to be seen (as set): this person's and no one's only
+        if ($settings->keptToOwn($user)) {
+            $rooms->restrictTo((int) $user->id);
+        }
+
+        return [$rooms, $staff, $me, $body];
     }
 
     private function room(Rooms $rooms, array $body, bool $required = true): ?object
     {
         $id   = (int) ($body['room'] ?? 0);
         $room = $id > 0 ? $rooms->get($id) : null;
+
+        // Another's chat this person may not see: as if there were none
+        if ($room && !$rooms->visible($room)) {
+            $room = null;
+        }
 
         if (!$room && $required) {
             $this->send(['error' => Text::_('COM_ASKDESK_STAFF_NO_ROOM')]);

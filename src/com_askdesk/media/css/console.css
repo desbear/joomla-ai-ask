@@ -3499,11 +3499,185 @@ button.askdesk-me {
   box-shadow: none;
 }
 
-/* Each filter's word at its start and its count at its end; the count as far from the pill's edge as from
-   its top and bottom */
+/* Four tabs (0.6.0): each as wide as its word and count, the white pill put under the one chosen by
+   measuring it (console.js); the count as far from the pill's edge as from its top and bottom */
+.askdesk-filters__pill,
+.askdesk-filters__pill--awaiting {
+  inline-size: 0;
+  transform: none;
+  transition: transform 0.35s cubic-bezier(0.3, 1.2, 0.4, 1), inline-size 0.35s cubic-bezier(0.3, 1.2, 0.4, 1);
+}
+
 .askdesk-filter {
+  flex: 1 1 auto;
+  justify-content: center;
+  gap: 4px;
+  padding-inline: 8px 5px;
+  min-inline-size: 0;
+
+  > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  b:empty {
+    display: none;
+  }
+}
+
+/* Those closed: a word only */
+.askdesk-filter--settled {
+  padding-inline: 8px;
+}
+
+/* Under the tabs: the order (a menu) at the start, all's switch for those closed at the end */
+.askdesk-listtools {
+  position: relative;
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  padding-inline: 12px 5px;
+  gap: 8px;
+  margin: -4px 4px 8px;
+  font-size: 12px;
+}
+
+.askdesk-listtools__sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  block-size: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 13px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  opacity: 0.85;
+  cursor: pointer;
+
+  .askdesk-icon {
+    inline-size: 14px;
+    block-size: 14px;
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.12);
+    opacity: 1;
+  }
+}
+
+.askdesk-listtools__menu {
+  position: absolute;
+  inset-block-start: 30px;
+  inset-inline-start: 0;
+  z-index: 6;
+  display: grid;
+  min-inline-size: 140px;
+  padding: 8px 0;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: 0 6px 20px -2px rgba(35, 35, 50, 0.25);
+  color: rgba(35, 35, 50, 0.85);
+}
+
+.askdesk-listtools__item {
+  padding: 6px 32px 6px 16px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: start;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: rgba(35, 35, 50, 0.03);
+    outline: none;
+  }
+}
+
+.askdesk-listtools__item--on {
+  color: #0e86fe;
+  font-weight: 500;
+}
+
+/* A switch: a small track, its knob to the end when on */
+.askdesk-listtools__switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.85;
+  cursor: pointer;
+
+  input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+
+.askdesk-listtools__track {
+  position: relative;
+  inline-size: 28px;
+  block-size: 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.28);
+  transition: background 0.2s;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset-block-start: 2px;
+    inset-inline-start: 2px;
+    inline-size: 12px;
+    block-size: 12px;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.2s;
+  }
+}
+
+.askdesk-listtools__switch input:checked + .askdesk-listtools__track {
+  background: #2bcd86;
+
+  &::after {
+    transform: translateX(12px);
+  }
+}
+
+.askdesk-listtools__switch input:focus-visible + .askdesk-listtools__track {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6);
+}
+
+.askdesk-listtools__switch:has(input:checked) {
+  opacity: 1;
+}
+
+/* A tab of its own with nothing in it; the end of a long one, asking for more */
+.askdesk-group__empty,
+.askdesk-group__more {
+  margin: 4px 10px 12px;
+  color: var(--askdesk-faint);
+  font-size: 12px;
+}
+
+.askdesk-group__more {
+  text-align: center;
+}
+
+/* Closing (結案) from the list: a quiet button at the row's end, not pulsing as taking a chat does */
+.askdesk-item__settle {
+  animation: none;
+  border: 1px solid color-mix(in srgb, var(--askdesk-ok, #0f6e3a) 35%, transparent);
+  background: var(--askdesk-surface);
+  color: var(--askdesk-ok, #0f6e3a);
+}
+
+.askdesk-inbox .askdesk-group__empty,
+.askdesk-inbox .askdesk-group__more {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -6225,6 +6399,10 @@ button.askdesk-me {
 /* The account at the foot: set apart from the list above by a shadow; whether visitors can chat now
    in a line of its own, white; then one's face, name, the language and the bell */
 .askdesk-account {
+  /* Frosted in the list's own violet: what scrolls under it blurred away, not read through (0.6.0) */
+  background: rgba(52, 28, 178, 0.72);
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
   flex-direction: column;
   align-items: stretch;
   gap: 10px;
@@ -6491,6 +6669,44 @@ button.askdesk-me {
       z-index: 1;
       box-shadow: -14px 0 32px -10px rgba(10, 10, 40, 0.35);
     }
+  }
+}
+
+/* ---------- Phones, as an app (0.6.0): the dashboard first, over the list, the list's edge showing ---------- */
+@media (max-width: 760px) {
+  .askdesk-main--home {
+    position: relative;
+
+    /* The list under it, in place: its edge (5px) at the left, tapped or dragged for the list */
+    .askdesk-inbox {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      display: flex;
+      cursor: pointer;
+    }
+
+    .askdesk-stage {
+      position: relative;
+      z-index: 1;
+      transform: translateX(5px);
+      box-shadow: -10px 0 28px -12px rgba(10, 10, 40, 0.5);
+    }
+  }
+}
+
+/* The logo at the list's top: the dashboard, pressed */
+.askdesk-brand--home {
+  cursor: pointer;
+  transition: opacity 0.15s;
+
+  &:hover {
+    opacity: 0.85;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--askdesk-focus);
   }
 }
 

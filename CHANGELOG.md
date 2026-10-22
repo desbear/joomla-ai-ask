@@ -2,6 +2,46 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.6.0
+
+- **Closing cases (結案)**: a chat that ends by itself with the visitor's last words unanswered, and a
+  message left, stay until someone closes them (a 結案 button in the chat, and at the row's end in the
+  list); one ended or dealt with by the one answering is closed with it. A guest's chat is forgotten only
+  once closed. Each chat keeps who wrote last, when and by whom it was closed.
+- **The list's tabs**: all not closed, awaiting an answer, unhandled (messages left, chats ended
+  unanswered); each with its count, a page at a time as its end comes into view. In all, a switch shows
+  those closed too; a menu orders the list (latest activity, untouched longest, latest started). What
+  rings and the window's count follow what goes on now, whatever the tab. Closed from the list, a chat
+  leaves it at once.
+- **Whose cases**: a setting (staff see others' cases, on by default); off, the people answering see only
+  the chats they took and those no one has taken (the list, its counts and what rings, opening a chat,
+  the dashboard's cases, the e-mail about a chat ended unanswered). Two permissions of the desk's own:
+  see everyone's cases, and design the dashboard template (Super Users have both).
+- **E-mail alerts** (settings, Alerts): a message left, and a chat ended unanswered, e-mailed to everyone
+  answering or to the addresses set, with a link that opens the chat; what is still unhandled after the
+  hours set (4) is told once more, together in one e-mail.
+- **A cases widget**: the desk's own chats are a source of the dashboard (its four lists as templates; a
+  chat's visitor, company, state, last words, who answered, dates); a row opens the chat in the console.
+- **A dashboard template**: one given the permission saves their dashboard as everyone's template (in the
+  overview box, laying out). Everyone has its widgets, marked, moved and sized as they like but not
+  removed, their content the template's; their own widgets added beside. The template changed,
+  everyone's follows.
+- Dashboard: "only mine" is a menu (everyone, only me, another person; in a source people sign in to, by
+  that person's own account there); the time the widgets cover (all time, today, 7 or 30 days, this or
+  last month, this year), asked of each source by when records were made; adding a widget at the
+  title's end. A record opened in the side card has a button to edit it in its own system, when the
+  source gives its address.
+- Dashboard: the overview box faint until pointed at, at the screen's lower right over the card's edge,
+  holding the overview and layout buttons. Folded at first, a thin bar in the right margin a third of the
+  board high (white fading, the part on screen violet to blue); the pointer thrown to that corner opens
+  it, 15 seconds away folds it; the wheel there scrolls the board. The board's own scrollbar almost gone
+  until pointed at.
+- **The app on a phone opens on the dashboard**, over the list, the list's edge (5px) showing at the left:
+  dragged from there (or the edge tapped), the list. Someone new waiting, or a message left, nudges the
+  dashboard open a little and back (and, while someone waits, again every half minute). The logo at the
+  list's top shows the dashboard again (on a wider screen: the open chat closed for it).
+- The account at the list's foot frosted in the list's violet, what scrolls under it blurred away.
+
 ## AI Ask Desk 0.5.6
 
 - The side's round search, on a wide screen, in the middle of the heading held at the top instead of

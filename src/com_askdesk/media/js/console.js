@@ -103,6 +103,8 @@
 
   // Outline icons, drawn with the text's colour
   const ICONS = {
+    // Ordered: lines shortening downward, an arrow beside them
+    sort: 'M4 6h9M4 12h7M4 18h5M17 6v12m0 0l-3-3m3 3l3-3',
     headset: 'M4 14v-3a8 8 0 0 1 16 0v3M4 14a2 2 0 0 0 2 2h1v-5H6a2 2 0 0 0-2 2zm16 0a2 2 0 0 1-2 2h-1v-5h1a2 2 0 0 1 2 2zm-3 2v1a3 3 0 0 1-3 3h-2',
     send: 'M10 14L21 3M21 3l-6.5 18a.55.55 0 0 1-1 0L10 14l-7-3.5a.55.55 0 0 1 0-1L21 3',
     link: 'M9 15l6-6M11 6l.5-.5a5 5 0 0 1 7 7l-.5.5M13 18l-.5.5a5 5 0 0 1-7-7l.5-.5',
@@ -585,7 +587,8 @@
 
       empty.classList.add('askdesk-room__empty--board');
       home.replaceChildren();
-      board = window.AskdeskBoard.mount(home, { urls: config.urls, token: config.token, language: config.board.language });
+      // A row of the desk's own cases opens that chat here
+      board = window.AskdeskBoard.mount(home, { urls: config.urls, token: config.token, language: config.board.language, templater: Boolean(config.board.templater), openRoom: (id) => openRoom(id) });
     };
     script.onerror = () => { board = null; paintHome(); };
     document.head.append(style, script);
@@ -970,6 +973,14 @@
     lastSide: 0,
     me: null,
     rooms: [],
+    // What goes on now (waiting, answered, messages left), whatever the tab: what rings
+    live: [],
+    // How many each tab has; whether the one looked at has more than shown, and how many it shows
+    counts: {},
+    more: false,
+    limit: 30,
+    // Raised when a chat is closed (結案) here: a look asked for before it does not bring its list back
+    epoch: 0,
     open: 0,
     after: 0,
     detail: null,
@@ -1140,7 +1151,7 @@
   };
 
   const paintTitle = () => {
-    const count = state.rooms.reduce((sum, room) => sum + (room.status === 'waiting' ? 1 : 0) + (room.staff === config.me || !room.staff ? room.unread : 0), 0);
+    const count = state.live.reduce((sum, room) => sum + (room.status === 'waiting' ? 1 : 0) + (room.staff === config.me || !room.staff ? room.unread : 0), 0);
 
     document.title = (count ? `(${count}) ` : '') + title.textContent;
   };
@@ -1166,21 +1177,63 @@
     return minutes < 60 ? t.minutes.replace('%s', minutes) : t.hours.replace('%s', Math.floor(minutes / 60));
   };
 
-  // The inbox shows everything, or only the visitors waiting for an answer, longest first
+  // The inbox's tabs: all that is not closed (結案) yet, the visitors waiting for an answer (longest
+  // first), what no one dealt with (messages left, chats ended unanswered) and what was closed
   const FILTER = 'askdesk:filter';
+  const LISTS = ['all', 'awaiting', 'unhandled'];
+  // A tab shows this many more each time its end comes into view
+  const PAGE = 30;
 
   state.filter = (() => {
     try {
-      return window.localStorage.getItem(FILTER) === 'awaiting' ? 'awaiting' : 'all';
+      const kept = window.localStorage.getItem(FILTER);
+
+      return LISTS.includes(kept) ? kept : 'all';
     } catch (error) {
       return 'all';
     }
   })();
 
+  // All: with those closed (結案) too, when switched on; and how each list is ordered (none chosen: as
+  // each list is: the latest moved first, those awaiting an answer the longest waiting first)
+  const SORTS = ['recent', 'oldest', 'created'];
+  const kept = (key, fallback) => {
+    try {
+      return window.localStorage.getItem(key) ?? fallback;
+    } catch (error) {
+      return fallback;
+    }
+  };
+  const keep = (key, value) => {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch (error) {
+      // Not remembered
+    }
+  };
+
+  state.showSettled = kept('askdesk:showSettled', '0') === '1';
+  state.sort = SORTS.includes(kept('askdesk:sort', '')) ? kept('askdesk:sort', '') : '';
+
+  // The list asked of the server for the tab looked at
+  const listKey = () => (state.filter === 'all' && state.showSettled ? 'everything' : state.filter);
+
+  // Another list (a tab, the switch, an order): its first rows, asked for at once
+  const relist = () => {
+    state.limit = PAGE;
+    state.listed = '';
+    paintInbox();
+    later(true);
+  };
+
   const setFilter = (filter) => {
     // The white pill behind the tabs slides from the one left to the one chosen
     state.pillFrom = state.filter;
     state.filter = filter;
+    // Another tab: its first rows, asked for at once (until they come, the list says it is reading)
+    state.limit = PAGE;
+    state.listed = '';
+    later(true);
 
     try {
       window.localStorage.setItem(FILTER, filter);
@@ -1214,10 +1267,51 @@
     }
   })();
 
+  // The order's menu: closed by a press away from it, or Escape
+  document.addEventListener('pointerdown', (event) => {
+    if (!event.target.closest('.askdesk-listtools__menu, .askdesk-listtools__sort')) {
+      document.querySelectorAll('.askdesk-listtools__menu').forEach((menu) => menu.remove());
+    }
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      document.querySelectorAll('.askdesk-listtools__menu').forEach((menu) => menu.remove());
+    }
+  });
+
+  // Closed (結案) here: off the list at once (its count one less), and a look already on its way, asked
+  // for before, does not bring it back
+  const settledHere = (id) => {
+    state.epoch += 1;
+
+    const was = state.rooms.length;
+
+    // Kept only where those closed are shown (all, switched on)
+    if (!(state.filter === 'all' && state.showSettled)) {
+      state.rooms = state.rooms.filter((room) => room.id !== id);
+    }
+
+    if (state.rooms.length < was && state.counts.unhandled) {
+      state.counts = { ...state.counts, unhandled: state.counts.unhandled - 1 };
+    }
+
+    window.setTimeout(paintInbox, reduced.matches ? 0 : 350);
+  };
+
+  // The end of the tab seen: as many more asked for, once (the next look brings them)
+  const moreSeen = new IntersectionObserver((entries) => {
+    if (entries.some((entry) => entry.isIntersecting) && state.more && state.listed === listKey() && !state.asking) {
+      state.asking = true;
+      state.limit += PAGE;
+      later(true);
+    }
+  }, { root: null, rootMargin: '0px 0px 200px 0px' });
+
   const paintInbox = () => {
+    moreSeen.disconnect();
     inbox.replaceChildren(brand);
 
-    const awaiting = state.rooms.filter((room) => room.awaiting);
+    const awaiting = state.live.filter((room) => room.awaiting);
     const waitingNow = new Set(awaiting.filter((room) => room.status !== 'closed').map((room) => `${room.id}|${room.since}`));
     const fresh = knownWaiting ? new Set([...waitingNow].filter((key) => !knownWaiting.has(key))) : new Set();
     const now = Date.now();
@@ -1241,28 +1335,50 @@
     // The rows new this time, to slide in once they are in place
     const arrived = [];
     const filters = el('div', 'askdesk-filters');
-    const slider = el('span', `askdesk-filters__pill askdesk-filters__pill--${state.pillFrom || state.filter}`);
+    const slider = el('span', 'askdesk-filters__pill');
 
     slider.setAttribute('aria-hidden', 'true');
     filters.setAttribute('role', 'tablist');
     filters.append(slider);
 
-    if (state.pillFrom && state.pillFrom !== state.filter) {
-      window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
-        slider.className = `askdesk-filters__pill askdesk-filters__pill--${state.filter}`;
-      }));
+    // The pill under the tab chosen, the tabs being as wide as their words: put by measuring them once
+    // drawn, from the tab left to the one chosen
+    // The list is drawn again at every look: the pill starts where it was (no growing from nothing), and
+    // moves only when another tab was chosen or the tabs' widths changed
+    if (state.pillAt) {
+      slider.style.transform = `translateX(${state.pillAt.x}px)`;
+      slider.style.inlineSize = `${state.pillAt.w}px`;
     }
+
+    window.requestAnimationFrame(() => {
+      const chip = filters.querySelector(`[data-list="${state.filter}"]`);
+
+      if (chip && chip.offsetWidth) {
+        state.pillAt = { x: chip.offsetLeft - 3, w: chip.offsetWidth };
+        slider.style.transform = `translateX(${state.pillAt.x}px)`;
+        slider.style.inlineSize = `${state.pillAt.w}px`;
+      }
+    });
 
     state.pillFrom = '';
 
-    [['all', t.all, state.rooms.length], ['awaiting', t.awaiting, awaiting.length]].forEach(([name, label, count]) => {
-      const chip = button(`askdesk-filter${state.filter === name ? ' askdesk-filter--on' : ''}${name === 'awaiting' && count ? ' askdesk-filter--alert' : ''}`, '', () => setFilter(name));
+    const counts = state.counts || {};
+
+    [['all', t.all, counts.all ?? state.rooms.length], ['awaiting', t.awaiting, counts.awaiting ?? awaiting.length], ['unhandled', t.unhandled, counts.unhandled ?? 0]].forEach(([name, label, count]) => {
+      const alert = (name === 'awaiting' || name === 'unhandled') && count;
+      const chip = button(`askdesk-filter askdesk-filter--${name}${state.filter === name ? ' askdesk-filter--on' : ''}${alert ? ' askdesk-filter--alert' : ''}`, '', () => setFilter(name));
 
       chip.setAttribute('role', 'tab');
       chip.setAttribute('aria-selected', String(state.filter === name));
-      const total = el('b', '', String(count));
+      chip.dataset.list = name;
+      const total = el('b', '', String(count ?? ''));
 
-      chip.append(el('span', '', label), total);
+      // Those closed: no count (they only grow)
+      chip.append(el('span', '', label));
+
+      if (count !== null) {
+        chip.append(total);
+      }
 
       // Someone new waiting: the count grows with a bell beside it that swings, then eases back.
       // Drawn as a layer over the count, so nothing beside it moves
@@ -1290,19 +1406,83 @@
 
     inbox.append(filters);
 
-    const visible = state.filter === 'awaiting'
-      ? [['awaiting', () => true, [...awaiting].sort((a, b) => String(a.since).localeCompare(String(b.since)))]]
-      : groups.map(([name, test]) => [name, test, state.rooms]);
+    // Under the tabs: how the list is ordered; in all, whether those closed are shown too
+    const tools = el('div', 'askdesk-listtools');
+    const sortNames = { recent: t.sortRecent, oldest: t.sortOldest, created: t.sortCreated };
+    const sorted = state.sort || (state.filter === 'awaiting' ? 'oldest' : 'recent');
+    const sortButton = button('askdesk-listtools__sort', '', () => {
+      const open = tools.querySelector('.askdesk-listtools__menu');
+
+      if (open) {
+        open.remove();
+
+        return;
+      }
+
+      const menu = el('div', 'askdesk-listtools__menu');
+
+      menu.setAttribute('role', 'menu');
+      SORTS.forEach((name) => {
+        const item = button(`askdesk-listtools__item${name === sorted ? ' askdesk-listtools__item--on' : ''}`, sortNames[name], () => {
+          state.sort = name;
+          keep('askdesk:sort', name);
+          relist();
+        });
+
+        item.setAttribute('role', 'menuitemradio');
+        item.setAttribute('aria-checked', String(name === sorted));
+        menu.append(item);
+      });
+      tools.append(menu);
+      menu.querySelector('[aria-checked="true"]')?.focus();
+    });
+
+    sortButton.setAttribute('aria-haspopup', 'menu');
+    sortButton.append(icon('sort'), el('span', '', sortNames[sorted]), icon('down'));
+    tools.append(sortButton);
+
+    if (state.filter === 'all') {
+      const toggle = el('label', 'askdesk-listtools__switch');
+      const box = el('input');
+
+      box.type = 'checkbox';
+      box.checked = state.showSettled;
+      box.setAttribute('role', 'switch');
+      box.addEventListener('change', () => {
+        state.showSettled = box.checked;
+        keep('askdesk:showSettled', box.checked ? '1' : '0');
+        relist();
+      });
+      toggle.append(el('span', '', t.showSettled), box, el('i', 'askdesk-listtools__track'));
+      tools.append(toggle);
+    }
+
+    inbox.append(tools);
+
+    // The tab's own rows once they came (another tab's are not shown in it)
+    const own = state.listed === listKey() ? state.rooms : null;
+    const notes = { awaiting: t.awaitingNote, unhandled: t.unhandledNote, settled: t.settledNote };
+    const visible = state.filter === 'all'
+      ? groups.map(([name, test]) => [name, test, own || []])
+      : [[state.filter, () => true, state.filter === 'awaiting' && !state.sort ? [...(own || [])].sort((a, b) => String(a.since).localeCompare(String(b.since))) : (own || [])]];
 
     visible.forEach(([name, test, pool]) => {
       const rooms = pool.filter(test);
 
-      if (!rooms.length && name !== 'waiting' && name !== 'awaiting') {
+      if (!rooms.length && name !== 'waiting' && !notes[name]) {
         return;
       }
 
       const section = el('section', `askdesk-group askdesk-group--${name}`);
-      const heading = el('h2', 'askdesk-group__title', name === 'awaiting' ? t.awaitingNote : `${t[name]} · ${rooms.length}`);
+      const heading = el('h2', 'askdesk-group__title', notes[name] || `${t[name]} · ${rooms.length}`);
+
+      // A tab of its own with nothing in it (or not yet come)
+      if (notes[name] && !rooms.length) {
+        section.append(heading, el('p', 'askdesk-group__empty', own ? t.emptyList : t.loading));
+        inbox.append(section);
+
+        return;
+      }
       // Nobody waiting to be taken: the heading alone, with its nought
       const empty = !rooms.length && name === 'waiting';
 
@@ -1330,7 +1510,7 @@
 
       section.append(heading);
 
-      if (name === 'closed' && !state.endedOpen) {
+      if (name === 'closed' && !state.endedOpen && !(state.filter === 'all' && state.showSettled)) {
         inbox.append(section);
 
         return;
@@ -1377,7 +1557,8 @@
         const line = el('span', 'askdesk-item__line');
         const meta = el('span', 'askdesk-item__meta');
         const facts = [
-          state.filter === 'awaiting' ? (room.status === 'message' ? t.message : t[groups.find(([, test]) => test(room))?.[0] || ''] || '') : '',
+          state.filter !== 'all' && state.filter !== 'settled' ? (room.status === 'message' ? t.message : t[groups.find(([, test]) => test(room))?.[0] || ''] || '') : '',
+          (state.filter === 'settled' || state.showSettled) && room.settled ? (room.settledBy ? t.settledBy.replace('%s', room.settledBy) : t.settledAt.replace('%s', timeOf(room.settled))) : '',
           room.language,
           room.member ? t.member : '',
           room.status === 'active' && room.staff !== config.me && room.staffName ? t.answeredBy.replace('%s', room.staffName) : '',
@@ -1385,7 +1566,7 @@
 
         line.append(el('span', 'askdesk-item__preview', room.preview || (room.status === 'waiting' ? t.newChat : '')));
 
-        if (room.awaiting && room.status === 'closed') {
+        if (room.unhandled && room.status === 'closed') {
           meta.append(pill(t.endedUnanswered, 'wait'));
         }
 
@@ -1395,6 +1576,36 @@
 
         if (room.unread && (room.staff === config.me || !room.staff)) {
           item.append(el('span', 'askdesk-badge', String(room.unread)));
+        }
+
+        // Not dealt with: closed (結案) from the list at once, once seen to
+        if (state.filter === 'unhandled' && room.unhandled && (!room.staff || room.staff === config.me || room.status === 'closed')) {
+          const row = el('div', 'askdesk-item-row');
+          const settle = button('askdesk-button askdesk-item__take askdesk-item__settle', t.settle, async () => {
+            settle.disabled = true;
+
+            try {
+              const data = await post(config.urls.settle, { room: room.id });
+
+              if (data.error) {
+                window.alert(data.error);
+                settle.disabled = false;
+              } else {
+                settle.textContent = t.settleOn;
+                settledHere(room.id);
+              }
+            } catch (error) {
+              window.alert(t.error);
+              settle.disabled = false;
+            }
+
+            later(true);
+          });
+
+          row.append(item, settle);
+          section.append(row);
+
+          return;
         }
 
         // A chat waiting: taken from the list at once, without opening it first
@@ -1430,6 +1641,14 @@
 
       inbox.append(section);
     });
+
+    // The end of a long tab: seen, the next rows are asked for
+    if (own && state.more) {
+      const more = el('p', 'askdesk-group__more', t.loadingMore);
+
+      inbox.append(more);
+      moreSeen.observe(more);
+    }
 
     // The blue bar by the chat open: one bar for the inbox, sliding from where it was to the chat now
     // open (in place at once when the list is merely drawn again)
@@ -2071,6 +2290,28 @@
 
         actions.append(end);
       }
+    }
+
+    // Ended with the visitor's words unanswered: closed (結案) here once dealt with (by e-mail, say);
+    // closed, it says so
+    if (room.status === 'closed' && room.unhandled && !markedDone.has(room.id)) {
+      const label = el('span', '', t.settle);
+      const settle = button('askdesk-button askdesk-button--done', '', () => {
+        if (settle.classList.contains('askdesk-button--done-on')) {
+          return;
+        }
+
+        settle.classList.add('askdesk-button--done-on');
+        settle.setAttribute('aria-disabled', 'true');
+        label.textContent = t.settleOn;
+        markedDone.add(room.id);
+        window.setTimeout(() => act('settle'), reduced.matches ? 0 : 900);
+      });
+
+      settle.append(icon('check'), label);
+      actions.append(settle);
+    } else if (room.status === 'closed' && room.settled && !markedDone.has(room.id)) {
+      actions.append(pill(t.settleOn, 'ok'));
     }
 
     // Dealt with here a moment ago: the button stays, sunk in
@@ -3781,6 +4022,7 @@
       pane.replaceChildren(loadingRoom());
     }
 
+    main.classList.remove('askdesk-main--home');
     main.classList.add('askdesk-main--room');
 
     // On a phone the chat is a page over the list: a step in the history, so going back (the button,
@@ -3803,9 +4045,10 @@
       return;
     }
 
+    const fromHome = main.classList.contains('askdesk-main--home');
     const done = () => {
       leaving = false;
-      main.classList.remove('askdesk-main--room', 'askdesk-main--peek');
+      main.classList.remove('askdesk-main--room', 'askdesk-main--peek', 'askdesk-main--home');
       stage.style.transform = '';
       inbox.style.transform = '';
     };
@@ -3825,8 +4068,83 @@
         done();
         animation.cancel();
       }, () => done());
-    inbox.animate([{ transform: inbox.style.transform || 'translateX(-30%)' }, { transform: 'none' }], { duration: 260, easing: 'cubic-bezier(0.3, 0.7, 0.3, 1)' });
+    inbox.animate([{ transform: fromHome ? 'translateX(-6%)' : inbox.style.transform || 'translateX(-30%)' }, { transform: 'none' }], { duration: 260, easing: 'cubic-bezier(0.3, 0.7, 0.3, 1)' });
   };
+
+  // ---------- The home (the dashboard) as the app opens on a phone ----------
+
+  // On a phone, as an app: the dashboard first, over the list, the list's edge showing (5px) at the left;
+  // dragged from that edge (or the edge tapped), the list; the logo at the list's top, the dashboard again
+  const appHome = () => phone.matches && standalone;
+  const HOME_EDGE = 5;
+
+  // The dashboard, no chat open: on a phone as a page over the list; elsewhere in place of the chat
+  const toHome = () => {
+    if (state.open) {
+      clearTray();
+      closeDrawer();
+      state.open = 0;
+      state.after = 0;
+      state.detail = null;
+      state.messages = [];
+    }
+
+    paintRoom();
+
+    if (phone.matches) {
+      stage.style.transform = '';
+      inbox.style.transform = '';
+      main.classList.remove('askdesk-main--peek');
+      main.classList.add('askdesk-main--room', 'askdesk-main--home');
+    }
+
+    paintInbox();
+    later(true);
+  };
+
+  // Something new (a chat waiting, a message left) while the dashboard covers the list: the dashboard
+  // opens away a little and comes back, the list peeping out, the way a door is nudged
+  const nudge = () => {
+    if (!main.classList.contains('askdesk-main--home') || reduced.matches || swipe || leaving) {
+      return;
+    }
+
+    stage.animate([
+      { transform: `translateX(${HOME_EDGE}px)` },
+      { transform: 'translateX(88px)', offset: 0.3, easing: 'cubic-bezier(0.2, 0.8, 0.3, 1)' },
+      { transform: 'translateX(0)', offset: 0.72 },
+      { transform: `translateX(${HOME_EDGE}px)` },
+    ], { duration: 1200, easing: 'cubic-bezier(0.4, 0, 0.2, 1)' });
+  };
+
+  // Someone waiting to be taken: nudged again now and then, until they are
+  window.setInterval(() => {
+    if (!document.hidden && state.live.some((room) => room.status === 'waiting')) {
+      nudge();
+    }
+  }, 30000);
+
+  // The logo at the list's top: the dashboard
+  brand.setAttribute('role', 'button');
+  brand.tabIndex = 0;
+  brand.title = t.homeTitle;
+  brand.classList.add('askdesk-brand--home');
+  brand.addEventListener('click', toHome);
+  brand.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      toHome();
+    }
+  });
+
+  // The list's edge beside the dashboard, tapped: the list
+  inbox.addEventListener('click', (event) => {
+    if (main.classList.contains('askdesk-main--home') && phone.matches) {
+      event.preventDefault();
+      event.stopPropagation();
+      toList();
+    }
+  }, true);
 
   // Back from a chat: the chat slides away, and the history steps back with it when the chat is a
   // step in it (its popstate then finds the list already there)
@@ -4100,6 +4418,10 @@
 
       if (what === 'take' && !data.error) {
         field.focus();
+      }
+
+      if (what === 'settle' && !data.error) {
+        settledHere(state.open);
       }
     } catch (error) {
       window.alert(t.error);
@@ -4807,26 +5129,47 @@
 
   // ---------- Asking what is new ----------
 
-  const heardRooms = (rooms) => {
-    const before = new Map(state.rooms.map((room) => [room.id, room]));
+  const heardRooms = (data) => {
+    const live = Array.isArray(data.live) ? data.live : [];
+    const before = new Map(state.live.map((room) => [room.id, room]));
 
-    // Rung for: a chat that starts waiting, a visitor writing in one's own chat
+    // Rung for: a chat that starts waiting, a message left, a visitor writing in one's own chat
     if (!state.first) {
-      rooms.forEach((room) => {
+      live.forEach((room) => {
         const was = before.get(room.id);
 
         if (room.status === 'waiting' && (!was || was.status !== 'waiting')) {
           tell(`${t.waiting}: ${room.name || `${t.visitor} #${room.id}`}`);
+          nudge();
         } else if (room.status === 'message' && !was) {
           tell(`${t.message}: ${room.name || `${t.visitor} #${room.id}`}`);
+          nudge();
         } else if (was && room.staff === config.me && room.unread > was.unread && !(room.id === state.open && !document.hidden)) {
           tell(room.preview);
         }
       });
     }
 
+    // Opened with someone already waiting: the dashboard says so once
+    if (state.first && live.some((room) => room.status === 'waiting' || room.status === 'message')) {
+      window.setTimeout(nudge, 900);
+    }
+
     state.first = false;
-    state.rooms = rooms;
+    state.live = live;
+    if (data.epoch === state.epoch) {
+      state.counts = data.counts || {};
+    }
+
+    // The rows of the list they were asked for (another chosen meanwhile, or a chat closed here since it
+    // was asked: kept for the next look)
+    if (data.list === listKey() && data.epoch === state.epoch) {
+      state.rooms = Array.isArray(data.rooms) ? data.rooms : [];
+      state.more = Boolean(data.more);
+      state.listed = data.list;
+    }
+
+    state.asking = false;
     paintInbox();
   };
 
@@ -4847,7 +5190,12 @@
 
       // Messages seen still being translated, to have them again once they are
       const pending = state.messages.filter((item) => item.translating).map((item) => item.id).slice(-50);
-      const data = await post(config.urls.poll, { room: state.open, after: state.after, typing, pending });
+      const list = listKey();
+      const epoch = state.epoch;
+      const data = await post(config.urls.poll, { room: state.open, after: state.after, typing, pending, list, limit: state.limit, sort: state.sort });
+
+      data.list = list;
+      data.epoch = epoch;
 
       if (data.error) {
         if (data.signedOut || data.expired) {
@@ -4869,10 +5217,11 @@
 
         paintReach(data.visitors);
         paintPeople(data.staff);
-        heardRooms(Array.isArray(data.rooms) ? data.rooms : []);
+        heardRooms(data);
         heardRoom(data.room);
 
-        if (wanted && state.rooms.some((room) => room.id === wanted)) {
+        // Whichever tab it is in (or none shown): opened
+        if (wanted) {
           const id = wanted;
 
           wanted = 0;
@@ -4884,6 +5233,7 @@
     }
 
     polling = false;
+    state.asking = false;
     later();
   }
 
@@ -4978,6 +5328,13 @@
 
     const width = stage.clientWidth || window.innerWidth;
 
+    // From the home the list is under it already, in place
+    if (main.classList.contains('askdesk-main--home')) {
+      stage.style.transform = `translateX(${HOME_EDGE + swipe.dx}px)`;
+
+      return;
+    }
+
     stage.style.transform = `translateX(${swipe.dx}px)`;
     inbox.style.transform = `translateX(${-30 + 30 * Math.min(1, swipe.dx / width)}%)`;
   }, { passive: false });
@@ -5004,11 +5361,16 @@
     // Not far enough: back where it was
     const from = stage.style.transform;
 
-    stage.animate([{ transform: from }, { transform: 'translateX(0)' }], { duration: 200, easing: 'cubic-bezier(0.3, 0.7, 0.3, 1)' });
+    stage.animate([{ transform: from }, { transform: `translateX(${main.classList.contains('askdesk-main--home') ? HOME_EDGE : 0}px)` }], { duration: 200, easing: 'cubic-bezier(0.3, 0.7, 0.3, 1)' });
     stage.style.transform = '';
     inbox.style.transform = '';
     window.setTimeout(() => main.classList.remove('askdesk-main--peek'), 200);
   };
+
+  // Opened as an app on a phone, no chat asked for: the dashboard first
+  if (appHome() && !wanted) {
+    toHome();
+  }
 
   stage.addEventListener('touchend', swipeEnd);
   stage.addEventListener('touchcancel', swipeEnd);

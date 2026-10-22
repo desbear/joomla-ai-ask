@@ -5,5 +5,7 @@
 		<action name="core.options" title="JACTION_OPTIONS" />
 		<action name="core.manage" title="JACTION_MANAGE" />
 		<action name="core.delete" title="JACTION_DELETE" />
+		<action name="askdesk.template" title="COM_ASKDESK_ACTION_TEMPLATE" description="COM_ASKDESK_ACTION_TEMPLATE_DESC" />
+		<action name="askdesk.allcases" title="COM_ASKDESK_ACTION_ALLCASES" description="COM_ASKDESK_ACTION_ALLCASES_DESC" />
 	</section>
 </access>

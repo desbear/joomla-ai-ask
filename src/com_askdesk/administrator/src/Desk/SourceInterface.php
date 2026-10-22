@@ -60,9 +60,10 @@ interface SourceInterface
 
     /**
      * A page of a template's records: {page, size (100 at most), query (words), mine (only this
-     * person's)}.
+     * person's), from, to (days Y-m-d, in the site's time, either empty: the records made in that time,
+     * 0.6.0)}.
      *
-     * @param   array{page: int, size: int, query: string, mine: bool}  $query
+     * @param   array{page: int, size: int, query: string, mine: bool, from?: string, to?: string}  $query
      *
      * @return  array{rows: array<int, array<string, mixed>>, total: int}
      */

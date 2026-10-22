@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS "#__askdesk_rooms" (
   "page" varchar(500) DEFAULT '' NOT NULL,
   "entry" text NOT NULL,
   "last_message" integer DEFAULT 0 NOT NULL,
+  "last_author" varchar(10) DEFAULT '' NOT NULL,
   "staff_seen" integer DEFAULT 0 NOT NULL,
   "created" timestamp without time zone NOT NULL,
   "modified" timestamp without time zone NOT NULL,
@@ -21,12 +22,17 @@ CREATE TABLE IF NOT EXISTS "#__askdesk_rooms" (
   "visitor_typing" timestamp without time zone,
   "staff_typing" timestamp without time zone,
   "closed" timestamp without time zone,
+  "settled" timestamp without time zone,
+  "settled_by" integer DEFAULT 0 NOT NULL,
+  "alerted" timestamp without time zone,
+  "reminded" timestamp without time zone,
   PRIMARY KEY ("id"),
   CONSTRAINT "#__askdesk_rooms_idx_token" UNIQUE ("token")
 );
 CREATE INDEX "#__askdesk_rooms_idx_status" ON "#__askdesk_rooms" ("status", "modified");
 CREATE INDEX "#__askdesk_rooms_idx_user" ON "#__askdesk_rooms" ("user_id");
 CREATE INDEX "#__askdesk_rooms_idx_staff" ON "#__askdesk_rooms" ("staff_id", "status");
+CREATE INDEX "#__askdesk_rooms_idx_settled" ON "#__askdesk_rooms" ("settled");
 
 CREATE TABLE IF NOT EXISTS "#__askdesk_messages" (
   "id" serial NOT NULL,

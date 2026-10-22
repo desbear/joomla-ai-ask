@@ -1,5 +1,7 @@
 // AI Ask Desk's dashboard, mounted by the console in its empty view:
-//   window.AskdeskBoard.mount(element, {urls, token, language}) → unmount()
+//   window.AskdeskBoard.mount(element, {urls, token, language, openRoom, templater}) → unmount()
+// templater: whether this person sets the dashboard template for everyone (Super Users)
+// openRoom(id): a chat of the desk's own (a row of its cases) opened in the console
 import { createRoot } from 'react-dom/client';
 import { Board } from './Board.jsx';
 import { makeApi } from './api.js';
@@ -10,7 +12,7 @@ export const mount = (element, config) => {
   const t = makeT(config.language || document.documentElement.lang || 'en-GB');
   const api = makeApi({ ...config, t });
   const root = createRoot(element);
-  const ctx = { t, lang: config.language || 'en-GB' };
+  const ctx = { t, lang: config.language || 'en-GB', openRoom: typeof config.openRoom === 'function' ? config.openRoom : null, templater: Boolean(config.templater) };
 
   root.render(<Board api={api} ctx={ctx} />);
 

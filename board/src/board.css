@@ -809,3 +809,80 @@ body.adb-resizing, body.adb-resizing * { cursor: col-resize !important; user-sel
 .adb .adb-combo { color: var(--vt-g800); }
 .adb .adb-combo[data-placeholder] { color: var(--vt-g400); }
 .adb .adb-combo:disabled { color: var(--vt-g500); }
+
+/* The record's own page in its system, to edit it there: the main button, at the card's foot */
+.adb-sheet__acts { display: flex; justify-content: flex-end; margin: 12px 0 0; }
+.adb-sheet__acts .adb-btn--main { text-decoration: none; }
+
+/* ---------- The overview box (0.6.0): faint until pointed at; the overview and the layout's buttons
+   in it; folded to a thin bar at the right edge, the part of the board on the screen in violet ---------- */
+.adb-mini { opacity: .5; cursor: default; transition: opacity .2s; }
+.adb-mini:hover, .adb-mini:focus-within, .adb-mini.is-on { opacity: 1; }
+.adb-mini__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.adb-mini__head .adb-mini__label { margin: 0; }
+.adb-mini__fold { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 10px; background: rgba(255, 255, 255, .16); color: #fff; cursor: pointer; }
+.adb-mini__fold:hover { background: rgba(255, 255, 255, .3); }
+.adb-mini__fold .adb-icon { width: 12px; height: 12px; transform: rotate(-90deg); }
+.adb-mini__in { cursor: pointer; }
+.adb-mini__acts { display: grid; gap: 4px; margin-top: 8px; }
+.adb .adb-mini__acts button { display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 8px; border: 0; border-radius: 13px; background: rgba(255, 255, 255, .14); color: #fff; font-size: 12px; cursor: pointer; transition: background .15s; }
+.adb .adb-mini__acts button:hover { background: rgba(255, 255, 255, .26); }
+.adb .adb-mini__acts button[aria-pressed="true"] { background: #fff; color: var(--vt-primary-500, #0e86fe); }
+.adb-mini__acts .adb-icon { width: 13px; height: 13px; }
+
+.adb-rail { position: absolute; top: 12px; right: 0; bottom: 12px; z-index: 30; width: 15px; padding: 2px; border: 0; border-radius: 8px 0 0 8px; background: rgba(255, 255, 255, .92); box-shadow: -2px 0 10px -4px rgba(40, 20, 120, .35); cursor: pointer; }
+.adb-rail:hover { background: #fff; }
+.adb-rail__thumb { position: absolute; left: 3px; right: 3px; min-height: 12px; border-radius: 5px; background: linear-gradient(180deg, #7c3aed, #4f46e5); transition: top .1s linear; }
+.adb-rail:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--vt-primary-200, #a6d2ff); }
+
+/* The time the widgets cover: at the bar's end, a menu */
+.adb-range .adb-icon:last-child { width: 10px; height: 10px; margin-left: 2px; }
+.adb-menu button.is-on { color: var(--vt-primary-500, #0e86fe); font-weight: 500; }
+.adb-menu button .adb-icon { margin-left: auto; width: 12px; height: 12px; color: var(--vt-primary-500, #0e86fe); }
+
+/* A widget of the dashboard template: a small tag by its title */
+.adb-w__tpl { flex: none; margin-left: 6px; padding: 0 8px; border-radius: 9999px; background: var(--vt-primary-50, #ebf5ff); color: var(--vt-primary-500, #0e86fe); font-size: 11px; line-height: 18px; }
+.adb .adb-mini__acts button.is-template { background: #fff; color: #5b2fe6; font-weight: 500; }
+.adb .adb-mini__acts button.is-template:hover { background: #f3efff; }
+
+/* The folded bar, in the margin at the screen's right edge: a white track fading down, the part of the
+   board on screen in violet to blue */
+.adb-rail { border-radius: 8px; background: linear-gradient(180deg, rgba(255, 255, 255, .96), rgba(255, 255, 255, .62)); }
+.adb-rail.is-outside { box-shadow: 0 4px 14px -4px rgba(20, 10, 90, .45); }
+.adb-rail:hover { background: linear-gradient(180deg, #fff, rgba(255, 255, 255, .8)); }
+.adb-rail__thumb { background: linear-gradient(180deg, #8b5cf6 0%, #6d4aff 45%, #3b82f6 100%); box-shadow: 0 0 6px rgba(109, 74, 255, .45); }
+
+/* The dashboard's own scrollbar: almost gone, clearer when pointed at */
+.adb-scroll { scrollbar-width: thin; scrollbar-color: rgba(35, 35, 50, .08) transparent; }
+.adb-scroll:hover { scrollbar-color: rgba(35, 35, 50, .28) transparent; }
+.adb-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+.adb-scroll::-webkit-scrollbar-track { background: transparent; }
+.adb-scroll::-webkit-scrollbar-thumb { border-radius: 3px; background: rgba(35, 35, 50, .08); }
+.adb-scroll:hover::-webkit-scrollbar-thumb { background: rgba(35, 35, 50, .28); }
+
+/* Between the box and the bar: the box shrinks away to the edge's foot and fades; the bar grows up from
+   its foot (and back the other way) */
+.adb-mini { transform-origin: 100% 100%; }
+.adb-mini.is-in { animation: adb-box-in .32s cubic-bezier(.2, .9, .3, 1.1) both; }
+.adb-mini.is-out { animation: adb-box-out .22s cubic-bezier(.4, 0, .9, .4) both; }
+.adb-rail { transform-origin: 50% 100%; }
+.adb-rail.is-in { animation: adb-rail-in .32s cubic-bezier(.2, .9, .3, 1.1) both; }
+.adb-rail.is-out { animation: adb-rail-out .22s cubic-bezier(.4, 0, .9, .4) both; }
+@keyframes adb-box-in { from { opacity: 0; transform: translateX(24px) scale(.35, .6); } }
+@keyframes adb-box-out { to { opacity: 0; transform: translateX(24px) scale(.35, .6); } }
+@keyframes adb-rail-in { from { opacity: 0; transform: scaleY(.2); } }
+@keyframes adb-rail-out { to { opacity: 0; transform: scaleY(.2); } }
+.adb-mini { z-index: 60; }
+@media (prefers-reduced-motion: reduce) { .adb-mini.is-in, .adb-mini.is-out, .adb-rail.is-in, .adb-rail.is-out { animation: none; } }
+
+/* The bar: the whole of it a little see-through; the part on screen kept within its track */
+.adb-rail { opacity: .7; padding: 3px; overflow: hidden; transition: opacity .2s; }
+.adb-rail:hover { opacity: 1; }
+.adb-rail__track { position: absolute; inset: 3px; overflow: hidden; border-radius: 5px; }
+.adb-rail__thumb { left: 0; right: 0; min-height: 0; }
+
+/* Whose: the menu's line between oneself and the others, and its small heading */
+.adb-who .adb-icon:last-child { width: 10px; height: 10px; margin-left: 2px; }
+.adb-menu__sep { height: 1px; margin: 8px 12px; background: var(--vt-g300, rgba(35, 35, 50, .15)); }
+.adb-menu__label { padding: 2px 12px 4px; color: var(--vt-g500, rgba(35, 35, 50, .4)); font-size: 12px; font-weight: 500; }
+.adb-menu { max-height: 360px; overflow-y: auto; }

@@ -130,13 +130,18 @@ final class Rooms
 
         $language = $found !== '' && $found !== 'zh' ? $found : (string) $room->visitor_language;
 
+        // The people answering are told by e-mail too, after the message is kept (and translated)
+        $alerts = new Alerts($this->db, $this->settings);
+
         if (!$this->settings->translates() || LanguageGuess::already($text, (string) $room->staff_language)) {
             $this->add($room, 'visitor', 0, $text, $language);
+            $alerts->later($id, 'left');
 
             return $id;
         }
 
         $this->later($this->add($room, 'visitor', 0, $text, $found !== 'zh' ? $found : '', '', '', 0, 0, 1));
+        $alerts->later($id, 'left');
 
         return $id;
     }
@@ -503,31 +508,180 @@ final class Rooms
 
     // ---------- The side of the people answering ----------
 
+    /** The lists of the people answering, by tab */
+    public const LISTS = ['all', 'awaiting', 'unhandled', 'settled'];
+
+    /** Kept to the chats of this person and those no one has taken (0: all), as the settings say */
+    private int $only = 0;
+
+    /** Lists and chats kept to this person's and those no one has taken (they may not see others') */
+    public function restrictTo(int $staffId): self
+    {
+        $this->only = max(0, $staffId);
+
+        return $this;
+    }
+
+    /** Whether the one these rooms are for may see this chat */
+    public function visible(object $room): bool
+    {
+        return !$this->only || \in_array((int) $room->staff_id, [0, $this->only], true);
+    }
+
+    /** How a list may be ordered: latest moved first, longest untouched first, latest started first */
+    public const SORTS = ['recent', 'oldest', 'created'];
+
     /**
-     * The chats to show the people answering: those waiting and answered, messages left that are
-     * not dealt with, and this person's chats closed in the last hours.
+     * The chats to show the people answering, a list (a tab) at a time and its first so many:
+     *  - all: what is not closed (結案) yet: waiting, answered, messages left, chats that ended with the
+     *    visitor's words unanswered; and this person's own chats closed in the last hours
+     *  - awaiting: those whose visitor waits for an answer (or for someone to take the chat)
+     *  - unhandled: messages left and chats that ended unanswered, until someone closes them
+     *  - settled: those closed, latest first
+     *  - everything: all with those closed too (all's switch)
+     * Ordered as asked (SORTS), else as each list is. With how many each list has, whether this one has more, and what goes on now (waiting, answered,
+     * messages left: what rings, whatever the tab).
+     *
+     * @return  array{rooms: array<int, array<string, mixed>>, counts: array<string, int>, more: bool, live: array<int, array<string, mixed>>}
+     */
+    public function inbox(int $staffId, string $list = 'all', int $limit = 30, string $sort = ''): array
+    {
+        $list   = \in_array($list, [...self::LISTS, 'everything'], true) ? $list : 'all';
+        $limit  = max(10, min(500, $limit));
+        $counts = [];
+
+        foreach (self::LISTS as $name) {
+            $query = $this->listQuery($name, $staffId)->clear('select')->clear('order')->select('COUNT(*)');
+            $counts[$name] = (int) $this->db->setQuery($query)->loadResult();
+        }
+
+        $counts['everything'] = $counts['all'] + $counts['settled'];
+        $rows = $this->db->setQuery($this->listQuery($list, $staffId, $sort), 0, $limit)->loadObjectList();
+        $live = $list === 'all' ? array_values(array_filter($rows, static fn ($row) => $row->status !== 'closed'))
+            : $this->db->setQuery($this->listQuery('live', $staffId), 0, 200)->loadObjectList();
+
+        return [
+            'rooms'  => $this->listed($rows),
+            'counts' => $counts,
+            'more'   => $counts[$list] > \count($rows),
+            'live'   => $this->listed($live),
+        ];
+    }
+
+    /**
+     * A page of a list for the dashboard (its cases widget): by words (the visitor's name, company,
+     * address), only this person's when asked; with how many there are.
+     *
+     * @return  array{rows: array<int, array<string, mixed>>, total: int}
+     */
+    public function listPage(int $staffId, string $list, int $offset, int $size, string $words = '', bool $mine = false, string $from = '', string $to = '', int $person = 0): array
+    {
+        $list  = \in_array($list, self::LISTS, true) ? $list : 'all';
+        $query = $this->listQuery($list, $staffId);
+        $words = trim($words);
+
+        if ($words !== '') {
+            $like = '%' . $this->db->escape($words, true) . '%';
+            $query->where('(r.name LIKE :w1 OR r.company LIKE :w2 OR r.email LIKE :w3)')->bind(':w1', $like)->bind(':w2', $like)->bind(':w3', $like);
+        }
+
+        // Only this person's, or another's (theirs: taken by them)
+        $who = $mine ? $staffId : $person;
+
+        if ($who > 0) {
+            $query->where('r.staff_id = :who')->bind(':who', $who, ParameterType::INTEGER);
+        }
+
+        // Started in the days asked (the site's days, kept in UTC)
+        $zone = new \DateTimeZone((string) Factory::getApplication()->get('offset', 'UTC') ?: 'UTC');
+
+        if ($from !== '') {
+            $start = (new \DateTime($from . ' 00:00:00', $zone))->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+            $query->where('r.created >= :from')->bind(':from', $start);
+        }
+
+        if ($to !== '') {
+            $end = (new \DateTime($to . ' 23:59:59', $zone))->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+            $query->where('r.created <= :to')->bind(':to', $end);
+        }
+
+        $count = (clone $query)->clear('select')->clear('order')->select('COUNT(*)');
+
+        return [
+            'rows'  => $this->listed($this->db->setQuery($query, max(0, $offset), max(1, min(100, $size)))->loadObjectList()),
+            'total' => (int) $this->db->setQuery($count)->loadResult(),
+        ];
+    }
+
+    /** The query of a list (as inbox() says), its rows newest first ('awaiting': longest waiting first) */
+    private function listQuery(string $list, int $staffId, string $sort = ''): \Joomla\Database\DatabaseQuery
+    {
+        $db    = $this->db;
+        $q     = static fn (string $s) => $db->quote($s);
+        $open  = 'r.status IN (' . $q('waiting') . ', ' . $q('active') . ', ' . $q('message') . ')';
+        $left  = '(r.status = ' . $q('closed') . ' AND r.settled IS NULL)';
+        $query = $db->getQuery(true)
+            ->select('r.id, r.status, r.staff_id, r.user_id, r.name, r.email, r.company, r.page, r.page_language, r.visitor_language, r.last_message, r.last_author, r.staff_seen, r.created, r.modified, r.closed, r.settled, r.settled_by')
+            ->from($db->quoteName('#__askdesk_rooms', 'r'));
+
+        switch ($list) {
+            case 'live':
+                $query->where($open)->order('r.modified DESC');
+                break;
+            case 'awaiting':
+                $query->where($open)->where('(r.status = ' . $q('waiting') . ' OR r.last_author = ' . $q('visitor') . ')')->order('r.modified ASC');
+                break;
+            case 'unhandled':
+                $query->where('(r.status = ' . $q('message') . ' OR ' . $left . ')')->order('r.modified DESC');
+                break;
+            case 'settled':
+                $query->where('r.settled IS NOT NULL')->order('r.settled DESC');
+                break;
+            case 'everything':
+                // Not closed (as all), or closed: every chat kept, those of this person's lately aside
+                $query->where('(' . $open . ' OR ' . $left . ' OR r.settled IS NOT NULL)')->order('r.modified DESC');
+                break;
+            default:
+                $since = Factory::getDate('-6 hours')->toSql();
+                $query->where('(' . $open . ' OR ' . $left . ' OR (r.status = ' . $q('closed') . ' AND r.staff_id = :me AND r.closed >= :since))')
+                    ->bind(':me', $staffId, ParameterType::INTEGER)->bind(':since', $since)->order('r.modified DESC');
+        }
+
+        // Only one's own and no one's, when others' may not be seen
+        if ($this->only) {
+            $only = $this->only;
+            $query->where('r.staff_id IN (0, :only)')->bind(':only', $only, ParameterType::INTEGER);
+        }
+
+        // Ordered as asked instead (the id last, so pages do not overlap)
+        $by = ['recent' => 'r.modified DESC', 'oldest' => 'r.modified ASC', 'created' => 'r.created DESC'][$sort] ?? null;
+
+        if ($by !== null && $list !== 'live') {
+            $query->clear('order')->order($by . ', r.id DESC');
+        }
+
+        return $query;
+    }
+
+    /**
+     * Chats as the list shows them: who, what was said last, how many unread, whether the visitor waits
+     * for an answer, whether it is closed (結案) or waits to be.
+     *
+     * @param   object[]  $rows
      *
      * @return  array<int, array<string, mixed>>
      */
-    public function inbox(int $staffId): array
+    private function listed(array $rows): array
     {
-        $db    = $this->db;
-        $since = Factory::getDate('-6 hours')->toSql();
-        $query = $db->getQuery(true)
-            ->select('r.id, r.status, r.staff_id, r.user_id, r.name, r.email, r.company, r.page, r.page_language, r.visitor_language, r.last_message, r.staff_seen, r.created, r.modified, r.closed')
-            ->from($db->quoteName('#__askdesk_rooms', 'r'))
-            ->where('(' . $db->quoteName('r.status') . ' IN (' . implode(',', array_map([$db, 'quote'], ['waiting', 'active', 'message'])) . ') OR (r.status = ' . $db->quote('closed') . ' AND r.closed >= :since))')
-            ->bind(':since', $since)
-            ->order('r.modified DESC');
-        $rows  = $db->setQuery($query, 0, 100)->loadObjectList();
-
         if (!$rows) {
             return [];
         }
 
-        $ids = array_map(static fn ($row) => (int) $row->id, $rows);
+        $db    = $this->db;
+        $ids   = array_map(static fn ($row) => (int) $row->id, $rows);
+        $names = (new Staff($db, $this->settings))->names(array_merge(array_column($rows, 'staff_id'), array_column($rows, 'settled_by')));
 
-        // Who wrote last (the desk's own notes aside), and when: a visitor written last to waits for an answer
+        // When the visitor or the one answering last wrote (the desk's own notes aside)
         $said = [];
 
         foreach ($db->setQuery(
@@ -535,17 +689,6 @@ final class Rooms
                 ->where('m.id IN (SELECT MAX(l.id) FROM ' . $db->quoteName('#__askdesk_messages') . ' l WHERE l.author <> ' . $db->quote('system') . ' AND l.room_id IN (' . implode(',', $ids) . ') GROUP BY l.room_id)')
         )->loadObjectList() as $row) {
             $said[(int) $row->room_id] = $row;
-        }
-
-        // Of the chats closed lately: one's own, and those that ended with the visitor unanswered
-        $rows = array_values(array_filter($rows, static fn ($row) => $row->status !== 'closed'
-            || (int) $row->staff_id === $staffId
-            || (($said[(int) $row->id]->author ?? '') === 'visitor')));
-        $ids   = array_map(static fn ($row) => (int) $row->id, $rows);
-        $names = (new Staff($db, $this->settings))->names(array_column($rows, 'staff_id'));
-
-        if (!$rows) {
-            return [];
         }
 
         // The last message of each, and how many from the visitor are not read
@@ -571,25 +714,32 @@ final class Rooms
         return array_map(function ($row) use ($last, $unread, $names, $said) {
             $message = $last[(int) $row->id] ?? null;
             $preview = !$message ? '' : ($message->author === 'system' ? $this->systemText((string) $message->text, '') : ($message->author === 'visitor' && $message->translation !== '' ? $message->translation : $message->text));
+            $closed  = $row->status === 'closed';
+            $visitor = (string) $row->last_author === 'visitor';
 
             return [
-                'id'       => (int) $row->id,
-                'status'   => (string) $row->status,
-                'staff'    => (int) $row->staff_id,
+                'id'        => (int) $row->id,
+                'status'    => (string) $row->status,
+                'staff'     => (int) $row->staff_id,
                 'staffName' => $names[(int) $row->staff_id] ?? '',
-                'member'   => (int) $row->user_id > 0,
-                'name'     => (string) $row->name,
-                'email'    => (string) $row->email,
-                'company'  => (string) $row->company,
-                'page'     => (string) $row->page,
-                'language' => (string) $row->visitor_language,
-                'preview'  => mb_substr(trim((string) preg_replace('/\s+/u', ' ', (string) $preview)), 0, 120),
-                'unread'   => $unread[(int) $row->id] ?? 0,
+                'member'    => (int) $row->user_id > 0,
+                'name'      => (string) $row->name,
+                'email'     => (string) $row->email,
+                'company'   => (string) $row->company,
+                'page'      => (string) $row->page,
+                'language'  => (string) $row->visitor_language,
+                'preview'   => mb_substr(trim((string) preg_replace('/\s+/u', ' ', (string) $preview)), 0, 120),
+                'unread'    => $unread[(int) $row->id] ?? 0,
                 // The visitor wrote last and no one answered them yet; or waits for someone to take the chat
-                'awaiting' => $row->status === 'waiting' || ($said[(int) $row->id]->author ?? '') === 'visitor',
-                'since'    => isset($said[(int) $row->id]) ? self::time((string) $said[(int) $row->id]->created) : self::time((string) $row->created),
-                'created'  => self::time((string) $row->created),
-                'modified' => self::time((string) $row->modified),
+                'awaiting'  => !$closed && ($row->status === 'waiting' || $visitor),
+                // Ended with the visitor's words unanswered, or a message left: someone is to deal with it and close it
+                'unhandled' => $row->status === 'message' || ($closed && $row->settled === null),
+                'settled'   => $row->settled !== null ? self::time((string) $row->settled) : null,
+                'settledBy' => $names[(int) $row->settled_by] ?? '',
+                'since'     => isset($said[(int) $row->id]) ? self::time((string) $said[(int) $row->id]->created) : self::time((string) $row->created),
+                'created'   => self::time((string) $row->created),
+                'modified'  => self::time((string) $row->modified),
+                'closed'    => $row->closed !== null ? self::time((string) $row->closed) : null,
             ];
         }, $rows);
     }
@@ -621,6 +771,9 @@ final class Rooms
             'staff'    => (int) $room->staff_id,
             'staffName' => $names[(int) $room->staff_id] ?? '',
             'messages' => $items,
+            // Closed (結案), or still to be dealt with and closed
+            'settled'   => ($room->settled ?? null) !== null ? self::time((string) $room->settled) : null,
+            'unhandled' => $room->status === 'message' || ($room->status === 'closed' && ($room->settled ?? null) === null),
         ];
 
         // Where the visitor is now, and the pages they went through during the chat (they move on)
@@ -1287,7 +1440,36 @@ final class Rooms
             $this->handled($room, $staffId);
         }
 
-        $this->close($room);
+        // Ended (or dealt with) by the one answering: closed (結案) by them too
+        $this->close($room, $staffId);
+    }
+
+    /**
+     * Closes (結案) a chat that ended with the visitor's words unanswered, or a message left, once
+     * someone has dealt with it: off the lists of what is to be done, into those closed.
+     */
+    public function settle(object $room, int $staffId): void
+    {
+        if ($room->settled !== null) {
+            return;
+        }
+
+        if ($room->status !== 'closed') {
+            if ($room->status !== 'message') {
+                throw new \RuntimeException(Text::_('COM_ASKDESK_STAFF_SETTLE_OPEN'));
+            }
+
+            $this->closeByStaff($room, $staffId);
+
+            return;
+        }
+
+        if (!(int) $room->staff_id) {
+            $this->update((int) $room->id, ['staff_id' => $staffId], false);
+        }
+
+        $this->handled($room, $staffId);
+        $this->update((int) $room->id, ['settled' => Factory::getDate()->toSql(), 'settled_by' => $staffId]);
     }
 
     // ---------- Keeping ----------
@@ -1313,6 +1495,9 @@ final class Rooms
         }
 
         $this->forgetOld();
+
+        // What is still unhandled after the hours set: told once more
+        (new Alerts($this->db, $this->settings))->remind();
     }
 
     private function forgetOld(): void
@@ -1324,7 +1509,8 @@ final class Rooms
         $old    = Factory::getDate('-' . $this->settings->keepDays() . ' days')->toSql();
 
         $query = $db->getQuery(true)->select('id')->from($db->quoteName('#__askdesk_rooms'))
-            ->where('((user_id = 0 AND status = ' . $db->quote('closed') . ' AND closed < :guests) OR (user_id = 0 AND status <> ' . $db->quote('message') . ' AND modified < :stale) OR created < :old)')
+            // A guest's chat goes once closed (結案) a while; one still to be dealt with stays till it is
+            ->where('((user_id = 0 AND status = ' . $db->quote('closed') . ' AND settled IS NOT NULL AND settled < :guests) OR (user_id = 0 AND status IN (' . $db->quote('waiting') . ', ' . $db->quote('active') . ') AND modified < :stale) OR created < :old)')
             ->bind(':guests', $guests)->bind(':stale', $stale)->bind(':old', $old);
         $ids = array_map('intval', $db->setQuery($query, 0, 500)->loadColumn());
 
@@ -1539,7 +1725,7 @@ final class Rooms
         ];
 
         $this->db->insertObject('#__askdesk_messages', $row, 'id');
-        $this->update((int) $room->id, ['last_message' => (int) $row->id]);
+        $this->update((int) $room->id, ['last_message' => (int) $row->id] + ($author !== 'system' ? ['last_author' => $author] : []));
 
         // What a visitor writes (or sends) reaches the people answering, on their phones too
         if ($author === 'visitor') {
@@ -1549,10 +1735,26 @@ final class Rooms
         return (int) $row->id;
     }
 
-    private function close(object $room): void
+    private function close(object $room, int $by = 0): void
     {
-        $now = Factory::getDate()->toSql();
-        $this->update((int) $room->id, ['status' => 'closed', 'closed' => $now]);
+        $now    = Factory::getDate()->toSql();
+        $fresh  = $this->get((int) $room->id) ?? $room;
+        $values = ['status' => 'closed', 'closed' => $now];
+
+        // Closed (結案) at once unless it ended by itself with the visitor's words unanswered: that waits
+        // in the list until someone deals with it
+        $left = !($by > 0 || (string) ($fresh->last_author ?? '') !== 'visitor');
+
+        if (!$left) {
+            $values += ['settled' => $now, 'settled_by' => $by];
+        }
+
+        $this->update((int) $room->id, $values);
+
+        // Left to be dealt with: the people answering are told by e-mail
+        if ($left && \in_array($room->status, ['waiting', 'active'], true)) {
+            (new Alerts($this->db, $this->settings))->later((int) $room->id, 'unanswered');
+        }
 
         // A chat someone answered is written out for the visitor (a message left was answered by e-mail)
         if (\in_array($room->status, ['waiting', 'active'], true) && ($closed = $this->get((int) $room->id)) && (int) $closed->staff_id) {

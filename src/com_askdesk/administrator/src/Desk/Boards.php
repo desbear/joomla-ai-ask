@@ -90,6 +90,92 @@ final class Boards
      *
      * @return  array<int, array<string, mixed>>
      */
+    /** The dashboard template (0.6.0) is kept as the board of no one */
+    private const TEMPLATE = 0;
+
+    /**
+     * The dashboard template set by a Super User: its widgets, each marked as the template's.
+     *
+     * @return  array<int, array<string, mixed>>
+     */
+    public function template(): array
+    {
+        return array_map(static fn ($w) => ['tpl' => true] + $w, $this->get(self::TEMPLATE));
+    }
+
+    /**
+     * A board saved as the template for everyone (a Super User's): its widgets all the template's from
+     * now; the people whose boards had template widgets the template no longer has lose them.
+     *
+     * @return  array<int, array<string, mixed>>
+     */
+    public function saveTemplate(mixed $widgets): array
+    {
+        return $this->save(self::TEMPLATE, array_map(static fn ($w) => \is_array($w) ? ['tpl' => true] + $w : $w, \is_array($widgets) ? $widgets : []));
+    }
+
+    /**
+     * A person's board with the template in it: each template widget there, with the template's content
+     * (what it shows, its title) where this person put it and as large as they made it; theirs after;
+     * one the template no longer has, gone. No board of their own yet: the template.
+     *
+     * @return  array<int, array<string, mixed>>
+     */
+    public function forPerson(int $userId, bool $mayRemove = false): array
+    {
+        $own = $this->get($userId);
+
+        // A Super User's own board is what the template is made from: theirs as they left it
+        return $own ? self::merged($this->template(), $own, !$mayRemove) : $this->template();
+    }
+
+    /**
+     * A person's board saved, the template kept in it: a template widget taken away comes back (unless
+     * they may take it away: a Super User), its content the template's; only where it is and its size,
+     * its columns, are theirs.
+     *
+     * @return  array<int, array<string, mixed>>
+     */
+    public function savePerson(int $userId, mixed $widgets, bool $mayRemove = false): array
+    {
+        $saved = $this->save($userId, self::merged($this->template(), self::clean(\is_array($widgets) ? $widgets : []), !$mayRemove));
+
+        return self::merged($this->template(), $saved, !$mayRemove);
+    }
+
+    /**
+     * @param   array<int, array<string, mixed>>  $template
+     * @param   array<int, array<string, mixed>>  $own
+     *
+     * @return  array<int, array<string, mixed>>
+     */
+    private static function merged(array $template, array $own, bool $keepTemplate): array
+    {
+        $mine = array_column($own, null, 'id');
+        $tpl  = array_column($template, null, 'id');
+        $out  = [];
+
+        foreach ($template as $t) {
+            $o = $mine[$t['id']] ?? null;
+
+            if ($o) {
+                // Where they put it, how large, its columns: theirs; the rest the template's
+                $out[] = ['x' => $o['x'], 'y' => $o['y'], 'w' => $o['w'], 'h' => $o['h'], 'cols' => $o['cols'], 'freeze' => $o['freeze']] + $t;
+            } elseif ($keepTemplate) {
+                $out[] = $t;
+            }
+        }
+
+        foreach ($own as $o) {
+            // Theirs: not the template's, nor one it had once (gone with it)
+            if (!isset($tpl[$o['id']]) && empty($o['tpl'])) {
+                $out[] = ['tpl' => false] + $o;
+            }
+        }
+
+        return $out;
+    }
+
     public static function clean(array $widgets): array
     {
         $text  = static fn ($v, int $max) => \is_scalar($v) ? mb_substr(trim(strip_tags((string) $v)), 0, $max) : '';
@@ -130,6 +216,8 @@ final class Boards
                 'h'        => min(40, max(1, (int) ($widget['h'] ?? 4))),
                 'freeze'   => min(5, max(0, (int) ($widget['freeze'] ?? 1))),
                 'cols'     => $cols,
+                // Of the dashboard template (0.6.0): kept by everyone, its content the template's
+                'tpl'      => !empty($widget['tpl']),
             ];
         }
 

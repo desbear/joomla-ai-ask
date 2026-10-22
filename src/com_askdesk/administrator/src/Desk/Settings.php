@@ -132,6 +132,65 @@ final class Settings
     }
 
     /** Whether visitors are sent the chat as a PDF when it ends (to the address they gave). */
+    /**
+     * Whether the people answering see the chats others have taken; if not, theirs and those no one has
+     * taken yet only (those given to see all cases aside).
+     */
+    public function seeOthers(): bool
+    {
+        return (bool) $this->params->get('see_others', 1);
+    }
+
+    /** Whether this person is kept to their own chats and those no one has taken (as seeOthers() says) */
+    public function keptToOwn(?\Joomla\CMS\User\User $user): bool
+    {
+        return !$this->seeOthers() && !self::may($user, 'askdesk.allcases');
+    }
+
+    /**
+     * Whether this person may do something of the desk's own (askdesk.template: set the dashboard
+     * template; askdesk.allcases: see everyone's chats): given to their group in the desk's permissions,
+     * or theirs as the desk's administrators (Super Users have all)
+     */
+    public static function may(?\Joomla\CMS\User\User $user, string $action): bool
+    {
+        return (bool) ($user && ($user->authorise($action, 'com_askdesk') || $user->authorise('core.admin', 'com_askdesk')));
+    }
+
+    /** Whether the people answering are told by e-mail of a message left (and what follows) */
+    public function alertMail(): bool
+    {
+        return (bool) $this->params->get('alert_mail', 1);
+    }
+
+    /**
+     * Who those e-mails go to: the addresses set, or (none set) everyone answering.
+     *
+     * @return  string[]
+     */
+    public function alertAddresses(): array
+    {
+        if ($this->params->get('alert_to', 'staff') !== 'addresses') {
+            return [];
+        }
+
+        $all = preg_split('/[\s,;]+/u', (string) $this->params->get('alert_addresses', '')) ?: [];
+
+        return \array_slice(array_values(array_unique(array_filter($all, static fn ($a) => filter_var($a, FILTER_VALIDATE_EMAIL) !== false))), 0, 20);
+    }
+
+    /** Whether a chat that ends with the visitor's words unanswered is told by e-mail too */
+    public function alertUnanswered(): bool
+    {
+        return (bool) $this->params->get('alert_unanswered', 1);
+    }
+
+    /** Hours after which what is still unhandled is told once more (0: never) */
+    public function remindHours(): int
+    {
+        return max(0, min(168, (int) $this->params->get('remind_hours', 4)));
+    }
+
     public function transcript(): bool
     {
         return (bool) $this->params->get('transcript', 1);

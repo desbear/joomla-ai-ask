@@ -154,7 +154,9 @@ const TextCell = ({ field, value, onCommit, lang, t }) => {
 };
 
 // ---------- The table ----------
-export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, onWidget, onOpenRow, openId, onAll }) => {
+export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, range, onWidget, onOpenRow, openId, onAll }) => {
+  // A chat of the desk's own (its cases) opens in the console; a record of a form, in the side card
+  const openRow = (row, sorted) => (row.room && ctx.openRoom ? ctx.openRoom(row.room) : onOpenRow(row, sorted));
   const { t, lang, toast } = ctx;
   const edit = widget.kind === 'editgrid';
   const [rows, setRows] = useState([]);
@@ -182,7 +184,7 @@ export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, o
     setFailed(null);
 
     try {
-      const got = await api.rows({ source: widget.source, template: widget.template, page, size: PAGE, query: words, mine });
+      const got = await api.rows({ source: widget.source, template: widget.template, page, size: PAGE, query: words, mine, range });
 
       if (mark !== asked.current) return;
 
@@ -194,7 +196,7 @@ export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, o
     } finally {
       if (mark === asked.current) setLoading(false);
     }
-  }, [api, widget.source, widget.template, words, mine]);
+  }, [api, widget.source, widget.template, words, mine, range]);
 
   useEffect(() => {
     asked.current += 1;
@@ -371,7 +373,7 @@ export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, o
 
   const rowOf = (row) => (
     <tr key={row.id} className={`adb-dt__row${picked.has(row.id) ? ' is-sel' : ''}${openId === row.id ? ' is-open' : ''}`} style={{ height: rowH }}
-      onClick={!edit ? () => onOpenRow(row, sorted) : undefined}>
+      onClick={!edit ? () => openRow(row, sorted) : undefined}>
       {full ? <td className={`pin sel${freeze ? '' : ' last'}`} style={{ position: 'sticky', left: 0 }} onClick={(e) => e.stopPropagation()}><input type="checkbox" className="adb-cb" checked={picked.has(row.id)} onChange={(e) => setPicked((now) => { const next = new Set(now); e.target.checked ? next.add(row.id) : next.delete(row.id); return next; })} aria-label={row.no} /></td> : null}
       {fields.map((f, i) => (
         <td key={f.key} className={`${pinClass(i)}${f.kind === 'number' ? ' n' : ''}${edit ? ' e' : ''}${i === 0 ? ' first' : ''}`} style={pinStyle(i)}>
@@ -380,7 +382,7 @@ export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, o
               ? <TextCell field={f} value={row.values[f.key]} onCommit={(v) => commit(row, f, v)} lang={lang} t={t} />
               : <button type="button" className="adb-ed adb-ed--pop" data-open={editing && editing.row.id === row.id && editing.field.key === f.key ? '' : undefined} aria-haspopup="listbox" aria-label={f.label} onClick={(e) => setEditing({ row, field: f, anchor: e.currentTarget })}>{shown(f, row.values[f.key], lang, t, true)}</button>)
             : <span className="adb-cv">{shown(f, row.values[f.key], lang, t, false)}</span>}
-          {i === 0 ? <button type="button" className="adb-dt__open" onClick={(e) => { e.stopPropagation(); onOpenRow(row, sorted); }}>{t('openRow')}</button> : null}
+          {i === 0 ? <button type="button" className="adb-dt__open" onClick={(e) => { e.stopPropagation(); openRow(row, sorted); }}>{t('openRow')}</button> : null}
         </td>
       ))}
       <td className="act" />

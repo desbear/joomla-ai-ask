@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Icon, Grip } from './icons.jsx';
 import { COLS, KINDS, isGrid, needs, recommend, settle, firstFree, bottom, fmt, ymd } from './kinds.js';
-import { SignIn } from './api.js';
+import { SignIn, RANGES } from './api.js';
 import { Grid } from './widgets/Grid.jsx';
 import { Combobox } from './widgets/Combobox.jsx';
 import { NumberW, BatteryW, ChartW, GanttW } from './widgets/Simple.jsx';
@@ -17,7 +17,7 @@ let seq = 0;
 const newId = () => `w${Date.now().toString(36)}${(seq += 1)}`;
 
 // ---------- A widget's fields and records ----------
-const useWidget = (widget, api, query, mine) => {
+const useWidget = (widget, api, query, mine, range) => {
   const [all, setAll] = useState(null);
   const [data, setData] = useState(null);
   const [failed, setFailed] = useState(null);
@@ -38,10 +38,10 @@ const useWidget = (widget, api, query, mine) => {
     let live = true;
 
     setData(null);
-    api.all({ source: widget.source, template: widget.template, query, mine }).then((got) => { if (live) setData(got); }, (error) => { if (live) setFailed(error); });
+    api.all({ source: widget.source, template: widget.template, query, mine, range }).then((got) => { if (live) setData(got); }, (error) => { if (live) setFailed(error); });
 
     return () => { live = false; };
-  }, [api, widget.source, widget.template, widget.kind, query, mine, tick]);
+  }, [api, widget.source, widget.template, widget.kind, query, mine, range, tick]);
 
   const fields = useMemo(() => (all ? all.fields.filter((f) => widget.fields.includes(f.key)) : []), [all, widget.fields]);
 
@@ -49,7 +49,7 @@ const useWidget = (widget, api, query, mine) => {
 };
 
 // What a widget draws, by its kind
-const Body = ({ widget, state, api, ctx, query, mine, full, onWidget, onOpenRow, openId, onAll }) => {
+const Body = ({ widget, state, api, ctx, query, mine, range, full, onWidget, onOpenRow, openId, onAll }) => {
   const { t } = ctx;
   const { template, fields, data, failed } = state;
 
@@ -65,7 +65,7 @@ const Body = ({ widget, state, api, ctx, query, mine, full, onWidget, onOpenRow,
   if (why) return <div className="adb-empty">{t(why)}<br />{t('goSettings')}</div>;
 
   if (isGrid(widget.kind)) {
-    return <Grid widget={widget} fields={fields} allFields={template.fields} api={api} ctx={ctx} full={full} query={query} mine={mine} onWidget={onWidget} onOpenRow={onOpenRow} openId={openId} onAll={onAll} />;
+    return <Grid widget={widget} fields={fields} allFields={template.fields} api={api} ctx={ctx} full={full} query={query} mine={mine} range={range} onWidget={onWidget} onOpenRow={onOpenRow} openId={openId} onAll={onAll} />;
   }
 
   if (!data) return <div className="adb-empty"><span className="adb-dots"><i /><i /><i /></span></div>;
@@ -124,6 +124,11 @@ const Sheet = ({ widget, template, row, list, onMove, onClose, ctx }) => {
             <dl className="adb-bf__meta">{template.fields.map((f) => [<dt key={`k${f.key}`}>{f.label}</dt>, <dd key={`v${f.key}`}>{value(f)}</dd>])}</dl>
           </div>
         </article>
+        {row.link ? (
+          <div className="adb-sheet__acts">
+            <a className="adb-btn adb-btn--main" href={row.link} target="_blank" rel="noopener noreferrer">{t('editInSource', ctx.sourceTitle ? ctx.sourceTitle(widget.source) : '')}<span aria-hidden="true">↗</span></a>
+          </div>
+        ) : null}
         <p className="adb-sheet__note">{t('sheetNote')}</p>
       </div>
     </aside>
@@ -131,9 +136,9 @@ const Sheet = ({ widget, template, row, list, onMove, onClose, ctx }) => {
 };
 
 // ---------- A widget grown into a full page, its settings at the side ----------
-const Full = ({ widget, api, ctx, query, mine, onWidget, onClose, from, wrap }) => {
+const Full = ({ widget, api, ctx, query, mine, range, onWidget, onClose, from, wrap }) => {
   const { t } = ctx;
-  const state = useWidget(widget, api, query, mine);
+  const state = useWidget(widget, api, query, mine, range);
   const [settings, setSettings] = useState(!isGrid(widget.kind));
   const [sheet, setSheet] = useState(null);
   const box = useRef(null);
@@ -187,12 +192,13 @@ const Full = ({ widget, api, ctx, query, mine, onWidget, onClose, from, wrap }) 
         <h2>{widget.title}</h2>
         {template ? <span className="adb-form">{template.name}</span> : null}
         <span className="adb-sp" />
-        <button type="button" className="adb-btn" aria-pressed={settings} onClick={() => setSettings(!settings)}><Icon name="sliders" />{t('settings')}</button>
+        {/* The template's widget: its content set by the template, not here */}
+        {widget.tpl && !ctx.templater ? <span className="adb-w__tpl" title={t('fromTemplateNote')}>{t('fromTemplate')}</span> : <button type="button" className="adb-btn" aria-pressed={settings} onClick={() => setSettings(!settings)}><Icon name="sliders" />{t('settings')}</button>}
         <button type="button" className="adb-iconbtn" onClick={shut} aria-label={t('close')}><Icon name="close" /></button>
       </header>
       <div className={`adb-full__body${settings ? '' : ' no-set'}`}>
         <div className={`adb-full__main${isGrid(widget.kind) ? ' is-grid' : ''}`}>
-          <Body widget={widget} state={state} api={api} ctx={ctx} query={query} mine={mine} full onWidget={onWidget} openId={sheet ? sheet.row.id : null} onOpenRow={(row, list) => setSheet({ row, list: list || [row] })} />
+          <Body widget={widget} state={state} api={api} ctx={ctx} query={query} mine={mine} range={range} full onWidget={onWidget} openId={sheet ? sheet.row.id : null} onOpenRow={(row, list) => setSheet({ row, list: list || [row] })} />
           {sheet && template ? <Sheet widget={widget} template={template} row={sheet.row} list={sheet.list} onMove={(row) => setSheet({ ...sheet, row })} onClose={() => setSheet(null)} ctx={ctx} /> : null}
         </div>
         {settings ? (
@@ -357,7 +363,15 @@ export const Board = ({ api, ctx }) => {
   const [failed, setFailed] = useState(null);
   const [editing, setEditing] = useState(false);
   const [over, setOver] = useState(false);
-  const [mine, setMine] = useState(false);
+  // Whose: everyone's, only one's own ('me'), or another person's (their id); remembered
+  const [mine, setMineState] = useState(() => { try { return window.localStorage.getItem('askdesk:who') || 'all'; } catch (e) { return 'all'; } });
+  const setMine = (who) => { setMineState(who); try { window.localStorage.setItem('askdesk:who', who); } catch (e) { /* not remembered */ } };
+  const [people, setPeople] = useState([]);
+  const [whoMenu, setWhoMenu] = useState(null);
+  // The time the widgets cover (when their records were made): remembered
+  const [range, setRangeState] = useState(() => { try { return RANGES.includes(window.localStorage.getItem('askdesk:range')) ? window.localStorage.getItem('askdesk:range') : 'all'; } catch (e) { return 'all'; } });
+  const setRange = (r) => { setRangeState(r); try { window.localStorage.setItem('askdesk:range', r); } catch (e) { /* not remembered */ } };
+  const [rangeMenu, setRangeMenu] = useState(null);
   const [query, setQuery] = useState('');
   const [full, setFull] = useState(null);
   const [adding, setAdding] = useState(null);
@@ -366,6 +380,32 @@ export const Board = ({ api, ctx }) => {
   const [width, setWidth] = useState(900);
   const [drag, setDrag] = useState(null);
   const [scrollTop, setScrollTop] = useState(0);
+  // The overview box folded away to a thin bar at the right edge (remembered)
+  // Folded at first (a bar at the edge); open as it was left
+  const [folded, setFolded] = useState(() => { try { return window.localStorage.getItem('askdesk:miniFolded') !== '0'; } catch (e) { return true; } });
+  // Between the two: the box shrinking away toward the edge, or the bar giving way to it
+  const [morph, setMorph] = useState('');
+
+  // When the pointer was last by the box or the corner (the box folds away after a while without)
+  const nearAt = useRef(Date.now());
+  const fold = (on) => {
+    const keepIt = () => { try { window.localStorage.setItem('askdesk:miniFolded', on ? '1' : '0'); } catch (e) { /* not remembered */ } };
+    const still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    keepIt();
+
+    if (still) {
+      setFolded(on);
+
+      return;
+    }
+
+    if (!on) nearAt.current = Date.now();
+
+    // Folding: the box shrinks to the edge first, then the bar grows; opening: the bar goes, the box grows
+    setMorph(on ? 'folding' : 'opening');
+    window.setTimeout(() => { setFolded(on); setMorph(on ? 'railIn' : 'boxIn'); window.setTimeout(() => setMorph(''), 320); }, 220);
+  };
   const wrap = useRef(null);
   const scroller = useRef(null);
   const grid = useRef(null);
@@ -388,7 +428,15 @@ export const Board = ({ api, ctx }) => {
   const context = useMemo(() => ({ ...ctx, toast: say, sourceTitle }), [ctx, say, sourceTitle]);
 
   useEffect(() => {
-    api.board().then((got) => { setWidgets(settle(got.widgets.map((w) => ({ ...w })))); setSources(got.sources); }, setFailed);
+    api.board().then((got) => {
+      setWidgets(settle(got.widgets.map((w) => ({ ...w }))));
+      setSources(got.sources);
+      // The people one may narrow it to; another chosen before, no longer one of them: everyone's
+      const list = Array.isArray(got.people) ? got.people : [];
+
+      setPeople(list);
+      setMineState((who) => (who === 'all' || who === 'me' || list.some((p) => String(p.id) === who) ? who : 'all'));
+    }, setFailed);
   }, [api]);
 
   // Kept a moment after the last change
@@ -418,6 +466,103 @@ export const Board = ({ api, ctx }) => {
   }, [widgets === null]);
 
   const phone = width < 640;
+
+  // Where the box and the bar stand, measured from the board and the console's card (again as the
+  // window changes): the bar in the margin at the screen's right edge, as wide as fits it, a third of the
+  // board high at its foot; the box over the card's right edge into that margin, at the board's foot
+  const [railAt, setRailAt] = useState(null);
+  const ready = Boolean(widgets);
+
+  useEffect(() => {
+    if (phone || !ready) return undefined;
+
+    const place = () => {
+      const box = wrap.current;
+
+      if (!box) return;
+
+      const card = box.closest('.askdesk-stage') || box;
+      const r = box.getBoundingClientRect();
+      const c = card.getBoundingClientRect();
+      const gap = Math.max(0, window.innerWidth - c.right);
+      const outside = gap >= 8;
+      const w = outside ? Math.max(6, Math.min(12, gap - 4)) : 8;
+      const h = Math.max(80, Math.round(r.height / 3));
+      const foot = Math.max(5, window.innerHeight - r.bottom + 5);
+
+      setRailAt({
+        outside,
+        rail: { width: w, height: h, right: outside ? Math.round((gap - w) / 2) : 3, bottom: foot },
+        box: { right: outside ? gap + 8 : 12, bottom: Math.max(8, window.innerHeight - r.bottom + 12) },
+        // The corner: the screen's right edge from the card's border, the lower part of the board down
+        zone: { left: Math.min(c.right - 16, window.innerWidth - 40), top: r.bottom - h - 40 },
+      });
+    };
+
+    place();
+    window.addEventListener('resize', place);
+
+    return () => window.removeEventListener('resize', place);
+  }, [phone, ready]);
+
+  // The corner, as on a Mac: the pointer thrown to the screen's lower right opens the box (no click);
+  // away from it and from the box for 15 seconds, it folds by itself (not while laying out or looking
+  // over). The wheel there, on the bar or on the box, scrolls the board as if over it.
+  const foldRef = useRef(null);
+  const stateRef = useRef({});
+
+  stateRef.current = { folded, morph, editing, over, railAt };
+  foldRef.current = fold;
+
+  useEffect(() => {
+    if (phone || !ready) return undefined;
+
+    const inCorner = (x, y) => {
+      const at = stateRef.current.railAt;
+
+      return Boolean(at && at.zone && x >= at.zone.left && y >= at.zone.top);
+    };
+    const onBox = (target) => Boolean(target && target.closest && target.closest('.adb-mini, .adb-rail'));
+
+    const move = (e) => {
+      const near = inCorner(e.clientX, e.clientY) || onBox(e.target);
+
+      if (!near) return;
+
+      nearAt.current = Date.now();
+
+      if (stateRef.current.folded && !stateRef.current.morph) {
+        foldRef.current(false);
+      }
+    };
+
+    const wheel = (e) => {
+      const el = scroller.current;
+
+      if (!el || el.contains(e.target) || !(inCorner(e.clientX, e.clientY) || onBox(e.target))) return;
+
+      e.preventDefault();
+      el.scrollTop += e.deltaY;
+      nearAt.current = Date.now();
+    };
+
+    const idle = window.setInterval(() => {
+      const st = stateRef.current;
+
+      if (!st.folded && !st.morph && !st.editing && !st.over && Date.now() - nearAt.current > 15000) {
+        foldRef.current(true);
+      }
+    }, 1000);
+
+    document.addEventListener('pointermove', move);
+    document.addEventListener('wheel', wheel, { passive: false });
+
+    return () => {
+      window.clearInterval(idle);
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('wheel', wheel);
+    };
+  }, [phone, ready]);
   const colW = (width - GAP * (COLS - 1)) / COLS;
   const px = (w) => ({ left: w.x * (colW + GAP), top: w.y * (ROW + GAP), width: w.w * colW + (w.w - 1) * GAP, height: w.h * ROW + (w.h - 1) * GAP });
   const rows = widgets ? bottom(widgets) + (editing || over ? 3 : 0) : 0;
@@ -497,20 +642,46 @@ export const Board = ({ api, ctx }) => {
   const connected = sources.filter((s) => s.connected);
   const fullWidget = full ? widgets.find((w) => w.id === full) : null;
   const ordered = [...widgets].sort((a, b) => a.y - b.y || a.x - b.x);
-  const miniShow = !over && !phone && height > viewH + 20;
+  // The overview box: always there on a wide screen (it holds the overview and the layout's buttons);
+  // its map of the board only when the board is taller than the screen
+  const miniShow = !phone;
+  const mapShow = !over && height > viewH + 20;
+
+  // The part of the board on screen, as a share of the bar: by what scrolls (its padding too), never past
+  // either end
+  const thumbAt = () => {
+    const el = scroller.current;
+    const total = el ? Math.max(el.scrollHeight, 1) : Math.max(height, 1);
+    const part = Math.min(1, (el ? el.clientHeight : viewH) / total);
+    const top = Math.min(1 - part, Math.max(0, scrollTop / total));
+
+    return { top: `${top * 100}%`, height: `${part * 100}%` };
+  };
   const miniScale = 112 / Math.max(1, width);
+  // A Super User sets the dashboard template; everyone keeps its widgets (not removed, nor changed but
+  // where they are and how large)
+  const templater = Boolean(ctx.templater);
+  const lockedOf = (w) => Boolean(w && w.tpl) && !templater;
+  const asTemplate = () => {
+    clearTimeout(saving.current);
+    api.saveTemplate(widgets).then((got) => { if (Array.isArray(got.widgets)) setWidgets(settle(got.widgets.map((w) => ({ ...w })))); say(t('templateSaved')); }, (error) => say(error.message));
+  };
+  const toOverview = () => { setOver(!over); if (!over) { scroller.current.scrollTop = 0; say(t('overviewHint')); } };
 
   return (
     <div className={`adb${editing || over ? ' is-edit' : ''}${over ? ' is-over' : ''}${phone ? ' is-phone' : ''}`}>
       <header className="adb-bar">
         <h2 className="adb-bar__title">{t('title')}</h2>
+        {/* Adding a widget: at the title's end, the bar's first thing to do */}
+        <span className="adb-sp" />
+        <button type="button" className="adb-btn adb-btn--main" disabled={!connected.length} aria-haspopup="menu" onClick={(e) => setMenu(menu ? null : e.currentTarget.getBoundingClientRect())}><Icon name="plus" />{t('add')}</button>
         <div className="adb-tools">
-          <button type="button" className="adb-btn adb-btn--main" disabled={!connected.length} aria-haspopup="menu" onClick={(e) => setMenu(menu ? null : e.currentTarget.getBoundingClientRect())}><Icon name="plus" />{t('add')}</button>
           <label className="adb-search"><Icon name="search" /><input type="search" placeholder={t('search')} aria-label={t('search')} onChange={(e) => { const v = e.target.value.trim(); clearTimeout(typing.current); typing.current = setTimeout(() => setQuery(v), 350); }} /></label>
-          <button type="button" className="adb-btn" aria-pressed={mine} onClick={() => setMine(!mine)}><Icon name="user" />{t('mine')}</button>
+          <button type="button" className="adb-btn adb-who" aria-pressed={mine !== 'all'} aria-haspopup="menu" onClick={(e) => setWhoMenu(whoMenu ? null : e.currentTarget.getBoundingClientRect())}>
+            <Icon name="user" />{mine === 'all' ? t('whoAll') : mine === 'me' ? t('whoMe') : (people.find((p) => String(p.id) === mine) || {}).name || t('whoAll')}<Icon name="down" />
+          </button>
           <span className="adb-sp" />
-          {!phone ? <button type="button" className="adb-btn" aria-pressed={editing} onClick={() => setEditing(!editing)}><Icon name="layout" />{t('edit')}</button> : null}
-          {!phone ? <button type="button" className="adb-btn" aria-pressed={over} onClick={() => { setOver(!over); if (!over) { scroller.current.scrollTop = 0; say(t('overviewHint')); } }}><Icon name="overview" />{t('overview')}</button> : null}
+          <button type="button" className="adb-btn adb-range" aria-pressed={range !== 'all'} aria-haspopup="menu" onClick={(e) => setRangeMenu(rangeMenu ? null : e.currentTarget.getBoundingClientRect())}><Icon name="calendar" />{t(`range_${range}`)}<Icon name="down" /></button>
         </div>
       </header>
 
@@ -542,13 +713,14 @@ export const Board = ({ api, ctx }) => {
                   <header className="adb-w__head" onPointerDown={editing && !over ? (e) => { if (!e.target.closest('button')) start(e, w, 'move'); } : undefined}>
                     {editing ? <span className="adb-grip"><Grip /></span> : null}
                     <h3>{w.title}</h3>
+                    {w.tpl ? <span className="adb-w__tpl" title={t('fromTemplateNote')}>{t('fromTemplate')}</span> : null}
                     <span className="adb-w__acts">
                       <button type="button" className="adb-iconbtn" onClick={() => setFull(w.id)} aria-label={t('open')} title={t('open')}><Icon name="expand" /></button>
                       <button type="button" className="adb-iconbtn" onClick={(e) => setMenu({ widget: w, rect: e.currentTarget.getBoundingClientRect() })} aria-label={t('more')} title={t('more')}><Icon name="more" /></button>
                     </span>
                   </header>
                   <div className="adb-w__body">
-                    {over ? null : <WidgetBody widget={w} api={api} ctx={context} query={query} mine={mine} onWidget={update} onAll={() => setFull(w.id)} />}
+                    {over ? null : <WidgetBody widget={w} api={api} ctx={context} query={query} mine={mine} range={range} onWidget={update} onAll={() => setFull(w.id)} />}
                   </div>
                   <div className="adb-w__face"><Icon name={w.kind} /><b>{w.title}</b><small>{t(`k_${w.kind}`)} · {w.w}×{w.h}</small></div>
                   {drag && drag.id === w.id ? <span className="adb-sizetag">{drag.target.w} × {drag.target.h}</span> : null}
@@ -560,39 +732,74 @@ export const Board = ({ api, ctx }) => {
           </div>
         </div>
 
-        {miniShow ? (
-          <div className="adb-mini" aria-hidden="true"
-            onPointerDown={(e) => {
-              const box = e.currentTarget.querySelector('.adb-mini__in').getBoundingClientRect();
-              const go = (ev) => { scroller.current.scrollTop = (ev.clientY - box.top) / miniScale - viewH / 2; };
+        {miniShow && folded ? (
+          // Folded: a thin bar at the right edge, white, the part of the board on the screen in violet
+          <button type="button" className={`adb-rail${railAt && railAt.outside ? ' is-outside' : ''}${morph === 'railIn' ? ' is-in' : ''}${morph === 'opening' ? ' is-out' : ''}`} style={railAt ? { position: 'fixed', top: 'auto', ...railAt.rail } : undefined} onClick={() => fold(false)} aria-label={t('miniOpen')} title={t('miniOpen')}>
+            <span className="adb-rail__track">
+              <span className="adb-rail__thumb" style={thumbAt()} />
+            </span>
+          </button>
+        ) : null}
 
-              go(e);
-              const up = () => { window.removeEventListener('pointermove', go); window.removeEventListener('pointerup', up); };
+        {miniShow && !folded ? (
+          // Open, the box too stands at the screen's right edge, over the card's border into the margin
+          <div className={`adb-mini${editing || over ? ' is-on' : ''}${morph === 'boxIn' ? ' is-in' : ''}${morph === 'folding' ? ' is-out' : ''}`} style={railAt ? { position: 'fixed', ...railAt.box } : undefined}>
+            <div className="adb-mini__head">
+              <span className="adb-mini__label">{t('minimap')}</span>
+              <button type="button" className="adb-mini__fold" onClick={() => fold(true)} aria-label={t('miniFold')} title={t('miniFold')}><Icon name="chev" /></button>
+            </div>
+            {mapShow ? (
+              <div className="adb-mini__in" aria-hidden="true" style={{ height: height * miniScale }}
+                onPointerDown={(e) => {
+                  const box = e.currentTarget.getBoundingClientRect();
+                  const go = (ev) => { scroller.current.scrollTop = (ev.clientY - box.top) / miniScale - viewH / 2; };
 
-              window.addEventListener('pointermove', go);
-              window.addEventListener('pointerup', up);
-            }}>
-            <span className="adb-mini__label">{t('minimap')}</span>
-            <div className="adb-mini__in" style={{ height: height * miniScale }}>
-              {widgets.map((w) => { const p = px(w); return <i key={w.id} style={{ left: p.left * miniScale, top: p.top * miniScale, width: p.width * miniScale, height: p.height * miniScale }} />; })}
-              <div className="adb-mini__view" style={{ top: scrollTop * miniScale, height: Math.min(height, viewH) * miniScale }} />
+                  go(e);
+                  const up = () => { window.removeEventListener('pointermove', go); window.removeEventListener('pointerup', up); };
+
+                  window.addEventListener('pointermove', go);
+                  window.addEventListener('pointerup', up);
+                }}>
+                {widgets.map((w) => { const p = px(w); return <i key={w.id} style={{ left: p.left * miniScale, top: p.top * miniScale, width: p.width * miniScale, height: p.height * miniScale }} />; })}
+                <div className="adb-mini__view" style={{ top: scrollTop * miniScale, height: Math.min(height, viewH) * miniScale }} />
+              </div>
+            ) : null}
+            <div className="adb-mini__acts">
+              <button type="button" aria-pressed={over} onClick={toOverview}><Icon name="overview" />{t('overview')}</button>
+              <button type="button" aria-pressed={editing} onClick={() => setEditing(!editing)}><Icon name="layout" />{t('edit')}</button>
+              {templater && editing ? <button type="button" className="is-template" onClick={asTemplate} title={t('saveTemplateNote')}><Icon name="copy" />{t('saveTemplate')}</button> : null}
             </div>
           </div>
         ) : null}
 
-        {fullWidget ? <Full key={fullWidget.id} widget={fullWidget} api={api} ctx={context} query={query} mine={mine} onWidget={update} onClose={() => setFull(null)} from={nodes.current.get(fullWidget.id)} wrap={wrap.current} /> : null}
+        {fullWidget ? <Full key={fullWidget.id} widget={fullWidget} api={api} ctx={context} query={query} mine={mine} range={range} onWidget={update} onClose={() => setFull(null)} from={nodes.current.get(fullWidget.id)} wrap={wrap.current} /> : null}
       </div>
+
+      {whoMenu ? (
+        <div className="adb-pop adb-menu" style={{ top: whoMenu.bottom + 4, left: whoMenu.left }} role="menu" onMouseLeave={() => setWhoMenu(null)}>
+          {[['all', t('whoAll')], ['me', t('whoMe')]].map(([v, label]) => <button key={v} type="button" role="menuitemradio" aria-checked={mine === v} className={mine === v ? 'is-on' : ''} onClick={() => { setWhoMenu(null); setMine(v); }}>{label}{mine === v ? <Icon name="check" /> : null}</button>)}
+          {people.length ? <div className="adb-menu__sep" role="separator" /> : null}
+          {people.length ? <div className="adb-menu__label">{t('whoOthers')}</div> : null}
+          {people.map((p) => { const v = String(p.id); return <button key={v} type="button" role="menuitemradio" aria-checked={mine === v} className={mine === v ? 'is-on' : ''} onClick={() => { setWhoMenu(null); setMine(v); }}>{p.name}{mine === v ? <Icon name="check" /> : null}</button>; })}
+        </div>
+      ) : null}
+
+      {rangeMenu ? (
+        <div className="adb-pop adb-menu" style={{ top: rangeMenu.bottom + 4, left: Math.max(8, rangeMenu.right - 180) }} role="menu" onMouseLeave={() => setRangeMenu(null)}>
+          {RANGES.map((r) => <button key={r} type="button" role="menuitemradio" aria-checked={r === range} className={r === range ? 'is-on' : ''} onClick={() => { setRangeMenu(null); setRange(r); }}>{t(`range_${r}`)}{r === range ? <Icon name="check" /> : null}</button>)}
+        </div>
+      ) : null}
 
       {menu && menu.widget ? (
         <div className="adb-pop adb-menu" style={{ top: menu.rect.bottom + 4, left: Math.max(8, menu.rect.right - 180) }} role="menu" onMouseLeave={() => setMenu(null)}>
           <button type="button" role="menuitem" onClick={() => { setMenu(null); setFull(menu.widget.id); }}>{t('open')}</button>
-          <button type="button" role="menuitem" onClick={() => { setMenu(null); add({ ...menu.widget, id: newId(), title: t('copyTitle', menu.widget.title) }); }}>{t('copy')}</button>
-          <button type="button" role="menuitem" className="danger" onClick={() => { setMenu(null); remove(menu.widget); }}>{t('remove')}</button>
+          <button type="button" role="menuitem" onClick={() => { setMenu(null); add({ ...menu.widget, id: newId(), tpl: false, title: t('copyTitle', menu.widget.title) }); }}>{t('copy')}</button>
+          {lockedOf(menu.widget) ? null : <button type="button" role="menuitem" className="danger" onClick={() => { setMenu(null); remove(menu.widget); }}>{t('remove')}</button>}
         </div>
       ) : null}
 
       {menu && !menu.widget ? (
-        <div className="adb-pop adb-entries" style={{ top: menu.bottom + 8, left: Math.max(8, Math.min(menu.left, window.innerWidth - 360)) }} role="menu" onMouseLeave={() => setMenu(null)}>
+        <div className="adb-pop adb-entries" style={{ top: menu.bottom + 8, left: Math.max(8, Math.min(menu.right - 340, window.innerWidth - 360)) }} role="menu" onMouseLeave={() => setMenu(null)}>
           {ENTRIES.map(([k, key, icon]) => {
             const [name, lead] = t(key);
 
@@ -608,9 +815,9 @@ export const Board = ({ api, ctx }) => {
   );
 };
 
-const WidgetBody = ({ widget, api, ctx, query, mine, onWidget, onAll }) => {
-  const state = useWidget(widget, api, query, mine);
+const WidgetBody = ({ widget, api, ctx, query, mine, range, onWidget, onAll }) => {
+  const state = useWidget(widget, api, query, mine, range);
 
-  return <Body widget={widget} state={state} api={api} ctx={ctx} query={query} mine={mine} full={false} onWidget={onWidget} onAll={onAll} onOpenRow={onAll} />;
+  return <Body widget={widget} state={state} api={api} ctx={ctx} query={query} mine={mine} range={range} full={false} onWidget={onWidget} onAll={onAll} onOpenRow={onAll} />;
 };
 

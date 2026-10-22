@@ -39,7 +39,8 @@ final class Sources
             return self::$all;
         }
 
-        self::$all = [];
+        // The desk's own chats first (its cases widget), then what plugins give
+        self::$all = ['askdesk' => new Cases()];
 
         try {
             PluginHelper::importPlugin('askdesk');
@@ -144,7 +145,9 @@ final class Sources
      */
     public static function rows(SourceInterface $source, object $staff, string $template, array $query): array
     {
-        $query = ['page' => max(1, (int) $query['page']), 'size' => min(100, max(1, (int) $query['size'])), 'query' => mb_substr(trim((string) $query['query']), 0, 100), 'mine' => (bool) $query['mine']];
+        // A time range when asked (days, in the site's time): from, to (Y-m-d), either may be empty
+        $day   = static fn ($d) => \is_string($d) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) && checkdate((int) substr($d, 5, 2), (int) substr($d, 8, 2), (int) substr($d, 0, 4)) ? $d : '';
+        $query = ['page' => max(1, (int) $query['page']), 'size' => min(100, max(1, (int) $query['size'])), 'query' => mb_substr(trim((string) $query['query']), 0, 100), 'mine' => (bool) $query['mine'], 'person' => max(0, (int) ($query['person'] ?? 0)), 'from' => $day($query['from'] ?? ''), 'to' => $day($query['to'] ?? '')];
         $got   = $source->rows($staff, $template, $query);
         $rows  = array_values(array_filter(array_map([self::class, 'row'], \array_slice((array) ($got['rows'] ?? []), 0, 100))));
 
@@ -178,7 +181,19 @@ final class Sources
             };
         }
 
-        return ['id' => $id, 'no' => self::text($row['no'] ?? '', 100), 'title' => self::text($row['title'] ?? '', 300), 'values' => $values];
+        $clean = ['id' => $id, 'no' => self::text($row['no'] ?? '', 100), 'title' => self::text($row['title'] ?? '', 300), 'values' => $values];
+
+        // The record's own page in its system (to edit it there): an address on the web only
+        if (\is_string($row['link'] ?? null) && preg_match('#^https://[^\s"<>]+$#i', $row['link'])) {
+            $clean['link'] = mb_substr($row['link'], 0, 500);
+        }
+
+        // A chat of the desk's own (its cases): opened in the console from the row
+        if (isset($row['room']) && (int) $row['room'] > 0) {
+            $clean['room'] = (int) $row['room'];
+        }
+
+        return $clean;
     }
 
     private static function text(mixed $value, int $max): string
