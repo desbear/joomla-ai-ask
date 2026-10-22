@@ -44,5 +44,16 @@ done
 build pkg_mcpask src/pkg_mcpask/pkg_mcpask.xml src/pkg_mcpask/script.php src/pkg_mcpask/language \
   com_mcpask mod_mcp_ask mod_mcp_ask_log plg_content_mcpask plg_task_mcpask plg_easyblog_mcpask plg_mcpask_rsform plg_mcpask_livechat plg_mcpask_imagegen plg_mcpask_dropfiles plg_mcp_mcpask
 
+# The dashboard (React, in board/) is built into com_askdesk's media: built again when its sources are newer
+board=src/com_askdesk/media/js/board.js
+if [ -n "$(find board/src board/package.json board/vite.config.js -newer "$board" 2>/dev/null | head -1)" ] || [ ! -f "$board" ]; then
+  if command -v npm >/dev/null && [ -d board/node_modules ]; then
+    (cd board && npm run --silent build >/dev/null)
+  else
+    echo "$board is older than board/src: run npm install and npm run build in board/" >&2
+    exit 1
+  fi
+fi
+
 build pkg_askdesk src/pkg_askdesk/pkg_askdesk.xml src/pkg_askdesk/script.php src/pkg_askdesk/language \
   com_askdesk plg_mcpask_askdesk

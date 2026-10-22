@@ -558,8 +558,43 @@
   const home = el('div', 'askdesk-home');
   let homeAt = 0;
 
+  // The dashboard itself (0.5.1): its script and styles fetched the first time no chat is open, then
+  // mounted in the empty card, where it stays while chats come and go
+  let board = null;
+
+  const startBoard = () => {
+    if (board || !config.board || !config.urls.board) {
+      return Boolean(board);
+    }
+
+    board = 'loading';
+
+    const style = el('link');
+    const script = el('script');
+
+    style.rel = 'stylesheet';
+    style.href = config.board.style;
+    script.src = config.board.script;
+    script.async = true;
+    script.onload = () => {
+      if (!window.AskdeskBoard) {
+        board = null;
+
+        return;
+      }
+
+      empty.classList.add('askdesk-room__empty--board');
+      home.replaceChildren();
+      board = window.AskdeskBoard.mount(home, { urls: config.urls, token: config.token, language: config.board.language });
+    };
+    script.onerror = () => { board = null; paintHome(); };
+    document.head.append(style, script);
+
+    return true;
+  };
+
   const paintHome = async () => {
-    if (!config.urls.board || Date.now() - homeAt < 30000) {
+    if (startBoard() || !config.urls.board || Date.now() - homeAt < 30000) {
       return;
     }
 

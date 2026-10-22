@@ -2,3 +2,4 @@
 .DS_Store
 .pet-work/
 .claude/
+/board/node_modules/

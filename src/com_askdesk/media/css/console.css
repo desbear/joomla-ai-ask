@@ -7394,3 +7394,16 @@ button.askdesk-me {
     font-weight: 500;
   }
 }
+
+/* The dashboard mounted (0.5.1): the empty card is its page, edge to edge */
+.askdesk-room > .askdesk-room__empty--board:only-child {
+  display: block;
+  padding: 0;
+  overflow: hidden;
+  place-items: stretch;
+}
+
+.askdesk-room__empty--board > .askdesk-home {
+  width: 100%;
+  height: 100%;
+}

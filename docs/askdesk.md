@@ -67,7 +67,7 @@ It is a package of its own, `pkg_askdesk`, which needs AI Ask 0.20.0 or later:
   console draws it all as text; whatever the plugin calls stays on the server.
 - On a narrower screen these open over the chat with **Reference**.
 
-## The dashboard (0.5.0, being built)
+## The dashboard (0.5.0, 0.5.1)
 
 With no chat open, the console is to show each person's dashboard: widgets on 12 columns, each one template of
 a source drawn as a table or a chart. A plugin of the `askdesk` group gives a source by answering the
@@ -75,8 +75,15 @@ a source drawn as a table or a chart. A plugin of the `askdesk` group gives a so
 its templates, a template's fields (text, number, date, select or multi), its records a page at a time (by
 words, or only the person's own), and one value of a record changed, all read as the person looking. When they
 must sign in to the other system first, it throws `SignInNeeded` with where that starts. Each person's widgets
-are kept on the server (`#__askdesk_boards`). So far the console lists the sources and whether one is
-connected to each, with the way to connect.
+are kept on the server (`#__askdesk_boards`).
+
+The dashboard itself (0.5.1) is a React app in `board/`, built with Vite into `media/js/board.js` and
+`media/css/board.css` (`npm install`, then `npm run build` in `board/`; `build/build.sh` builds it again
+when its sources are newer). The console loads it the first time no chat is open. Widgets sit on 12
+columns: moved by their heading and sized from their corner in **Edit layout**, all at once in **Overview**;
+each kind has a smallest size. A widget's **Open** grows it into a full page with its settings. Tables draw
+only the rows in view and load the next 100 as the end comes near; charts and numbers sum the first 500
+records (a note says so when there are more).
 
 ## On a phone, and notifications
 

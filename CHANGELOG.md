@@ -2,6 +2,20 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.5.1
+
+- **The dashboard**: with no chat open, the console shows each person's dashboard (React, built from
+  `board/` into `media/js/board.js`, loaded only then). Widgets sit on 12 columns, moved and sized in place
+  (each kind as small as it can be drawn), all at once in an overview, found in a minimap; each one template
+  of a source as a number, a battery, a pie, doughnut, bars, stacked bars, a line, an area, a gantt, a table
+  or an editable table. A widget grows into a full page with its settings (name, how it is shown, which
+  fields; how it is shown suggested by the fields, the kinds that cannot be drawn greyed out with why).
+- Tables after the Vittal data-table blocks: search, groups held at the top as they scroll, columns frozen
+  and resized, rows a page at a time as the end comes near and only those in view drawn; in the editable
+  table a cell changed in place (text typed, an option or a date picked); a record opens in a side card
+  where the form system's own form is to be embedded.
+- Records for sums are asked for one at a time, a little apart, and shared by the widgets of a template.
+
 ## AI Ask Desk 0.5.0
 
 - **The dashboard's groundwork**: plugins can give the dashboard sources (event `onAskdeskSources`, a

@@ -89,6 +89,7 @@ class HtmlView extends BaseHtmlView
                 'scope'     => Uri::root(true) . '/',
                 'logo'      => $settings->logo(),
                 'strings'   => $this->strings(),
+                'board'     => $this->board(),
             ];
 
             // An app on a phone's home screen, or a computer's: its manifest, icon, colour, name
@@ -116,6 +117,29 @@ class HtmlView extends BaseHtmlView
     /**
      * @return  array<string, string>
      */
+    /**
+     * The dashboard (0.5.1): its script and styles, loaded by the console only when no chat is open, and
+     * the language it speaks. Their versions are when they were built, so a new build is fetched again.
+     *
+     * @return  array<string, string>|null
+     */
+    private function board(): ?array
+    {
+        $media = JPATH_ROOT . '/media/com_askdesk/';
+
+        if (!is_file($media . 'js/board.js') || !is_file($media . 'css/board.css')) {
+            return null;
+        }
+
+        $base = Uri::root(true) . '/media/com_askdesk/';
+
+        return [
+            'script'   => $base . 'js/board.js?' . filemtime($media . 'js/board.js'),
+            'style'    => $base . 'css/board.css?' . filemtime($media . 'css/board.css'),
+            'language' => Factory::getApplication()->getLanguage()->getTag(),
+        ];
+    }
+
     private function strings(): array
     {
         $keys = [
