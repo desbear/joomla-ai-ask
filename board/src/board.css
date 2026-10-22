@@ -385,3 +385,316 @@ body.adb-resizing, body.adb-resizing * { cursor: col-resize !important; user-sel
   .adb-w, .adb-grid, .adb-drop { transition: none; }
   .adb-w.is-fresh, .adb-sheet, .adb-dots i { animation: none; }
 }
+
+/* ===================================================================================================
+   Vittal Design (vittal.design): its theme tokens and its components' looks, over the above.
+   Button, SearchBar, Tag, Checkbox, Card, DropdownMenu, Popover, Input, Select, Dialog, Toast,
+   Calendar, Tabs (pill) as the dashboard's buttons, searches, labels, boxes, cards, menus and dialogs.
+   =================================================================================================== */
+.adb {
+  --vt-primary-50: #ebf5ff;
+  --vt-primary-100: #d9ecff;
+  --vt-primary-200: #a6d2ff;
+  --vt-primary-400: #419ffe;
+  --vt-primary-500: #0e86fe;
+  --vt-primary-600: #016dd8;
+  --vt-gradient: linear-gradient(45deg, #33cfff 0%, #0e86fe 100%);
+  --vt-g100: rgba(35, 35, 50, 0.03);
+  --vt-g150: rgba(35, 35, 50, 0.05);
+  --vt-g200: rgba(35, 35, 50, 0.08);
+  --vt-g300: rgba(35, 35, 50, 0.15);
+  --vt-g400: rgba(35, 35, 50, 0.25);
+  --vt-g500: rgba(35, 35, 50, 0.40);
+  --vt-g600: rgba(35, 35, 50, 0.55);
+  --vt-g700: rgba(35, 35, 50, 0.70);
+  --vt-g800: rgba(35, 35, 50, 0.85);
+  --vt-g900: #232332;
+  --vt-grey-700: #63636f;
+  --vt-white: #fff;
+  --vt-shadow-base: 0 6px 10px 0 rgba(35, 35, 50, 0.08);
+  --vt-shadow-emphasis: 0 6px 20px -2px rgba(35, 35, 50, 0.25);
+  --vt-shadow-top: 0 6px 32px -4px rgba(35, 35, 50, 0.25);
+  --vt-focus: 0 0 0 2px #a6d2ff;
+  --vt-focus-ring: 0 0 0 2px rgba(14, 134, 254, 0.2);
+  --vt-btn-shadow: 0 6px 10px rgba(14, 134, 254, 0.3);
+  --vt-btn-shadow-active: 0 2px 4px rgba(14, 134, 254, 0.4);
+  --vt-success: #2bcd86;
+  --vt-warning: #ffa700;
+  --vt-destructive: #eb5000;
+  --vt-tag-green: #0a8518; --vt-tag-green-bg: #e7ffea;
+  --vt-tag-blue: #0576bd; --vt-tag-blue-bg: #ebf9ff;
+  --vt-tag-brown: #ad5e0b; --vt-tag-brown-bg: #fef7f0;
+  --vt-tag-red: #b93025; --vt-tag-red-bg: #fff4f3;
+
+  /* The dashboard's own tokens, from Vittal's */
+  --adb-fg: var(--vt-g900);
+  --adb-muted: var(--vt-g600);
+  --adb-faint: var(--vt-g500);
+  --adb-line: var(--vt-g200);
+  --adb-line-strong: var(--vt-g300);
+  --adb-accent: var(--vt-primary-500);
+  --adb-accent-soft: var(--vt-primary-50);
+  --adb-dot: rgba(14, 134, 254, 0.3);
+  --adb-primary: var(--vt-primary-500);
+  --adb-primary-soft: var(--vt-primary-50);
+  --adb-g100: var(--vt-g100);
+  --adb-g150: var(--vt-g200);
+  --adb-g300: var(--vt-g300);
+  --adb-g500: var(--vt-g500);
+  --adb-g600: var(--vt-g600);
+  --adb-g800: var(--vt-g800);
+  --adb-ok: var(--vt-tag-green);
+  --adb-ok-soft: var(--vt-tag-green-bg);
+  --adb-warn: var(--vt-tag-brown);
+  --adb-warn-soft: var(--vt-tag-brown-bg);
+  --adb-bad: var(--vt-tag-red);
+  --adb-bad-soft: var(--vt-tag-red-bg);
+  --adb-shadow: var(--vt-shadow-base);
+
+  font-family: Roboto, "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  color: var(--vt-g800);
+}
+
+@media (prefers-color-scheme: dark) {
+  .adb {
+    --vt-primary-50: rgba(74, 163, 255, 0.14);
+    --vt-primary-200: rgba(74, 163, 255, 0.45);
+    --vt-primary-500: #4aa3ff;
+    --vt-g100: rgba(232, 234, 243, 0.04);
+    --vt-g150: rgba(232, 234, 243, 0.06);
+    --vt-g200: rgba(232, 234, 243, 0.09);
+    --vt-g300: rgba(232, 234, 243, 0.16);
+    --vt-g400: rgba(232, 234, 243, 0.26);
+    --vt-g500: rgba(232, 234, 243, 0.42);
+    --vt-g600: rgba(232, 234, 243, 0.58);
+    --vt-g700: rgba(232, 234, 243, 0.72);
+    --vt-g800: rgba(232, 234, 243, 0.88);
+    --vt-g900: #eef0f6;
+    --vt-white: #181d29;
+    --vt-tag-green: #6ee7a0; --vt-tag-green-bg: rgba(110, 231, 160, 0.13);
+    --vt-tag-blue: #6ac4ff; --vt-tag-blue-bg: rgba(106, 196, 255, 0.13);
+    --vt-tag-brown: #f8b55a; --vt-tag-brown-bg: rgba(248, 181, 90, 0.14);
+    --vt-tag-red: #ff8f85; --vt-tag-red-bg: rgba(255, 143, 133, 0.14);
+    --vt-shadow-base: 0 6px 10px 0 rgba(0, 0, 0, 0.35);
+    --vt-shadow-emphasis: 0 6px 20px -2px rgba(0, 0, 0, 0.6);
+    --vt-shadow-top: 0 6px 32px -4px rgba(0, 0, 0, 0.7);
+  }
+}
+
+/* ---------- Button (default md: white, a border; primary: the blue gradient; lg: 32px with its shadow) ---------- */
+.adb-btn {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  gap: 4px;
+  height: 30px;
+  padding: 0 16px;
+  border: 1px solid var(--vt-g300);
+  border-radius: 15px;
+  background: var(--vt-white);
+  color: var(--vt-g800);
+  font-size: 14px;
+  line-height: 20px;
+  transition: all 0.15s ease-in-out;
+}
+.adb-btn:has(> .adb-icon:first-child) { padding-left: 12px; }
+.adb-btn .adb-icon { position: relative; z-index: 2; width: 12px; height: 12px; margin: 3px; }
+.adb-btn::before { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; opacity: 0; pointer-events: none; transition: all 0.15s; }
+.adb-btn:hover:not(:disabled)::before { background: var(--vt-g100); opacity: 1; }
+.adb-btn:active:not(:disabled)::before { background: var(--vt-g200); opacity: 1; }
+.adb-btn:hover { border-color: var(--vt-g300); }
+.adb-btn:focus-visible { outline: none; box-shadow: var(--vt-focus); }
+.adb-btn:disabled { color: var(--vt-g300); cursor: not-allowed; opacity: 1; }
+/* Pressed (a toggle): as Vittal's pill tab when active */
+.adb-btn[aria-pressed="true"] { border-color: var(--vt-primary-200); background: var(--vt-primary-50); color: var(--vt-primary-500); }
+.adb-btn--main {
+  height: 32px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--vt-gradient);
+  box-shadow: var(--vt-btn-shadow);
+  color: #fff;
+  font-size: 16px;
+}
+.adb-btn--main .adb-icon { width: 14px; height: 14px; }
+.adb-btn--main:hover:not(:disabled) { transform: translateY(-1px); }
+.adb-btn--main:active:not(:disabled) { transform: translateY(0); box-shadow: var(--vt-btn-shadow-active); }
+.adb-btn--main:disabled { color: #fff; opacity: 0.6; }
+/* Over ".adb button { color: inherit }": the main button's words white, the others as Vittal's */
+.adb .adb-btn { color: var(--vt-g800); }
+.adb .adb-btn:disabled { color: var(--vt-g300); }
+.adb .adb-btn[aria-pressed="true"] { color: var(--vt-primary-500); }
+.adb .adb-btn--main, .adb .adb-btn--main:disabled { color: #fff; }
+.adb .adb-iconbtn { color: var(--vt-g700); }
+.adb .adb-iconbtn:hover { color: var(--vt-g800); }
+.adb .adb-kind { color: var(--vt-g800); }
+.adb .adb-kind[aria-pressed="true"] { color: var(--vt-primary-500); }
+.adb-btn--main:focus-visible { box-shadow: var(--vt-focus), var(--vt-btn-shadow); }
+.adb-main { height: 32px; padding: 0 16px; border-radius: 16px; background: var(--vt-gradient); box-shadow: var(--vt-btn-shadow); font-size: 14px; line-height: 32px; }
+.adb-main:hover { transform: translateY(-1px); }
+.adb-link { color: var(--vt-primary-500); font-size: 14px; }
+.adb-link:hover { color: var(--vt-primary-400); }
+
+/* Icon buttons: Vittal's ghost icon-md */
+.adb-iconbtn { position: relative; width: 30px; height: 30px; border-radius: 15px; color: var(--vt-g700); }
+.adb-iconbtn:hover { background: var(--vt-g100); color: var(--vt-g800); }
+.adb-iconbtn:active { background: var(--vt-g200); }
+.adb-iconbtn:focus-visible { outline: none; box-shadow: var(--vt-focus); }
+
+/* Filter pills (the data table's action bar): ghost default, round */
+.adb-pill { color: var(--vt-g800); font-size: 14px; }
+.adb-pill:hover { background: var(--vt-g100); }
+.adb-pill.on { background: var(--vt-primary-50); color: var(--vt-primary-500); }
+
+/* ---------- SearchBar: a 20px-round box, its icon blue while written in ---------- */
+.adb-search, .adb-dt__search {
+  height: 32px;
+  padding: 0 16px 0 8px;
+  border: 1px solid var(--vt-g300);
+  border-radius: 20px;
+  background: var(--vt-white);
+  color: var(--vt-g500);
+  transition: border-color 0.2s;
+}
+.adb-search .adb-icon, .adb-dt__search .adb-icon { width: 18px; height: 18px; transition: color 0.2s; }
+.adb-search:hover, .adb-dt__search:hover { border-color: var(--vt-g500); }
+.adb-search:focus-within, .adb-dt__search:focus-within { border-color: var(--vt-primary-500); color: var(--vt-primary-500); }
+.adb-search input, .adb-dt__search input { color: var(--vt-g800); font-size: 14px; }
+.adb-search input::placeholder, .adb-dt__search input::placeholder { color: var(--vt-g400); }
+
+/* ---------- Tag ---------- */
+.adb-tag { height: 20px; padding: 0 10px; border-radius: 9999px; background: var(--vt-g200); color: var(--vt-g700); font-size: 12px; line-height: 20px; }
+.adb-tag.ok { background: var(--vt-tag-green-bg); color: var(--vt-tag-green); }
+.adb-tag.info { background: var(--vt-tag-blue-bg); color: var(--vt-tag-blue); }
+.adb-tag.warn { background: var(--vt-tag-brown-bg); color: var(--vt-tag-brown); }
+.adb-ftype { padding: 0 8px; border-radius: 9999px; background: var(--vt-g200); color: var(--vt-g700); font-size: 12px; line-height: 20px; }
+.adb-dt__gbtn small { padding: 0 8px; background: var(--vt-g200); color: var(--vt-g700); font-size: 12px; line-height: 20px; }
+.adb-rec { background: var(--vt-success); }
+
+/* ---------- Checkbox ---------- */
+.adb-cb, .adb-field input[type="checkbox"], .adb-checkrow input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-grid;
+  flex: none;
+  place-content: center;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1px solid var(--vt-g400);
+  border-radius: 4px;
+  background: var(--vt-white);
+  cursor: pointer;
+  transition: border-color 0.1s, background 0.1s, box-shadow 0.1s;
+}
+.adb-cb:hover, .adb-field input[type="checkbox"]:hover, .adb-checkrow input[type="checkbox"]:hover,
+.adb-cb:focus-visible, .adb-field input[type="checkbox"]:focus-visible, .adb-checkrow input[type="checkbox"]:focus-visible {
+  border-color: var(--vt-primary-500);
+  box-shadow: var(--vt-focus-ring);
+  outline: none;
+}
+.adb-cb:checked, .adb-field input[type="checkbox"]:checked, .adb-checkrow input[type="checkbox"]:checked {
+  border-color: var(--vt-primary-500);
+  background: var(--vt-primary-500) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 5 5 9-10'/%3E%3C/svg%3E") center / 10px no-repeat;
+}
+.adb-check { border-color: var(--vt-g400); border-radius: 4px; }
+.adb-check.on { border-color: var(--vt-primary-500); background: var(--vt-primary-500); }
+
+/* ---------- Card: the widgets, the start's sources ---------- */
+.adb-w { border: 0; border-radius: 4px; background: var(--vt-white); box-shadow: var(--vt-shadow-emphasis); }
+.adb-w.is-moving { box-shadow: var(--vt-shadow-top); }
+.adb-w__head { padding: 12px 8px 4px 16px; }
+.adb-w__head h3 { color: var(--vt-g900); font-size: 16px; font-weight: 500; line-height: 24px; }
+.adb-w__body { padding: 4px 16px 12px; }
+.adb-drop { border-color: var(--vt-primary-500); border-radius: 4px; background: var(--vt-primary-50); }
+.adb-sources li { border: 0; border-radius: 4px; box-shadow: var(--vt-shadow-base); }
+.adb-full__head h2 { color: var(--vt-g900); font-size: 18px; font-weight: 500; }
+.adb-form { padding: 0 10px; border-radius: 9999px; background: var(--vt-primary-50); color: var(--vt-primary-500); font-size: 12px; line-height: 20px; }
+
+/* ---------- DropdownMenu, Popover ---------- */
+.adb-pop { min-width: 128px; padding: 8px 0; border: 0; border-radius: 4px; background: var(--vt-white); box-shadow: var(--vt-shadow-emphasis); }
+.adb-pop.adb-edpop { padding: 8px 0; }
+.adb-menu button, .adb-edlist button { gap: 8px; padding: 6px 12px; border-radius: 0; color: var(--vt-g800); font-size: 14px; line-height: 20px; }
+.adb-menu button:hover, .adb-edlist button:hover, .adb-edlist button:focus-visible { background: var(--vt-g100); }
+.adb-edlist button[aria-selected="true"] { background: var(--vt-g200); }
+.adb-menu .danger { color: var(--vt-destructive); }
+.adb-checkrow { padding: 6px 12px; border-radius: 0; color: var(--vt-g800); font-size: 14px; }
+.adb-checkrow:hover { background: var(--vt-g100); }
+.adb-tick { color: var(--vt-primary-500); }
+.adb-entries { padding: 8px 0; }
+.adb-entries button { padding: 8px 12px; border-radius: 0; }
+.adb-entries button:hover, .adb-entries button:focus-visible { background: var(--vt-g100); }
+.adb-entries__ic { border-radius: 4px; background: var(--vt-primary-50); color: var(--vt-primary-500); }
+.adb-entries b { color: var(--vt-g900); font-size: 14px; font-weight: 500; }
+.adb-entries small { color: var(--vt-g600); }
+
+/* ---------- Input, Select ---------- */
+.adb-row { color: var(--vt-g600); font-size: 14px; }
+.adb-row input, .adb-row select {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--vt-g300);
+  border-radius: 4px;
+  background: var(--vt-white);
+  color: var(--vt-g800);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.adb-row select { padding: 0 6px 0 12px; }
+.adb-row input::placeholder { color: var(--vt-g400); }
+.adb-row input:hover, .adb-row select:hover { border-color: var(--vt-g500); }
+.adb-row input:focus-visible, .adb-row select:focus-visible { border-color: var(--vt-primary-500); }
+
+/* ---------- Settings, kinds, fields ---------- */
+.adb-set h4 { color: var(--vt-g900); font-size: 16px; font-weight: 500; }
+.adb-set h5, .adb-dlg h5 { color: var(--vt-g500); font-size: 12px; font-weight: 500; line-height: 16px; }
+.adb-kind { border: 1px solid var(--vt-g300); border-radius: 4px; color: var(--vt-g800); font-size: 12px; }
+.adb-kind:hover:not(:disabled) { border-color: var(--vt-g500); }
+.adb-kind[aria-pressed="true"] { border-color: var(--vt-primary-500); background: var(--vt-primary-50); color: var(--vt-primary-500); }
+.adb-kind .adb-icon { color: var(--vt-primary-500); }
+.adb-field { border: 1px solid var(--vt-g200); border-radius: 4px; color: var(--vt-g800); font-size: 14px; }
+.adb-field:hover { background: var(--vt-g100); }
+
+/* ---------- Dialog: the gradient head, the grey foot ---------- */
+.adb-scrim { background: rgba(35, 35, 50, 0.4); }
+.adb-dlg { overflow: hidden; border-radius: 4px; background: var(--vt-white); box-shadow: var(--vt-shadow-top); }
+.adb-dlg header { padding: 9px 14px 9px 16px; background: var(--vt-gradient); }
+.adb-dlg header h2 { color: #fff; font-size: 18px; font-weight: 500; line-height: 24px; }
+.adb-dlg header p { color: rgba(255, 255, 255, 0.85); font-size: 13px; }
+.adb-dlg__body { padding: 24px 16px; color: var(--vt-g700); font-size: 14px; }
+.adb-dlg footer { gap: 10px; padding: 8px 20px; border-top: 1px solid #dedee2; background: var(--vt-g100); }
+.adb-dlg footer .adb-btn--main { height: 30px; border-radius: 15px; box-shadow: none; font-size: 14px; }
+
+/* ---------- Toast ---------- */
+.adb-toast { padding: 6px 16px; border-radius: 4px; background: var(--vt-grey-700); box-shadow: var(--vt-shadow-emphasis); font-size: 14px; font-weight: 500; }
+.adb-toast button { color: #fff; font-weight: 500; text-decoration: underline; text-underline-offset: 2px; }
+
+/* ---------- Calendar ---------- */
+.adb-cal { width: 276px; padding: 4px 12px 8px; }
+.adb-cal__h b { color: var(--vt-g800); font-size: 14px; font-weight: 500; }
+.adb-cal__w span { color: var(--vt-g500); font-size: 12px; }
+.adb-cal__d button { height: 36px; border-radius: 4px; color: var(--vt-g700); font-size: 14px; }
+.adb-cal__d button:hover { background: var(--vt-g100); }
+.adb-cal__d button.on { background: var(--vt-primary-500); color: #fff; }
+.adb-cal__d button.today { box-shadow: inset 0 0 0 1px var(--vt-primary-500); }
+.adb-cal__f button { color: var(--vt-primary-500); font-size: 14px; }
+
+/* ---------- The table: Vittal's tokens ---------- */
+.adb-dt__table { color: var(--vt-g800); font-size: 14px; }
+.adb-dt__table th { color: var(--vt-g600); font-size: 12px; }
+.adb-dt__table th, .adb-dt__table td { border-bottom-color: var(--vt-g300); }
+.adb-dt__row:hover td, .adb-dt__row.is-sel td { background: #f8f8f9; }
+.adb-ed { color: var(--vt-g800); font-size: 14px; }
+.adb-ed:hover { border-color: var(--vt-g300); }
+.adb-ed:focus-visible, .adb-ed[data-open], .adb-ed.is-editing { border-color: var(--vt-primary-500); }
+.adb-dt__open { border-color: var(--vt-g300); border-radius: 12px; }
+.adb-dt__open:hover { border-color: var(--vt-primary-500); color: var(--vt-primary-500); }
+
+/* The grid's dots in Vittal's blue */
+.adb.is-edit .adb-grid { background-image: radial-gradient(circle, rgba(14, 134, 254, 0.3) 1.4px, transparent 1.6px); }
+.adb.is-over .adb-w__face { background: linear-gradient(180deg, var(--vt-primary-50), transparent 70%); }
+@media (prefers-color-scheme: dark) {
+  .adb-dt__row:hover td, .adb-dt__row.is-sel td { background: #1d2230; }
+}

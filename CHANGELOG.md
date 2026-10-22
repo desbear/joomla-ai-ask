@@ -2,6 +2,14 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.5.2
+
+- **The dashboard in Vittal Design**: its colours, greys and shadows are Vittal's tokens, and its parts are
+  drawn as Vittal's components: buttons (the main one the blue gradient, raised, 32px; the others white and
+  outlined, 30px round), the search bar, tags, checkboxes, cards (widgets), menus and popovers, inputs and
+  selects, the dialog (a gradient head, a grey foot), the toast, the calendar, and pressed toggles as active
+  pill tabs. Charts in Vittal's colours.
+
 ## AI Ask Desk 0.5.1
 
 - **The dashboard**: with no chat open, the console shows each person's dashboard (React, built from

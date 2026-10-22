@@ -41,7 +41,8 @@ export const NumberW = ({ fields, data, ctx }) => {
   );
 };
 
-const COLORS = { ok: '#16a34a', info: '#2f6bf0', warn: '#f5a524' };
+// Vittal's success, primary and warning
+const COLORS = { ok: '#2BCD86', info: '#0E86FE', warn: '#FFA700' };
 
 export const BatteryW = ({ fields, data, ctx }) => {
   const { t } = ctx;

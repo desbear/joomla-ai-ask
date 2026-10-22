@@ -57,7 +57,8 @@ export const recommend = (fields) => {
   return 'table';
 };
 
-export const PALETTE = ['#6d4aff', '#2f6bf0', '#18b4d8', '#16a34a', '#f5a524', '#ef4444', '#ec4899', '#8b5cf6', '#0ea5e9', '#84cc16'];
+// Vittal Design's colours: primary, success, warning, then its tag and avatar hues
+export const PALETTE = ['#0E86FE', '#2BCD86', '#FFA700', '#5A51AE', '#00B9AF', '#EB5000', '#9A83FF', '#0576BD', '#AD5E0B', '#901957'];
 
 // The option that means done, when the last one of a select says so
 export const doneOf = (field) => {
