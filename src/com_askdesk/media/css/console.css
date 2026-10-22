@@ -7027,6 +7027,14 @@ button.askdesk-me {
   }
 }
 
+/* The round search level with the heading held at the top: in its middle, the side being drawn 8px
+   higher there (as below) */
+@media (min-width: 1181px) {
+  .askdesk-search-dot {
+    inset-block-start: calc(8px + (var(--askdesk-head, 48px) - 36px) / 2);
+  }
+}
+
 /* An 8px band at the top of what scrolls in the side, fading to nothing at the edge: the search (or a
    card) going up under the edge softens away instead of being cut, and the search's glow when it is
    being written in has room. The side is drawn 8px higher for it, so all stays level with the chat's card */

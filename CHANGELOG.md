@@ -2,6 +2,11 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.5.6
+
+- The side's round search, on a wide screen, in the middle of the heading held at the top instead of
+  standing out above it.
+
 ## AI Ask Desk 0.5.5
 
 - Adding a widget, its form template picked in a select with a search (Vittal Design's Combobox): the
