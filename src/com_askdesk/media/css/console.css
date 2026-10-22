@@ -3499,6 +3499,13 @@ button.askdesk-me {
   box-shadow: none;
 }
 
+/* Each filter's word at its start and its count at its end; the count as far from the pill's edge as from
+   its top and bottom */
+.askdesk-filter {
+  justify-content: space-between;
+  padding-inline: 12px 5px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .askdesk-filters__pill {
     transition: none;

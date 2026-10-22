@@ -2,6 +2,10 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.5.3
+
+- The chat list's filters (all, waiting) with their word at the start and their count at the end.
+
 ## AI Ask Desk 0.5.2
 
 - **The dashboard in Vittal Design**: its colours, greys and shadows are Vittal's tokens, and its parts are
