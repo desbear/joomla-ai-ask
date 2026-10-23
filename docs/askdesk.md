@@ -22,6 +22,9 @@ It is a package of its own, `pkg_askdesk`, which needs AI Ask 0.20.0 or later:
    for them, and their ratings, over 7, 30, 90 or 365 days.
 4. The people answering sign in on the site and open the console:
    `index.php?option=com_askdesk&view=console`, or a menu item **AI Ask Desk → Console**. It works on a phone.
+5. **Options**: **Alerts** (e-mails about messages left and chats ended unanswered), whether staff see others'
+   cases (**Desk**), ratings, privacy. **Permissions**: who designs the dashboard template, and who sees everyone's
+   cases whatever that setting says (Super Users have both).
 
 ## How a chat goes
 
@@ -40,6 +43,7 @@ It is a package of its own, `pkg_askdesk`, which needs AI Ask 0.20.0 or later:
 - A chat ends when either side ends it, or when the visitor's page has not been heard from for the minutes set.
 - Outside office hours, or with no one online: the visitor leaves their e-mail and a message, which waits under
   **Messages left** in the console, translated, for an answer by e-mail. Or other agents are offered, or both.
+  The people answering are told by e-mail too (below).
 - Every handoff is in AI Ask's log of handoffs, as LiveChat's are.
 
 ## Beside the chat
@@ -67,27 +71,70 @@ It is a package of its own, `pkg_askdesk`, which needs AI Ask 0.20.0 or later:
   console draws it all as text; whatever the plugin calls stays on the server.
 - On a narrower screen these open over the chat with **Reference**.
 
-## The dashboard (0.5.0, 0.5.1)
+## The list and closing cases (0.6.0)
 
-With no chat open, the console is to show each person's dashboard: widgets on 12 columns, each one template of
-a source drawn as a table or a chart. A plugin of the `askdesk` group gives a source by answering the
-`onAskdeskSources` event with an object implementing `Gss\Component\Askdesk\Administrator\Desk\SourceInterface`:
-its templates, a template's fields (text, number, date, select or multi), its records a page at a time (by
-words, or only the person's own), and one value of a record changed, all read as the person looking. When they
-must sign in to the other system first, it throws `SignInNeeded` with where that starts. Each person's widgets
-are kept on the server (`#__askdesk_boards`).
+- **Three tabs**: **All** that is not closed yet (waiting, answered, messages left, chats ended unanswered, and
+  one's own chats ended in the last hours); **Awaiting reply** (the visitor wrote last and no one answered, or
+  the chat waits to be taken; the longest waiting first); **Unhandled** (messages left, and chats that ended by
+  themselves with the visitor's words unanswered). Each has its count; a tab shows 30 chats and 30 more as its
+  end comes into view. Under the tabs, a menu orders the list (latest activity, untouched longest, latest
+  started) and, in All, a switch shows those closed too.
+- **Closing (結案)**: an unhandled chat stays until someone closes it, with the button in the chat or at the row's
+  end in Unhandled; a message left is closed when marked dealt with. A chat ended by the one answering, or ended
+  with the visitor answered, is closed with it. Each chat keeps who wrote last, and when and by whom it was closed.
+- What rings, and the count in the window's title, follow what goes on now whatever the tab.
+- **Whose cases**: with **Staff see others' cases** off (Options → Desk), the people answering see only the chats
+  they took and those no one has taken: in the list, its counts and what rings, opening a chat by its address,
+  the dashboard's cases, and the e-mails. Those given **See everyone's cases** in Permissions (and Super Users)
+  see them all.
 
-The dashboard itself (0.5.1) is a React app in `board/`, built with Vite into `media/js/board.js` and
-`media/css/board.css` (`npm install`, then `npm run build` in `board/`; `build/build.sh` builds it again
-when its sources are newer). The console loads it the first time no chat is open. Widgets sit on 12
-columns: moved by their heading and sized from their corner in **Edit layout**, all at once in **Overview**;
-each kind has a smallest size. A widget's **Open** grows it into a full page with its settings. Tables draw
-only the rows in view and load the next 100 as the end comes near; charts and numbers sum the first 500
-records (a note says so when there are more).
+## E-mail alerts (0.6.0)
+
+- A message left, and a chat that ended unanswered (when set), are e-mailed to everyone answering or to the
+  addresses set (Options → Alerts): who, what they said last, when, and a link that opens the chat in the
+  console. In the language of the people answering.
+- What is still unhandled after the hours set (4) is told once more, all together in one e-mail, each once.
+- With others' cases not to be seen, a chat taken by someone is told to them only.
+
+## The dashboard (0.5.0 – 0.6.0)
+
+With no chat open, the console shows each person's dashboard: widgets on 12 columns, each one template of a
+source drawn as a number, a battery, a pie or doughnut, bars, stacked bars, a line, an area, a gantt, a table
+or an editable table. A widget's **Open** grows it into a full page with its settings (its name, how it is
+shown, which fields; the kinds that cannot be drawn greyed out with why). Tables draw only the rows in view and
+load the next 100 as the end comes near; charts and numbers sum the first 500 records.
+
+- **Sources**: the desk's own **cases** (its lists as templates: all not closed, awaiting, unhandled, closed; a
+  chat's visitor, company, state, last words, who answered, dates; a row opens the chat), and what plugins of the
+  `askdesk` group give by answering the `onAskdeskSources` event with an object implementing
+  `Gss\Component\Askdesk\Administrator\Desk\SourceInterface`: its templates, a template's fields (text, number,
+  date, select or multi), its records a page at a time, and one value of a record changed, all read as the person
+  looking. When they must sign in to the other system first, it throws `SignInNeeded` with where that starts. A
+  record may carry `link` (its page in that system, for an **Edit there** button in the side card) and `room` (a
+  chat of the desk's, opened in the console).
+- **Narrowing**: by words; by person (everyone, only me, another of the people answering; a source asked for
+  `mine` or `person`); by time (today, the last 7 or 30 days, this or last month, this year; asked for as `from`
+  and `to`, days in the site's time zone).
+- **Laying out**: **Edit layout** moves widgets by their heading and sizes them from their corner; **Overview**
+  shows them all at once. Both are in the overview box at the screen's lower right, faint until pointed at, with
+  a map of the board. Folded (as it starts), it is a thin bar in the right margin, a third of the board high,
+  the part on screen in violet; the pointer thrown to that corner opens it, and 15 seconds away folds it again.
+  The wheel there scrolls the board.
+- **The dashboard template**: one given **Design the dashboard template** saves their dashboard as everyone's.
+  Everyone has its widgets, tagged as the template's: moved and sized as they like, not removed or changed
+  (the server puts them back as the template has them); their own widgets beside. The template changed,
+  everyone's follows. It is kept as the board of no one (`user_id` 0 of `#__askdesk_boards`).
+
+The dashboard is a React app in `board/`, built with Vite into `media/js/board.js` and `media/css/board.css`
+(`npm install`, then `npm run build` in `board/`; `build/build.sh` builds it again when its sources are newer).
+The console loads it the first time no chat is open, and gives it whether the person may design the template.
 
 ## On a phone, and notifications
 
-The console works on a phone: the list, then a chat full screen, its side panel over it. It can be added to the
+The console works on a phone: the list, then a chat full screen, its side panel over it. Opened as the app
+added to the home screen, it shows the dashboard first, over the list, the list's edge showing at the left:
+dragged from there (or the edge tapped), the list; the logo at the list's top, the dashboard again. Someone new
+waiting, or a message left, nudges the dashboard open a little and back. It can be added to the
 home screen as an app (Share → Add to Home Screen on an iPhone; Install on Android and on computers). The bell
 in its bar turns on notifications for that device: pushed by the site itself (Web Push, VAPID), they come with the
 console closed: someone new waiting (to everyone not away), a message in one's own chat (to the one answering it),
@@ -203,15 +250,16 @@ longer knows them.
   is deleted.
 - **A pet that bows**: AI Ask's pets have a new moment, **Bowing thanks**. Only a pet that has it can be chosen
   for a person answering; with a picture as the face, a thank-you picture can be given beside it.
-- **Awaiting reply**: the inbox shows all chats or only those whose visitor wrote last and no one answered yet,
-  the longest waiting first, with how long they have waited; chats that ended unanswered are among them.
+- **Awaiting reply**: the tab of chats whose visitor wrote last and no one answered yet, the longest waiting
+  first, with how long they have waited. Chats that ended unanswered are under **Unhandled** (above).
 
 ## What is kept
 
 - **Signed-in visitors**: their chats (and the AI conversation before them) for the days set, 365 by default. They
   are told so as the chat starts, with a link to the privacy policy when one is set.
-- **Guests**: nothing once the chat ends. A guest's chat is deleted an hour after it closes (a day at most when it
-  was never closed); a message left is kept like a signed-in visitor's chat, since it is there to be answered.
+- **Guests**: nothing once the chat is dealt with. A guest's chat is deleted an hour after it is closed (結案); one
+  ended unanswered stays until someone closes it, a message left too, since they are there to be answered (a chat
+  never ended goes after a day).
 - **Files**: 30 days, for everyone; then they are deleted. Those of a guest's chat go with it.
 - Nothing is recorded by IP address.
 
