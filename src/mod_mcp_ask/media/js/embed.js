@@ -40,6 +40,48 @@
     return;
   }
 
+  // Which version this copy is (embed.js?v=…; none on a line written before 0.20.7), and the one the
+  // frame last said is current. Browsers keep this file long: a copy that is not the current one loads
+  // the current one in its place (once a page), before it puts anything in the page
+  const VERSION = `mcp-ask-embed-script:${key}`;
+  const own = (() => {
+    try {
+      return new URL(script.src, document.baseURI).searchParams.get('v') || '';
+    } catch (error) {
+      return '';
+    }
+  })();
+  const fit = (version) => /^[0-9A-Za-z.-]{1,40}$/.test(String(version || ''));
+
+  const takeVersion = (version) => {
+    if (window.McpAskEmbedTaking) {
+      return false;
+    }
+
+    window.McpAskEmbedTaking = true;
+
+    const next = document.createElement('script');
+    const url = new URL(script.src, document.baseURI);
+
+    url.searchParams.set('v', version);
+    [...script.attributes].forEach((attribute) => next.setAttribute(attribute.name, attribute.value));
+    next.src = url.href;
+    next.async = true;
+    (document.head || document.documentElement).append(next);
+
+    return true;
+  };
+
+  try {
+    const current = window.localStorage.getItem(VERSION);
+
+    if (fit(current) && current !== own && takeVersion(current)) {
+      return;
+    }
+  } catch (error) {
+    // Kept as it is
+  }
+
   window.McpAskEmbed = true;
 
   const source = new URL(script.src, document.baseURI);
@@ -86,6 +128,10 @@
   // While the page is captured: the frame out of sight (a screenshot), or only the bar to stop a recording
   let capture = 'none';
   let button = 96;
+  // On a phone (narrow window) the open box is the site's phone card across the bottom, as tall as the frame says
+  const phoneAt = 640;
+  let phone = window.innerWidth <= phoneAt;
+  let tall = 320;
   let context = {};
   let user = script.dataset.user ? { token: script.dataset.user, name: '' } : null;
   // Where this website signs its visitor out (data-logout): signing out in the conversation goes there
@@ -162,6 +208,20 @@
 
     // While the button is dragged the frame covers the window, see-through, so it can be put anywhere
     const full = mode === 'full' || mode === 'drag';
+
+    // Open on a phone: across the bottom of the screen, as tall as the card and the pet over it
+    if (phone && mode === 'bar') {
+      const style = { top: 'auto', bottom: '0', left: '0', right: '0', width: '100vw', height: `${Math.min(window.innerHeight, tall)}px` };
+
+      Object.entries(style).forEach(([name, value]) => {
+        if (frame.style[name] !== value) {
+          frame.style[name] = value;
+        }
+      });
+
+      return;
+    }
+
     const wide = Math.min(window.innerWidth, 480);
     const height = full ? window.innerHeight : Math.min(window.innerHeight, mode === 'bar' ? 260 + Math.max(0, button - 96) : button);
     const at = spot ? spot.side : side;
@@ -187,7 +247,18 @@
     });
   };
 
-  window.addEventListener('resize', () => ready && place());
+  window.addEventListener('resize', () => {
+    const now = window.innerWidth <= phoneAt;
+
+    if (ready && now !== phone) {
+      phone = now;
+      post('screen', { phone });
+    }
+
+    if (ready) {
+      place();
+    }
+  });
 
   // ---------- LiveChat, when the visitor asks for a person ----------
 
@@ -353,6 +424,24 @@
 
     switch (data.mcpAsk) {
       case 'ready':
+        // Not the current script: kept as current for this website's next pages, and taken now, the frame
+        // let go (once a page: the copy taken says it is current)
+        if (fit(data.script)) {
+          try {
+            window.localStorage.setItem(VERSION, data.script);
+          } catch (error) {
+            // Taken now only
+          }
+
+          if (data.script !== own && !window.McpAskEmbedTaking) {
+            frame.remove();
+            window.McpAskEmbed = false;
+            takeVersion(data.script);
+
+            break;
+          }
+        }
+
         ready = true;
         side = data.side === 'left' ? 'left' : 'right';
         place();
@@ -360,6 +449,9 @@
         sendContext();
         // This page lets the frame capture it, and puts the frame aside meanwhile
         post('host', { capture: true, login: Boolean(loginUrl) && !user, logout: Boolean(logoutUrl) && Boolean(user), drag: true, size: petSize, side: spot ? spot.side : side });
+
+        // On a phone or not: the frame lays the open box out for it
+        post('screen', { phone });
 
         // Who is signed in on this page; nobody (signed out on this website meanwhile): whoever this
         // website said before is forgotten in the frame too (0.20.3)
@@ -396,6 +488,11 @@
 
         // Answered once the new size is laid out
         window.requestAnimationFrame(() => post('sized', { mode }));
+        break;
+      case 'tall':
+        // How tall the open box is on a phone (the card and the pet over it)
+        tall = Math.min(600, Math.max(160, Math.round(Number(data.height) || 0)));
+        place();
         break;
       case 'navigate': {
         let url;

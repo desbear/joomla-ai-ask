@@ -39,6 +39,18 @@ namespace Gss\Component\Askdesk\Administrator\Desk;
  *  - brief ({generated, stale, notice, sections: {title, tone (info, warn, ok), points: {text, sources}}}):
  *    a summary to read, in parts, each point with where it comes from (an AI's brief of the visitor,
  *    say); stale when what it was made from has changed since
+ *  - form ({title, hint, sent, blocked, submit, fill, fields: {key, label, kind (text, textarea, select,
+ *    date, number), options, value, required}}, 0.6.1): a small form the person answering fills and sends
+ *    (submit, the button's word), a draft of it written by AI from the chat on asking (fill, its button's word;
+ *    Summary::fill() does it); sent a line once it went, the form then empty again for another; folded
+ *    (with made, the item just made, and again, the word that opens it again) once something was made
+ *    from it for this chat, so it is not made twice by mistake
+ *  - buttons ({action ("make", "refresh" or "fill"), label, primary}, 0.6.1): a few of its own (make: something
+ *    made in that system for the visitor, say); a list's items may carry url (https) to open there, or
+ *    ref to open in the console's side card (show), room the chat it came from (another of the visitor's
+ *    to go to, or this one)
+ *  - record ({title, meta, url, open, fields: {label, value}}, 0.6.1): one record whole, in the side card,
+ *    after "show"; url opens it where it is kept, open the link's word
  *  - icon (a name of the console's icons) for its heading; follow ("draft" or "refresh"): an action the
  *    console runs once, at once, after drawing it (slow work, such as an AI's, not holding up the others);
  *    look ("ai"): drawn as a blue-violet card of its own above the others, read again from its heading
@@ -66,8 +78,10 @@ interface PanelInterface
 
     /**
      * Something the person answering did in it: "search" ({text}), "choose" ({ref}), "refresh",
-     * "draft" (the note written again by AI) or "send" ({note, choices}: the note as they confirmed
-     * it, the choices ticked).
+     * "draft" (the note written again by AI), "send" ({note, choices}: the note as they confirmed
+     * it, the choices ticked), and (0.6.1) "fill" ({values}: the form drafted by AI from the chat, what
+     * was written kept), "submit" ({values}: the form as they confirmed it), "make" (a button's) or
+     * "show" ({ref}: an item of the list, whole, as record).
      *
      * @param   array<string, mixed>  $input
      *

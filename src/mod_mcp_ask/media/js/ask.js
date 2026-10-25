@@ -548,8 +548,8 @@
       const size = Math.round(Number(data.size) || 0);
 
       if (size >= 48 && size <= 240 && root.classList.contains('mcp-ask--pet')) {
+        // The wide size only: on a phone the pet keeps the site's phone size (0.20.7)
         root.style.setProperty('--mcp-ask-pet-wide', `${size}px`);
-        root.style.setProperty('--mcp-ask-pet-mobile', `${size}px`);
 
         if (root.dataset.state === 'idle') {
           hostSize('button');
@@ -1626,6 +1626,36 @@
     };
   };
 
+  // AI Ask Desk's viewer of documents, when the site has it: what it reads, and opening one in it
+  const preview = parse(roots.map((root) => root.dataset.preview).find(Boolean));
+  const previewOf = (file) => Boolean(preview && preview.script && /\.(pdf|docx|xlsx|xlsm|xls|ods|csv)$/i.test(file.name));
+  let previewer = null;
+
+  const openLivePreview = (file) => {
+    previewer = previewer || new Promise((resolve, reject) => {
+      const script = el('script');
+
+      script.src = preview.script;
+      script.onload = () => (window.AskdeskPreview ? resolve(window.AskdeskPreview) : reject(new Error('preview')));
+      script.onerror = () => { previewer = null; reject(new Error('preview')); };
+      document.head.append(script);
+    });
+
+    previewer.then((viewer) => viewer.open({
+      url: file.url,
+      name: file.name,
+      base: preview.base,
+      version: preview.version,
+      labels: { download: strings.liveDownload, close: strings.livePreviewClose, loading: strings.livePreviewLoading, failed: strings.livePreviewFailed, tooLarge: strings.livePreviewTooLarge, page: strings.livePreviewPage, truncated: strings.livePreviewTruncated },
+    })).catch(() => {
+      const save = el('a');
+
+      save.href = file.url;
+      save.setAttribute('download', file.name);
+      save.click();
+    });
+  };
+
   // A picture to open whole (AI Ask's own lightbox), a video to play, a document to download; with
   // its size, and how many days it is kept still
   const liveFileView = (file) => {
@@ -1655,14 +1685,31 @@
       video.playsInline = true;
       view.append(video);
     } else {
-      const card = el('a', 'mcp-ask-live-file__doc');
+      // Its name and size; a button to read it here (a PDF, Word, a spreadsheet, with AI Ask Desk's viewer:
+      // 0.20.7) and one to download it (the only one, for what cannot be read here)
+      const card = el('div', 'mcp-ask-live-file__doc');
+      const words = el('span', 'mcp-ask-live-file__words');
+      const acts = el('span', 'mcp-ask-live-file__acts');
+      const save = el('a', 'mcp-ask-live-file__act');
       const size = file.size >= 1048576 ? `${(file.size / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(file.size / 1024))} KB`;
 
-      card.href = file.url;
-      card.setAttribute('download', file.name);
-      card.setAttribute('data-mcp-ask-download', '');
-      card.title = strings.liveDownload;
-      card.append(el('strong', '', file.name), el('span', '', `${size} · ${strings.liveDownload}`));
+      save.href = file.url;
+      save.setAttribute('download', file.name);
+      save.setAttribute('data-mcp-ask-download', '');
+      save.textContent = strings.liveDownload;
+
+      if (previewOf(file)) {
+        const look = el('button', 'mcp-ask-live-file__act mcp-ask-live-file__act--look', strings.livePreview);
+
+        look.type = 'button';
+        look.addEventListener('click', () => openLivePreview(file));
+        acts.append(look);
+      }
+
+      acts.append(save);
+      words.append(el('strong', '', file.name), el('span', '', size));
+      words.title = file.name;
+      card.append(words, acts);
       view.append(card);
     }
 
@@ -5097,7 +5144,15 @@
 
   // Beside a pet, the box to type in and the helpers to try are one card that the pet speaks:
   // above it, or below it when the pet sits too high for the card to fit
-  launchers.filter((launcher) => launcher.float && launcher.root.classList.contains('mcp-ask--pet') && !embed).forEach((launcher) => {
+  // Embedded, only on a phone (the page around says, embed.js 0.20.5): there the card docks across the
+  // bottom of the screen as on the site itself, and the frame is as tall as it needs
+  const cardPets = launchers.filter((launcher) => launcher.float && launcher.root.classList.contains('mcp-ask--pet'));
+
+  const cardUp = (launcher) => {
+    if (launcher.card) {
+      return;
+    }
+
     const card = el('div', 'mcp-ask__card');
     const form = launcher.root.querySelector('.mcp-ask__form');
     const list = launcher.root.querySelector('.mcp-ask__agents');
@@ -5106,11 +5161,59 @@
     card.append(...[list, form].filter(Boolean));
     launcher.card = card;
 
-    // Its height, for the pet to peek over it while the visitor types on a phone
-    new ResizeObserver(() => {
+    // Its height, for the pet to peek over it while the visitor types on a phone; embedded, the frame's
+    launcher.cardSeen = new ResizeObserver(() => {
       launcher.root.style.setProperty('--mcp-ask-card-h', `${card.offsetHeight}px`);
-    }).observe(card);
-  });
+
+      if (embed) {
+        hostPost('tall', { height: card.offsetHeight + 96 });
+      }
+    });
+    launcher.cardSeen.observe(card);
+  };
+
+  const cardDown = (launcher) => {
+    if (!launcher.card) {
+      return;
+    }
+
+    launcher.cardSeen.disconnect();
+    [...launcher.card.children].forEach((child) => launcher.root.insertBefore(child, launcher.card));
+    launcher.card.remove();
+    launcher.card = null;
+    launcher.root.style.removeProperty('--mcp-ask-card-h');
+  };
+
+  const embedPhone = (phone) => {
+    const html = document.documentElement;
+
+    if (html.classList.contains('mcp-ask-embed-phone') === phone && (!phone || cardPets.every((launcher) => launcher.card))) {
+      return;
+    }
+
+    html.classList.toggle('mcp-ask-embed-phone', phone);
+    cardPets.forEach(phone ? cardUp : cardDown);
+    // The pet as on a phone: its phone size and half-body pictures; the frame sized to it again
+    cardPets.forEach((launcher) => launcher.refit && launcher.refit());
+
+    // (After the page is set up: this may run while it still is)
+    window.requestAnimationFrame(() => {
+      if (cardPets.some((launcher) => launcher.root.dataset.state === 'idle')) {
+        hostSized = '';
+        hostSize('button');
+      }
+    });
+  };
+
+  if (!embed) {
+    cardPets.forEach(cardUp);
+  } else if (Math.min(window.screen.width, window.screen.height) <= 500) {
+    // A phone's screen, whichever way it is held: known here at once, without waiting for the page around
+    // to say (an older embed.js, kept by the browser for long, never says)
+    embedPhone(true);
+  }
+
+  onHost('screen', (data) => embedPhone(Boolean(data.phone)));
 
   // A floating button belongs to the window, wherever the template put the module: inside a
   // transformed or clipped ancestor it would be fixed to that instead
@@ -5426,8 +5529,10 @@
     const phone = window.matchMedia('(max-width: 640px)');
     const hasThumbs = Object.values(data.actions).some((item) => item && item.thumb);
     const fitPhone = () => {
-      // Not in an embed's frame: narrow on any screen
-      stages[0].kind = phone.matches && hasThumbs && !embed ? 'thumb' : 'full';
+      // In an embed's frame (narrow on any screen) only when on a phone (0.20.7)
+      const onPhone = embed ? document.documentElement.classList.contains('mcp-ask-embed-phone') : phone.matches;
+
+      stages[0].kind = onPhone && hasThumbs ? 'thumb' : 'full';
       root.classList.toggle('mcp-ask--pet-half', stages[0].kind === 'thumb');
     };
 
@@ -5530,7 +5635,7 @@
       has: (name) => Boolean(data.actions[name]),
     };
 
-    phone.addEventListener('change', () => {
+    const refit = () => {
       fitPhone();
 
       if (still) {
@@ -5541,7 +5646,10 @@
         current = '';
         show(name);
       }
-    });
+    };
+
+    phone.addEventListener('change', refit);
+    launcher.refit = refit;
 
     if (still) {
       stages.forEach((stage) => {
@@ -6784,7 +6892,8 @@
 
   // Embedded: the other website's page may show the frame now, as big as the button
   if (embed) {
-    hostPost('ready', { side: embed.side === 'left' ? 'left' : 'right' });
+    // ...and which embed script is current, so a page holding an older one (kept long) takes it
+    hostPost('ready', { side: embed.side === 'left' ? 'left' : 'right', script: String(embed.script || '') });
     hostSize('button');
   }
 })(window, document);

@@ -178,7 +178,7 @@ class Dispatcher extends AbstractModuleDispatcher
         $data['floatAt']     = \in_array($params->get('float_position'), ['top', 'middle'], true) ? $params->get('float_position') : 'bottom';
         // Embedded on another website (the component's embed page): its key, the website, the sign-in window
         $embed               = (array) $params->get('embed', []);
-        $data['embed']       = !empty($embed['key']) ? array_intersect_key($embed, array_flip(['key', 'host', 'side', 'login'])) : null;
+        $data['embed']       = !empty($embed['key']) ? array_intersect_key($embed, array_flip(['key', 'host', 'side', 'login', 'script'])) : null;
         $data['spot']        = $data['mode'] === 'float' && !$data['embed'] ? $this->spot() : null;
         $data['title']       = $title;
         $data['placeholder'] = $placeholder;
@@ -198,6 +198,14 @@ class Dispatcher extends AbstractModuleDispatcher
             'logout' => Route::_('index.php?option=com_users&task=user.logout&' . Session::getFormToken() . '=1&return=' . base64_encode(Uri::getInstance()->toString()), false),
         ] : null;
         $data['sourcesShown'] = max(0, min(50, (int) $params->get('sources_shown', 3)));
+        // AI Ask Desk's viewer of documents, when it is there (0.20.7): a PDF, Word or a spreadsheet sent in a
+        // chat with a person read in the browser, fetched when one is first opened
+        $viewer              = JPATH_ROOT . '/media/com_askdesk/js/preview.js';
+        $data['preview']     = is_file($viewer) ? [
+            'script'  => Uri::root(true) . '/media/com_askdesk/js/preview.js?' . filemtime($viewer),
+            'base'    => Uri::root(true) . '/media/com_askdesk/',
+            'version' => (string) filemtime($viewer),
+        ] : null;
         // On the days of a festive row, its pet and cleaning pet instead of the usual ones
         $festive             = $this->festive($params);
         $data['pet']         = $data['mode'] === 'float' && !$demo ? $this->pet((string) ($festive['pet'] ?? '') ?: (string) $params->get('pet', '')) : null;
@@ -256,6 +264,13 @@ class Dispatcher extends AbstractModuleDispatcher
             'liveExpiresIn'     => Text::_('MOD_MCP_ASK_LIVE_EXPIRES_IN'),
             'liveExpired'       => Text::_('MOD_MCP_ASK_LIVE_EXPIRED'),
             'liveDownload'      => Text::_('MOD_MCP_ASK_LIVE_DOWNLOAD'),
+            'livePreview'       => Text::_('MOD_MCP_ASK_LIVE_PREVIEW'),
+            'livePreviewLoading' => Text::_('MOD_MCP_ASK_LIVE_PREVIEW_LOADING'),
+            'livePreviewFailed' => Text::_('MOD_MCP_ASK_LIVE_PREVIEW_FAILED'),
+            'livePreviewTooLarge' => Text::_('MOD_MCP_ASK_LIVE_PREVIEW_TOO_LARGE'),
+            'livePreviewPage'   => Text::_('MOD_MCP_ASK_LIVE_PREVIEW_PAGE'),
+            'livePreviewTruncated' => Text::_('MOD_MCP_ASK_LIVE_PREVIEW_TRUNCATED'),
+            'livePreviewClose'  => Text::_('MOD_MCP_ASK_LIVE_PREVIEW_CLOSE'),
             'liveTooLarge'      => Text::_('MOD_MCP_ASK_LIVE_TOO_LARGE'),
             'liveImageTooLarge' => Text::_('MOD_MCP_ASK_LIVE_IMAGE_TOO_LARGE'),
             'liveCapture' => Text::_('MOD_MCP_ASK_LIVE_CAPTURE'),

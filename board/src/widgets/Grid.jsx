@@ -1,13 +1,14 @@
 // A template's records as a table, after the Vittal data-table blocks: a bar of search and filters
 // (on the full page), a column of checkboxes, the first columns frozen, columns resized from their edge,
-// groups by an option field; in the editable kind, a cell changed in place (text typed in it, an option
+// columns moved by dragging their heading, groups by an option field; in the editable kind, a cell changed in place (text typed in it, an option
 // or a date picked from a popover). Rows come a page at a time as the end comes near, and only the rows
 // in view are drawn (TanStack Virtual).
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { SkeletonCover } from './Skeleton.jsx';
 import { Icon } from '../icons.jsx';
-import { fmt, tone, today, ymd } from '../kinds.js';
+import { fmt, tone, today, ymd, moved, slotAt } from '../kinds.js';
 import { SignIn } from '../api.js';
 
 const WIDTH = { text: 190, number: 112, date: 118, select: 120, multi: 170 };
@@ -35,6 +36,8 @@ const shown = (field, value, lang, t, edit) => {
 const Popover = ({ anchor, onClose, children, label }) => {
   const box = useRef(null);
   const [place, setPlace] = useState({ top: -9999, left: -9999 });
+  // Placed (under its cell, or above when there is no room below): then it comes in, from that side
+  const [side, setSide] = useState('');
 
   useEffect(() => {
     const r = anchor.getBoundingClientRect();
@@ -43,7 +46,7 @@ const Popover = ({ anchor, onClose, children, label }) => {
     const below = r.bottom + 4 + h < window.innerHeight;
 
     setPlace({ top: below ? r.bottom + 4 : Math.max(8, r.top - 4 - h), left: Math.max(8, Math.min(r.left, window.innerWidth - w - 8)) });
-    (box.current.querySelector('[aria-selected="true"], .on, button') || box.current).focus();
+    setSide(below ? 'is-down' : 'is-up');
 
     const away = (e) => { if (box.current && !box.current.contains(e.target) && !anchor.contains(e.target)) onClose(); };
     const key = (e) => { if (e.key === 'Escape') { e.stopPropagation(); onClose(); } };
@@ -57,7 +60,12 @@ const Popover = ({ anchor, onClose, children, label }) => {
     };
   }, [anchor, onClose]);
 
-  return <div ref={box} className="adb-pop adb-edpop" role="dialog" aria-label={label} tabIndex={-1} style={place}>{children}</div>;
+  // Seen once placed: then what is chosen in it (or its first) has the focus
+  useEffect(() => {
+    if (side && box.current) (box.current.querySelector('[aria-selected="true"], .on, button') || box.current).focus();
+  }, [side]);
+
+  return <div ref={box} className={`adb-pop adb-edpop ${side || 'is-waiting'}`} role="dialog" aria-label={label} tabIndex={-1} style={place}>{children}</div>;
 };
 
 const Calendar = ({ value, onPick, t }) => {
@@ -118,6 +126,24 @@ const Editor = ({ field, value, anchor, onCommit, onClose, t }) => {
   );
 };
 
+// A value typed for the records picked: Enter or the button sets it
+const BatchText = ({ field, onCommit, t }) => {
+  const input = useRef(null);
+  const go = () => {
+    const raw = input.current.value.trim();
+
+    onCommit(field.kind === 'number' ? (raw === '' ? '' : Number(raw)) : raw);
+  };
+
+  return (
+    <div className="adb-batchtext">
+      <p className="adb-edlist__head">{t('batchSetTo', field.label)}</p>
+      <input ref={input} type={field.kind === 'number' ? 'number' : 'text'} aria-label={field.label} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } }} />
+      <button type="button" className="adb-btn adb-btn--main" onClick={go}>{t('batchApply')}</button>
+    </div>
+  );
+};
+
 const TextCell = ({ field, value, onCommit, lang, t }) => {
   const [typing, setTyping] = useState(false);
   const input = useRef(null);
@@ -161,13 +187,20 @@ export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, r
   const edit = widget.kind === 'editgrid';
   const [rows, setRows] = useState([]);
   const [count, setCount] = useState(0);
-  const [loading, setLoading] = useState(false);
+  // Loading from the start, so nothing (not "none") shows before the first page is asked for
+  const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(null);
   const [search, setSearch] = useState('');
   const [group, setGroup] = useState(() => (full ? (fields.find((f) => f.kind === 'select') || {}).key || '' : ''));
   const [shut, setShut] = useState(() => new Set());
   const [sorting, setSorting] = useState([]);
   const [picked, setPicked] = useState(() => new Set());
+  // Each record as it is being changed (saving, saved, failed: a moment each), and those learned not to be
+  // this person's to change; a change to the records picked, its steps (0.6.1)
+  const [status, setStatus] = useState({});
+  const [locks, setLocks] = useState({});
+  const [batch, setBatch] = useState(null);
+  const rowsNow = useRef([]);
   const [editing, setEditing] = useState(null);
   const [menu, setMenu] = useState(null);
   const scroller = useRef(null);
@@ -291,24 +324,162 @@ export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, r
     return null;
   }, [drawn, items, groupField, virtual.scrollOffset]);
 
-  const commit = async (row, field, value) => {
-    setEditing(null);
+  rowsNow.current = rows;
 
+  const lockOf = (row) => locks[row.id] || row.locked || '';
+  const mark = (id, state) => {
+    setStatus((now) => ({ ...now, [id]: state }));
+
+    // Saved or not: shown a moment, then as it was
+    if (state !== 'saving') {
+      window.setTimeout(() => setStatus((now) => (now[id] === state ? (({ [id]: _, ...rest }) => rest)(now) : now)), 1600);
+    }
+  };
+
+  // One record's field changed: the row says it is being saved, then saved (or not, and why)
+  const save = async (row, field, value) => {
     const before = row.values[field.key];
 
+    mark(row.id, 'saving');
     setRows((now) => now.map((r) => (r.id === row.id ? { ...r, values: { ...r.values, [field.key]: value } } : r)));
 
     try {
       const got = await api.update({ source: widget.source, template: widget.template, row: row.id, field: field.key, value });
 
       if (got.row) setRows((now) => now.map((r) => (r.id === row.id ? got.row : r)));
-      api.forget(widget.source, widget.template);
-      ctx.onChanged && ctx.onChanged(widget.source, widget.template);
+      mark(row.id, 'saved');
+
+      return true;
     } catch (error) {
       setRows((now) => now.map((r) => (r.id === row.id ? { ...r, values: { ...r.values, [field.key]: before } } : r)));
-      toast(t('saveFailed', error.message));
+      mark(row.id, 'failed');
+
+      if (error.locked) setLocks((now) => ({ ...now, [row.id]: error.locked }));
+
+      return error;
     }
   };
+
+  const commit = async (row, field, value) => {
+    setEditing(null);
+
+    if (lockOf(row)) return;
+
+    // A row among several picked: the change is offered for all of them (in the bar)
+    if (picked.has(row.id) && picked.size > 1) {
+      stage(field, value);
+
+      return;
+    }
+
+    const done = await save(row, field, value);
+
+    if (done === true) {
+      api.forget(widget.source, widget.template);
+      ctx.onChanged && ctx.onChanged(widget.source, widget.template);
+    } else {
+      toast(t('saveFailed', done.detail || done.message));
+    }
+  };
+
+  // ---------- The records picked, changed together ----------
+  // Of those picked, the ones this person may change (the rest left out, said how many)
+  const pickedRows = rows.filter((r) => picked.has(r.id));
+  const changeable = pickedRows.filter((r) => !lockOf(r));
+  const editable = allFields.filter((f) => ['select', 'multi', 'date', 'text', 'number'].includes(f.kind));
+
+  // A field and its value chosen: changed at once when the widget says so; else said first, to confirm
+  // Asked again (another cell changed while one change waits): the bar flashes again, to be seen
+  const barEl = useRef(null);
+  const flashAt = batch && batch.stage === 'confirm' ? batch.n : 0;
+
+  useEffect(() => {
+    const el = barEl.current;
+
+    if (!flashAt || !el) return;
+    el.style.animation = 'none';
+    void el.offsetWidth;
+    el.style.animation = '';
+  }, [flashAt]);
+
+  // The column under the pointer in a picked row: lit in every picked row, what a change there would reach
+  const [hot, setHot] = useState(null);
+
+  const stage = (field, value) => {
+    setBatchMenu(null);
+
+    const ids = changeable.map((r) => r.id);
+
+    if (!ids.length) return;
+    if (widget.batchDirect) runBatch({ field, value }, ids);
+    else setBatch({ stage: 'confirm', field, value, ids, skipped: pickedRows.length - ids.length, n: Date.now() });
+  };
+
+  // Deleted, for good: always said first (in red), whatever the widget says of changes
+  const stageDelete = () => {
+    const ids = changeable.map((r) => r.id);
+
+    if (ids.length) setBatch({ stage: 'confirm', remove: true, ids, skipped: pickedRows.length - ids.length, n: Date.now() });
+  };
+
+  const drop = async (row) => {
+    mark(row.id, 'saving');
+
+    try {
+      await api.remove({ source: widget.source, template: widget.template, row: row.id });
+      setRows((now) => now.filter((r) => r.id !== row.id));
+      setCount((n) => Math.max(0, n - 1));
+      setPicked((now) => { const next = new Set(now); next.delete(row.id); return next; });
+
+      return true;
+    } catch (error) {
+      mark(row.id, 'failed');
+
+      if (error.locked) setLocks((now) => ({ ...now, [row.id]: error.locked }));
+
+      return error;
+    }
+  };
+
+  // Two at a time; each row says how it went, the bar how far it is
+  const runBatch = async (task, ids) => {
+    let done = 0;
+    let failed = 0;
+    const queue = [...ids];
+
+    setBatch({ stage: 'run', ...task, ids, done, failed });
+
+    const one = async () => {
+      while (queue.length) {
+        const id = queue.shift();
+        const row = rowsNow.current.find((r) => r.id === id);
+
+        if (row && (await (task.remove ? drop(row) : save(row, task.field, task.value))) !== true) failed += 1;
+        done += 1;
+        setBatch((now) => (now ? { ...now, done, failed } : now));
+      }
+    };
+
+    await Promise.all([one(), one()]);
+    api.forget(widget.source, widget.template);
+    ctx.onChanged && ctx.onChanged(widget.source, widget.template);
+    setBatch((now) => (now ? { ...now, stage: 'done', done, failed } : now));
+    window.setTimeout(() => setBatch((now) => (now && now.stage === 'done' ? null : now)), 2800);
+  };
+
+  // The records picked as a file (their fields as shown), for a spreadsheet
+  const exportPicked = () => {
+    const cell = (v) => `"${String(Array.isArray(v) ? v.join('、') : v ?? '').replace(/"/g, '""')}"`;
+    const lines = [fields.map((f) => cell(f.label)).join(','), ...pickedRows.map((r) => fields.map((f) => cell(r.values[f.key])).join(','))];
+    const link = document.createElement('a');
+
+    link.href = URL.createObjectURL(new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+    link.download = `${widget.title || 'records'}.csv`;
+    link.click();
+    window.setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  };
+
+  const [batchMenu, setBatchMenu] = useState(null);
 
   // Columns resized from the edge of their heading
   const resize = (e, f) => {
@@ -326,13 +497,83 @@ export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, r
     guide.className = 'adb-guide';
     scroller.current.append(guide);
 
-    const th = e.currentTarget.closest('th');
-    const put = () => { const r1 = th.getBoundingClientRect(); const r0 = scroller.current.getBoundingClientRect(); Object.assign(guide.style, { left: `${r1.right - r0.left + scroller.current.scrollLeft - 1}px`, top: `${scroller.current.scrollTop}px`, height: `${scroller.current.clientHeight}px` }); };
+    const grip = e.currentTarget;
+    const th = grip.closest('th');
+    // The line grows from the heading down the whole table as the drag starts
+    let tall = false;
+    const put = () => { const r1 = th.getBoundingClientRect(); const r0 = scroller.current.getBoundingClientRect(); Object.assign(guide.style, { left: `${r1.right - r0.left - scroller.current.clientLeft + scroller.current.scrollLeft - 1}px`, top: `${scroller.current.scrollTop}px`, height: `${tall ? scroller.current.clientHeight : th.offsetHeight}px` }); };
     const move = (ev) => { now = Math.min(480, Math.max(64, base + ev.clientX - start)); col.style.width = `${now}px`; tbl.style.width = `${tableWidth + now - base}px`; put(); };
-    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); document.body.classList.remove('adb-resizing'); guide.remove(); onWidget({ ...widget, cols: { ...(widget.cols || {}), [f.key]: now } }); };
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); document.body.classList.remove('adb-resizing'); grip.classList.remove('is-on'); guide.remove(); onWidget({ ...widget, cols: { ...(widget.cols || {}), [f.key]: now } }); };
 
     put();
+    grip.classList.add('is-on');
+    requestAnimationFrame(() => { tall = true; put(); });
     document.body.classList.add('adb-resizing');
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  // Columns moved by dragging their heading sideways (on the full page; a template's widget only by whoever
+  // makes the templates): a click that does not move still sorts
+  const movable = full && !(widget.tpl && !ctx.templater);
+  const dragged = useRef(false);
+  const shift = (e, from) => {
+    if (e.button !== 0 || !movable) return;
+
+    const start = e.clientX;
+    const box = scroller.current;
+    const heads = [...box.querySelectorAll('th[data-col]')];
+    const guide = document.createElement('div');
+    // The heading picked up: a tag with its name, floating, held where it was grabbed, carried sideways
+    const tag = document.createElement('div');
+    const hr = heads[from].getBoundingClientRect();
+    const grab = Math.min(Math.max(start - hr.left, 12), 40);
+    let to = null;
+
+    guide.className = 'adb-guide';
+    tag.className = 'adb-coltag';
+    tag.textContent = fields[from].label;
+
+    const move = (ev) => {
+      if (to === null && Math.abs(ev.clientX - start) < 6) return;
+
+      if (to === null) {
+        box.append(guide);
+        document.body.append(tag);
+        tag.style.top = `${hr.top + hr.height / 2}px`;
+        heads[from].classList.add('is-lifted');
+        document.body.classList.add('adb-sorting');
+      }
+
+      tag.style.left = `${ev.clientX - grab}px`;
+
+      // Near an edge: the table scrolls along
+      const r0 = box.getBoundingClientRect();
+      if (ev.clientX < r0.left + 40) box.scrollLeft -= 12;
+      if (ev.clientX > r0.right - 40) box.scrollLeft += 12;
+
+      to = slotAt(heads, ev.clientX, 'x');
+      const edge = to < heads.length ? heads[to].getBoundingClientRect().left : heads[heads.length - 1].getBoundingClientRect().right;
+      Object.assign(guide.style, { left: `${edge - r0.left + box.scrollLeft - 1}px`, top: `${box.scrollTop}px`, height: `${box.clientHeight}px` });
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+
+      if (to === null) return;
+
+      dragged.current = true;
+      guide.remove();
+      tag.classList.add('is-dropped');
+      setTimeout(() => tag.remove(), 180);
+      heads[from].classList.remove('is-lifted');
+      document.body.classList.remove('adb-sorting');
+
+      const keys = moved(fields.map((f) => f.key), from, to);
+
+      if (keys.join() !== fields.map((f) => f.key).join()) onWidget({ ...widget, fields: [...keys, ...widget.fields.filter((k) => !keys.includes(k))] });
+    };
+
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
   };
@@ -349,8 +590,9 @@ export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, r
         const s = sorting.find((x) => x.id === f.key);
 
         return (
-          <th key={f.key} className={`${pinClass(i)}${f.kind === 'number' ? ' n' : ''}${full ? ' sortable' : ''}`} style={pinStyle(i)}
-            onClick={full ? () => setSorting(s ? (s.desc ? [] : [{ id: f.key, desc: true }]) : [{ id: f.key, desc: false }]) : undefined}>
+          <th key={f.key} data-col={f.key} className={`${pinClass(i)}${f.kind === 'number' ? ' n' : ''}${full ? ' sortable' : ''}${movable ? ' movable' : ''}`} style={pinStyle(i)}
+            title={movable ? t('dragCols') : undefined} onPointerDown={movable ? (e) => shift(e, i) : undefined}
+            onClick={full ? () => { if (dragged.current) { dragged.current = false; return; } setSorting(s ? (s.desc ? [] : [{ id: f.key, desc: true }]) : [{ id: f.key, desc: false }]); } : undefined}>
             <span className="adb-th">{i < freeze && full ? <span className="adb-pinned"><Icon name="pin" /></span> : null}{f.label}{s ? <b className="adb-arrow">{s.desc ? '↓' : '↑'}</b> : null}</span>
             {full ? <span className="adb-rs" role="separator" aria-orientation="vertical" aria-label={f.label} onPointerDown={(e) => resize(e, f)} onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => { e.stopPropagation(); const cols = { ...(widget.cols || {}) }; delete cols[f.key]; onWidget({ ...widget, cols }); }} /> : null}
           </th>
@@ -371,13 +613,21 @@ export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, r
     </tr>
   );
 
-  const rowOf = (row) => (
-    <tr key={row.id} className={`adb-dt__row${picked.has(row.id) ? ' is-sel' : ''}${openId === row.id ? ' is-open' : ''}`} style={{ height: rowH }}
-      onClick={!edit ? () => openRow(row, sorted) : undefined}>
+  const rowOf = (row) => {
+    const locked = lockOf(row);
+    const live = edit && !locked;
+    const sel = picked.has(row.id);
+
+    return (
+    <tr key={row.id} className={`adb-dt__row${picked.has(row.id) ? ' is-sel' : ''}${openId === row.id ? ' is-open' : ''}${locked ? ' is-locked' : ''}${status[row.id] ? ` is-${status[row.id]}` : ''}`} style={{ height: rowH }}
+      title={locked ? t(`locked_${locked}`) : undefined} aria-busy={status[row.id] === 'saving' || undefined}
+      onClick={!live ? () => openRow(row, sorted) : undefined}>
       {full ? <td className={`pin sel${freeze ? '' : ' last'}`} style={{ position: 'sticky', left: 0 }} onClick={(e) => e.stopPropagation()}><input type="checkbox" className="adb-cb" checked={picked.has(row.id)} onChange={(e) => setPicked((now) => { const next = new Set(now); e.target.checked ? next.add(row.id) : next.delete(row.id); return next; })} aria-label={row.no} /></td> : null}
       {fields.map((f, i) => (
-        <td key={f.key} className={`${pinClass(i)}${f.kind === 'number' ? ' n' : ''}${edit ? ' e' : ''}${i === 0 ? ' first' : ''}`} style={pinStyle(i)}>
-          {edit
+        <td key={f.key} className={`${pinClass(i)}${f.kind === 'number' ? ' n' : ''}${live ? ' e' : ''}${i === 0 ? ' first' : ''}${sel && hot === f.key && !locked ? ' is-hot' : ''}`} style={{ ...pinStyle(i), '--x': `${lefts[i]}px` }}
+          onMouseEnter={sel ? () => setHot(f.key) : undefined} onMouseLeave={sel ? () => setHot(null) : undefined}>
+          {i === 0 && locked ? <span className="adb-lock" aria-label={t(`locked_${locked}`)}><Icon name="lock" /></span> : null}
+          {live
             ? (f.kind === 'text' || f.kind === 'number'
               ? <TextCell field={f} value={row.values[f.key]} onCommit={(v) => commit(row, f, v)} lang={lang} t={t} />
               : <button type="button" className="adb-ed adb-ed--pop" data-open={editing && editing.row.id === row.id && editing.field.key === f.key ? '' : undefined} aria-haspopup="listbox" aria-label={f.label} onClick={(e) => setEditing({ row, field: f, anchor: e.currentTarget })}>{shown(f, row.values[f.key], lang, t, true)}</button>)
@@ -385,10 +635,11 @@ export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, r
           {i === 0 ? <button type="button" className="adb-dt__open" onClick={(e) => { e.stopPropagation(); openRow(row, sorted); }}>{t('openRow')}</button> : null}
         </td>
       ))}
-      <td className="act" />
-      <td className="fill" />
+      <td className="act" style={{ '--x': `${tableWidth - (full ? 44 : ACT)}px` }} />
+      <td className="fill" style={{ '--x': `${tableWidth}px` }} />
     </tr>
-  );
+    );
+  };
 
   const itemRow = (it) => {
     if (it.type === 'g') return groupRow(it, false);
@@ -424,7 +675,7 @@ export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, r
     <div className={`adb-dt${full ? ' adb-dt--full' : ''}${edit ? ' adb-dt--edit' : ''}`}>
       {bar}
       <div className="adb-dt__scroll" ref={scroller}>
-        <table className="adb-dt__table" style={{ width: tableWidth }}>
+        <table className="adb-dt__table" style={{ width: tableWidth, '--w': `${tableWidth}px` }}>
           <colgroup>
             {full ? <col style={{ width: SEL }} /> : null}
             {fields.map((f) => <col key={f.key} data-key={f.key} style={{ width: width(f) }} />)}
@@ -441,7 +692,7 @@ export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, r
             {after > 0 ? <tr className="adb-dt__spacer" aria-hidden="true"><td colSpan={span} style={{ height: after }} /></tr> : null}
           </tbody>
         </table>
-        {loading && !rows.length ? <div className="adb-empty adb-empty--over">{t('loading')}</div> : null}
+        <SkeletonCover on={(loading && !rows.length) || (rows.length > 0 && !drawn.length)} kind="table" cols={fields.length} head={false} className="adb-empty--over adb-sk-over" />
         {failed && !(failed instanceof SignIn) ? <div className="adb-empty adb-empty--over">{failed.message || t('error')}</div> : null}
       </div>
       {full ? (
@@ -450,6 +701,46 @@ export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, r
           <span className="adb-muted">{t('drawn', drawn.filter((v) => items[v.index] && items[v.index].type === 'r').length)}{edit ? ` · ${t('editHint')}` : ''} · {t('openHint')}</span>
         </div>
       ) : null}
+      {full && (picked.size || batch) ? (
+        <div ref={barEl} className={`adb-batch${batch ? ` is-${batch.stage}` : ''}`} role="region" aria-label={t('batchPicked', picked.size)} aria-live="polite">
+          {!batch ? (
+            <>
+              <b className="adb-batch__n">{picked.size}</b>
+              <span className="adb-batch__what">{t('batchPicked', picked.size)}{pickedRows.length > changeable.length ? <small>{t('batchLocked', pickedRows.length - changeable.length)}</small> : null}</span>
+              <span className="adb-batch__sep" />
+              {edit && editable.length ? <button type="button" className="adb-batch__act" disabled={!changeable.length} onClick={(e) => setBatchMenu({ anchor: e.currentTarget })}><Icon name="edit" /><span>{t('batchEdit')}</span></button> : null}
+              <button type="button" className="adb-batch__act" onClick={exportPicked}><Icon name="download" /><span>{t('batchExport')}</span></button>
+              {ctx.removable && ctx.removable(widget.source) ? <button type="button" className="adb-batch__act adb-batch__act--danger" disabled={!changeable.length} onClick={stageDelete}><Icon name="trash" /><span>{t('batchDelete')}</span></button> : null}
+              <span className="adb-batch__sep" />
+              <button type="button" className="adb-batch__x" onClick={() => setPicked(new Set())} aria-label={t('batchClear')} title={t('batchClear')}><Icon name="close" /></button>
+            </>
+          ) : batch.stage === 'confirm' ? (
+            <>
+              <Icon name="alert" />
+              <span className="adb-batch__what">{batch.remove ? t('batchDeleteConfirm', batch.ids.length) : t('batchConfirm', batch.ids.length, batch.field.label, Array.isArray(batch.value) ? batch.value.join('、') : String(batch.value === '' ? t('emptyValue') : batch.value))}{batch.skipped ? <small>{t('batchLocked', batch.skipped)}</small> : null}</span>
+              <button type="button" className="adb-batch__go" onClick={() => runBatch(batch.remove ? { remove: true } : { field: batch.field, value: batch.value }, batch.ids)}>{batch.remove ? t('batchDeleteGo') : t('batchGo')}</button>
+              <button type="button" className="adb-batch__act" onClick={() => setBatch(null)}>{t('batchUndo')}</button>
+            </>
+          ) : (
+            <>
+              {batch.stage === 'done' ? <svg className="adb-batch__tick" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /><path d="m7.5 12.5 3 3 6-6.5" /></svg> : <span className="adb-dots"><i /><i /><i /></span>}
+              <span className="adb-batch__what">{batch.stage === 'done' ? t(batch.remove ? 'batchDeleted' : 'batchDone', batch.done - batch.failed) : t(batch.remove ? 'batchDeleting' : 'batchRunning', batch.done, batch.ids.length)}{batch.failed ? <small>{t('batchFailed', batch.failed)}</small> : null}</span>
+              <span className="adb-batch__progress" style={{ '--p': `${Math.round((batch.done / Math.max(1, batch.ids.length)) * 100)}%` }} />
+            </>
+          )}
+        </div>
+      ) : null}
+      {batchMenu && !batchMenu.field ? (
+        <Popover anchor={batchMenu.anchor} onClose={() => setBatchMenu(null)} label={t('batchEdit')}>
+          <div className="adb-edlist" role="menu">
+            <p className="adb-edlist__head">{t('batchWhich')}</p>
+            {editable.map((f) => <button type="button" role="menuitem" key={f.key} onClick={() => setBatchMenu({ anchor: batchMenu.anchor, field: f })}>{f.label}</button>)}
+          </div>
+        </Popover>
+      ) : null}
+      {batchMenu && batchMenu.field ? (batchMenu.field.kind === 'text' || batchMenu.field.kind === 'number'
+        ? <Popover anchor={batchMenu.anchor} onClose={() => setBatchMenu(null)} label={batchMenu.field.label}><BatchText field={batchMenu.field} onCommit={(v) => stage(batchMenu.field, v)} t={t} /></Popover>
+        : <Editor field={batchMenu.field} value={batchMenu.field.kind === 'multi' ? [] : undefined} anchor={batchMenu.anchor} onCommit={(v) => stage(batchMenu.field, v)} onClose={() => setBatchMenu(null)} t={t} />) : null}
       {editing ? <Editor field={editing.field} value={editing.row.values[editing.field.key]} anchor={editing.anchor} onCommit={(v) => commit(editing.row, editing.field, v)} onClose={() => setEditing(null)} t={t} /> : null}
       {menu ? (
         <Popover anchor={menu.anchor} onClose={() => setMenu(null)} label={t(menu.kind === 'cols' ? 'columns' : menu.kind)}>
@@ -457,7 +748,7 @@ export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, r
             {menu.kind === 'group' ? [<button type="button" role="menuitemradio" aria-checked={!group} key="" onClick={() => { setGroup(''); setMenu(null); }}><span className="adb-tick">{!group ? <Icon name="check" /> : null}</span>{t('groupNone')}</button>,
               ...allFields.filter((f) => f.kind === 'select').map((f) => <button type="button" role="menuitemradio" aria-checked={group === f.key} key={f.key} onClick={() => { setGroup(f.key); setShut(new Set()); setMenu(null); }}><span className="adb-tick">{group === f.key ? <Icon name="check" /> : null}</span>{t('groupOf', f.label)}</button>)] : null}
             {menu.kind === 'freeze' ? [0, 1, 2, 3].filter((n) => n <= fields.length).map((n) => <button type="button" role="menuitemradio" aria-checked={freeze === n} key={n} onClick={() => { onWidget({ ...widget, freeze: n }); setMenu(null); }}><span className="adb-tick">{freeze === n ? <Icon name="check" /> : null}</span>{n ? t('freezeN', n, fields.slice(0, n).map((f) => f.label).join('、')) : t('freezeNone')}</button>) : null}
-            {menu.kind === 'cols' ? allFields.map((f) => <label className="adb-checkrow" key={f.key}><input type="checkbox" checked={widget.fields.includes(f.key)} onChange={(e) => { const keys = e.target.checked ? [...widget.fields, f.key] : widget.fields.filter((k) => k !== f.key); if (keys.length) onWidget({ ...widget, fields: allFields.filter((x) => keys.includes(x.key)).map((x) => x.key) }); }} />{f.label}</label>) : null}
+            {menu.kind === 'cols' ? allFields.map((f) => <label className="adb-checkrow" key={f.key}><input type="checkbox" checked={widget.fields.includes(f.key)} onChange={(e) => { const keys = e.target.checked ? [...widget.fields, f.key] : widget.fields.filter((k) => k !== f.key); if (keys.length) onWidget({ ...widget, fields: keys }); }} />{f.label}</label>) : null}
           </div>
         </Popover>
       ) : null}

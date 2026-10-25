@@ -1958,31 +1958,72 @@ html:has(.mcp-ask-chat[open]) {
 }
 
 .mcp-ask-live-file__doc {
-  display: grid;
-  gap: 2px;
-  min-inline-size: 200px;
-  padding: 10px 14px 10px 46px;
+  /* A document: its icon, its name and size, then its buttons (read it here, download it; 0.20.7) */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-inline-size: min(280px, 100%);
+  padding: 10px 10px 10px 46px;
   border-radius: 12px;
   background:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231a5bff' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 3v4a1 1 0 0 0 1 1h4M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z'/%3E%3C/svg%3E") 12px center / 24px no-repeat;
   color: inherit;
-  text-decoration: none;
+}
+
+.mcp-ask-live-file__words {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-inline-size: 0;
 
   strong {
     overflow: hidden;
     font-size: 0.9em;
+    font-weight: 600;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   span {
-    color: var(--mcp-ask-accent);
-    font-size: 0.8em;
+    color: var(--mcp-ask-muted);
+    font-size: 0.78em;
   }
+}
+
+.mcp-ask-live-file__acts {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
+}
+
+.mcp-ask .mcp-ask-live-file__act,
+.mcp-ask-chat .mcp-ask-live-file__act {
+  display: inline-flex;
+  align-items: center;
+  block-size: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mcp-ask-text) 7%, transparent);
+  color: var(--mcp-ask-text);
+  font: inherit;
+  font-size: 0.78em;
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
 
   &:hover {
-    background-color: color-mix(in srgb, var(--mcp-ask-accent) 6%, transparent);
+    background: color-mix(in srgb, var(--mcp-ask-accent) 12%, transparent);
+    color: var(--mcp-ask-accent);
   }
+}
+
+.mcp-ask .mcp-ask-live-file__act--look,
+.mcp-ask-chat .mcp-ask-live-file__act--look {
+  background: color-mix(in srgb, var(--mcp-ask-accent) 12%, transparent);
+  color: var(--mcp-ask-accent);
 }
 
 .mcp-ask-live-file__expires {
@@ -3526,6 +3567,11 @@ html:active-view-transition-type(mcp-ask-nav) {
   }
 }
 
+/* In an embed's frame (narrow on any screen) the wide size, unless on a phone (0.20.7) */
+html.mcp-ask-embedded:not(.mcp-ask-embed-phone) .mcp-ask--pet {
+  --mcp-ask-pet-size: var(--mcp-ask-pet-wide, 96px);
+}
+
 .mcp-ask--float.mcp-ask--pet[data-state="idle"] {
   --mcp-ask-size: var(--mcp-ask-pet-size);
 
@@ -4210,9 +4256,10 @@ html:active-view-transition-type(mcp-ask-nav) {
    The pet sits in a rounded frame. Open, the card docks across the bottom of what is seen (just above
    the keyboard while typing: iOS may move the page meanwhile, so it keeps to what is still seen),
    and the framed pet is pressed onto its upper corner on the pet's side, in front of it. Not in an
-   embed's frame: it is narrow on any screen, and the page around it decides where it is (0.20.3). */
+   embed's frame, which is narrow on any screen and placed by the page around it (0.20.3), unless that page
+   says it is on a phone: then the frame spans the bottom of the screen and the card docks there (0.20.5) */
 @media (max-width: 640px) {
-  html:not(.mcp-ask-embedded) .mcp-ask--float.mcp-ask--pet .mcp-ask-pet {
+  :is(html:not(.mcp-ask-embedded), html.mcp-ask-embed-phone) .mcp-ask--float.mcp-ask--pet .mcp-ask-pet {
     overflow: hidden;
     border-radius: 18px;
     background: var(--mcp-ask-surface);
@@ -4223,7 +4270,7 @@ html:active-view-transition-type(mcp-ask-nav) {
   }
 
   /* The square picture fills the frame, its corners cut by the frame's */
-  html:not(.mcp-ask-embedded) .mcp-ask--float.mcp-ask--pet .mcp-ask-pet__frame {
+  :is(html:not(.mcp-ask-embedded), html.mcp-ask-embed-phone) .mcp-ask--float.mcp-ask--pet .mcp-ask-pet__frame {
     inset: 0;
     inline-size: 100%;
     block-size: 100%;
@@ -4231,7 +4278,7 @@ html:active-view-transition-type(mcp-ask-nav) {
     object-position: 50% 50%;
   }
 
-  html:not(.mcp-ask-embedded) .mcp-ask--float.mcp-ask--pet:not([data-state="idle"]) {
+  :is(html:not(.mcp-ask-embedded), html.mcp-ask-embed-phone) .mcp-ask--float.mcp-ask--pet:not([data-state="idle"]) {
     --mcp-ask-dock: calc(var(--mcp-ask-view-top, 0px) - -1 * var(--mcp-ask-view-height, 100dvh) - max(10px, env(safe-area-inset-bottom)));
 
     .mcp-ask__card {

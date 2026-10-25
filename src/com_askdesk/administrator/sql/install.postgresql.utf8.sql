@@ -33,6 +33,9 @@ CREATE INDEX "#__askdesk_rooms_idx_status" ON "#__askdesk_rooms" ("status", "mod
 CREATE INDEX "#__askdesk_rooms_idx_user" ON "#__askdesk_rooms" ("user_id");
 CREATE INDEX "#__askdesk_rooms_idx_staff" ON "#__askdesk_rooms" ("staff_id", "status");
 CREATE INDEX "#__askdesk_rooms_idx_settled" ON "#__askdesk_rooms" ("settled");
+CREATE INDEX "#__askdesk_rooms_idx_open" ON "#__askdesk_rooms" ("status", "settled");
+CREATE INDEX "#__askdesk_rooms_idx_created" ON "#__askdesk_rooms" ("created");
+CREATE INDEX "#__askdesk_rooms_idx_email" ON "#__askdesk_rooms" (LOWER("email"));
 
 CREATE TABLE IF NOT EXISTS "#__askdesk_messages" (
   "id" serial NOT NULL,
@@ -52,6 +55,7 @@ CREATE TABLE IF NOT EXISTS "#__askdesk_messages" (
   PRIMARY KEY ("id")
 );
 CREATE INDEX "#__askdesk_messages_idx_room" ON "#__askdesk_messages" ("room_id", "id");
+CREATE INDEX "#__askdesk_messages_idx_room_author" ON "#__askdesk_messages" ("room_id", "author", "id");
 
 CREATE TABLE IF NOT EXISTS "#__askdesk_staff" (
   "user_id" integer NOT NULL,
@@ -164,3 +168,17 @@ CREATE TABLE IF NOT EXISTS "#__askdesk_boards" (
   "updated" timestamp without time zone NOT NULL,
   PRIMARY KEY ("user_id")
 );
+
+CREATE TABLE IF NOT EXISTS "#__askdesk_work" (
+  "id" serial NOT NULL,
+  "room_id" integer NOT NULL,
+  "staff_id" integer DEFAULT 0 NOT NULL,
+  "panel" varchar(30) NOT NULL,
+  "form" varchar(40) NOT NULL,
+  "card" text NOT NULL,
+  "state" varchar(10) DEFAULT 'open' NOT NULL,
+  "created" timestamp without time zone NOT NULL,
+  "modified" timestamp without time zone NOT NULL,
+  PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS "#__askdesk_work_idx_room" ON "#__askdesk_work" ("room_id");

@@ -60,6 +60,7 @@ $class = 'mcp-ask' . ($mode !== 'icon' ? ' mcp-ask--' . $mode : '') . (!empty($p
     <?php if (!empty($allowedHosts)) : ?>data-allowed-hosts="<?php echo $json($allowedHosts); ?>"<?php endif; ?>
     <?php if ($pageItem) : ?>data-page-item="<?php echo (int) $pageItem; ?>"<?php endif; ?>
     data-sources-shown="<?php echo (int) ($sourcesShown ?? 3); ?>"
+    <?php if (!empty($preview)) : ?>data-preview="<?php echo $json($preview); ?>"<?php endif; ?>
     <?php if (!empty($pet)) : ?>data-pet="<?php echo $json($pet); ?>"<?php endif; ?>
     <?php if (!empty($signin)) : ?>data-signin="<?php echo $json($signin); ?>"<?php endif; ?>
     <?php if (!empty($account)) : ?>data-account="<?php echo $json($account); ?>"<?php endif; ?>

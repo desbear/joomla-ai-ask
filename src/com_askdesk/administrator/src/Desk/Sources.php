@@ -85,6 +85,8 @@ final class Sources
                 'title'     => self::text($source->title(), 60),
                 'ready'     => !empty($status['ready']),
                 'connected' => !empty($status['connected']),
+                // Its records can be deleted from the dashboard (0.6.1: a source with remove())
+                'removable' => method_exists($source, 'remove'),
                 'account'   => self::text($status['account'] ?? '', 120),
                 'connect'   => self::local($status['connect'] ?? ''),
                 'manage'    => self::local($status['manage'] ?? ''),
@@ -186,6 +188,12 @@ final class Sources
         // The record's own page in its system (to edit it there): an address on the web only
         if (\is_string($row['link'] ?? null) && preg_match('#^https://[^\s"<>]+$#i', $row['link'])) {
             $clean['link'] = mb_substr($row['link'], 0, 500);
+        }
+
+        // Not to be changed by this person (0.6.1): why, in a word the dashboard knows ('review': under review
+        // in its system; 'denied': not theirs to change), shown greyed and left out of a batch change
+        if (\in_array($row['locked'] ?? '', ['review', 'denied'], true)) {
+            $clean['locked'] = $row['locked'];
         }
 
         // A chat of the desk's own (its cases): opened in the console from the row

@@ -2,6 +2,142 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.6.1
+
+- Every widget can be renamed in place: **Rename** in its menu, or its name double-clicked. A widget of the
+  dashboard template renamed is the person's own name for it (the template's renaming after does not change
+  it); emptied, it takes the template's name again.
+- The dashboard is the work's card itself: no card of its own around it (its margin, colour and shadow).
+- On a phone the console opens on the dashboard in the browser too, not only as the app added to the home
+  screen (so someone new waiting nudges it there as well).
+- **Panels can carry a small form** (`form`: text, a few lines, an option, a date, a number), drafted by AI
+  from the chat on asking (`Summary::fill()`, each field as the chat says it, a weekday meaning the next one)
+  and sent only when the person answering confirms; and buttons of their own (`buttons`), and links on the
+  items of their lists. For a plugin to draw a to-do out of a chat into another system, say.
+- **Work in the chat**: a form button in the box (beside the stickers) lists the forms to fill for the chat,
+  the usual one first; one better done after another asks first (a customer's record before a to-do, say).
+  The form is filled in a pale beige card in the chat itself that only the people answering see (the visitor
+  never gets it; kept apart from the messages), drafted by AI, sent on confirming; sent, it shows what it made,
+  opened whole in the side card. Others answering see the cards too. Extensions offer forms through
+  `WorkInterface` (forms; a card's start, fill and submit); what they make they show in their own panels.
+- The list has no tabs now: all is the list, and what waits on someone (awaiting an answer, unhandled) shows
+  on one line at its top as a small coloured count, only when there is any; a click shows it alone, again all.
+  How it is ordered and whether those closed are shown are in one round button's menu at the line's end, a blue
+  dot on it when either is not as it is at first. The
+  list folded away, its edge's handle is white and see-through.
+- The list is drawn again at a look only when it changed, and never while it is being pressed or its menu is
+  open: an order being chosen, a 結案 button being clicked, or what is looked at in the browser's tools no
+  longer goes from under the pointer every two seconds.
+- The list folded away opens with a click on its edge's handle. What comes meanwhile (someone waiting, a
+  message left, one's own chat written in) puts a red bell on the handle, with how many when more than one;
+  opened, the list shows the newest, lit once.
+- On a phone the dashboard's bar is one line: search, whose, when and add as round icon buttons (their menus as
+  they are), one not as it is at first marked with a small blue dot; the search opens across the bar to type
+  in, its words kept when closed.
+- A record clicked in a widget on the dashboard opens the widget whole with that record in its side card (not
+  the widget alone); the last one opened stays marked in the widget.
+- **The address says where one is**, to come back to or give someone: a chat (`#room=<id>`), a widget opened
+  whole and its record (`#board=<widget>&row=<record>&src=…&tpl=…`); opened, the console goes there (a widget
+  not on that person's board: its template's records, on the record). A button in the widget opened whole
+  copies the address.
+- On a phone opened from the home screen the console fills the screen to its very bottom, and behind the status
+  bar is the colour of the page under it (the list's purple, the light of a chat or the dashboard). A chat's head
+  on a phone leaves out the page it came from (it ran under 結束對話); a widget opened whole has a slim head.
+- Where the side opens over the chat (a narrower screen), a record opened (from a work card, say) brings the
+  side in with its card; back (the button, or a swipe from the left edge, the side following the finger) puts
+  the side away first, then the chat.
+- **Records picked, changed together** (a widget opened whole): a dark bar rises at the table's foot with how
+  many are picked; there a field is changed for all of them (an option, a date, words, a number), or they are
+  exported as a spreadsheet file. A widget's setting says whether such a change is made at once or first said in
+  the bar, turned red, to confirm or undo. Being done, each row shows it is being saved (a light sweeping
+  across it), then saved or not; the bar a line filling and, done, a tick drawn. A record not this person's to
+  change (under review in its system, or refused as not theirs) is greyed with a lock, not changed in place and
+  left out of a batch. A source's row may say so (`locked`); a refusal says so too.
+  The bar rises from below to draw the eye. A cell edited in a picked row is offered for all those picked (the
+  bar flashing red to confirm, or done at once as the setting says). Records are deleted from the bar where
+  their source can (a source's optional `remove()`), always said first in red as not to be undone; a record
+  under review is not deleted. The light sweeping a row being saved is one band across the whole row.
+  Picked rows are a light blue; the pointer on a cell rings it in blue, and the same column in every picked row
+  with it, easing in and out. A column's edge always shows a faint 1px line (clear in the middle, fading at both ends),
+  blue when pointed at; pressed, one clear blue 2px line grows down the whole table. A heading being moved is lifted as a tag with its name
+  (a shadow beneath), carried sideways to its place.
+- A widget loading draws its shape in grey first (a skeleton): rows for a table, columns for a chart, a ring
+  for a pie, a big number, a battery, a gantt's spans, a light sweeping across them. It stays over the records
+  until they are drawn, then fades: no blank between (a table's body fills its card, so the grey shows there
+  too while only the headings are drawn).
+- A widget opened whole freezes the board behind it once grown: its widgets kept as they are (records, scroll,
+  charts) but not drawn and out of reach of the keyboard, drawn again as it shrinks back. Widgets are told
+  whether they are seen (`active`; `useActive()` adds the page hidden and the widget off the screen): one that
+  keeps working on its own (an animation, a game, a timer) pauses when not; a chart stops mid-animation.
+- The colour under the console moves to be seen: its drift wider and quicker, and three large glows of the
+  status's colours over it (violet and blue online, orange and gold busy, slate away), each an uneven shape
+  wandering and turning at its own pace (still with reduced motion).
+- The account at the side's foot is frosted in the status's colour (it stayed violet when busy or away), a light
+  blur (5px), and reaches the side's edge: the list's scrollbar is its own thin thumb over the list (shown while
+  pointed at or scrolled, dragged as a scrollbar's), no longer a strip beside it.
+  The side's list no longer fades at its edges (a mask): it left the account's frost nothing to blur.
+- A table's cells stay on one line (a cell that wrapped made its row run over the next).
+- A card beside the chat shows how many it lists in its heading. A side card opened over the side hides the
+  search above it.
+- A work card opens large over the console (the rest blurred behind), with a box under it to tell the AI how to
+  fill it in ("due next Friday, high priority"): filled as said, what was written kept for the rest
+  (`Summary::fill()` takes the words and the values so far). Sent, the cards beside the chat come anew with what
+  it made; so do they when another person's card makes something.
+- A chat one does not write in (ended, another's) has the form button alone at its foot: work for the customer
+  goes on after the chat. The forms' options show their own chevron, in from the edge.
+- A list item of a panel may carry `room`, the chat it came from: another of the visitor's shows its number,
+  to go to it; this one says so. The console's own script and styles are asked for anew whenever they change
+  (an update installed), not kept from before by the browser.
+- **The cards beside a chat, as set**: Options › Cards beside a chat ticks those not shown, the desk's own
+  (suggested replies, the visitor's history, the library) and each extension's.
+- The visitor's history beside a chat is a timeline: a line down its side, a dot at each chat, the latest ringed.
+- A panel's form folds once something was made from it for the chat (`folded`), what was made right under it
+  as a task (`made`), opened again on asking (`again`): not made twice by mistake. A list's items may carry
+  `ref`: opened whole in the side card (the `show` action, its `record`: the fields, a link to where it is kept).
+- A table's columns in the order wanted: dragged by their heading on the full page (a click still sorts), or
+  by the grip of the fields ticked in the widget's settings (the up and down keys too). Fields ticked after
+  go to the end; the order is the widget's own, not the template's.
+- On iPhone and iPad the screen's left edge is the console's: a swipe from it no longer goes back a page in
+  Safari; it takes a chat back to the list, or the dashboard aside for the list (the edge tapped too).
+- The list's tabs say what is to be done: 待接手 (to take, was 待回覆) and 待回覆 (to answer, was 未處理); in English
+  To take and To answer.
+- The cards beside a chat grow to what comes into them (from the grey of loading), what is in them rising in a
+  part after another. An AI's reading (the customer's brief), new or changed: a light runs once round its card
+  as it glows, and its lines come in one by one. Drawn again unchanged, nothing moves.
+  While the AI is reading, its card draws in a little with a halo of colours turning round it (behind the card,
+  not cut by its edge); done, the halo fades, the card grows back, then the light runs round it.
+- A note the AI writes for the CRM (AI 重寫): the box stays where it is (the side no longer jumps away), a glow
+  of blue and violet with a thin line of gold turning round it until the words come; then the glow goes, a
+  light runs once round the box and the words come in. The AI's card's halo takes the same colours.
+- The AI's halo softer: spread wider, its colours greyed a little, turning slowly (7 s a turn).
+- A document in a message lifts a little on a wide, faint shadow under the pointer.
+- A picture in a message fills its card (as wide as before), as tall as it is for that width, never cut nor
+  stretched: a wide one no longer comes narrower than its card.
+- **Documents read in the console**: a PDF, a Word document (.docx) or a spreadsheet (.xlsx, .xls, .ods, .csv)
+  in a chat opens over the console to read, its download a button of its own (a click with a key held still
+  downloads). Read in the browser by PDF.js, docx-preview and SheetJS, kept with the desk and fetched the first
+  time a document of that kind is opened (`preview/`, built into media/js/preview): the document goes to no
+  other server. Word and spreadsheets are drawn in a frame where nothing in them can run (no scripts, links
+  out of it taken away); a PDF's scripts are not run. Up to 30 MB; a spreadsheet its first 2,000 rows a sheet.
+  A document's card has its buttons: Preview (what can be read here) and Download. The viewer is a modal
+  dialog of its own (over AI Ask's conversation too); a Word document fills it.
+- The clip opens a small menu: one's library's files (mine, shared) to send as they are, and below them a box
+  to pick a file from the computer or drop one on.
+- The visitor's conversation with AI before the chat keeps its glows at its own top and bottom edges (the lower
+  one sat partway down a tall box, a band across it).
+- **Lighter on the server**: each poll counts its lists in three queries on indexes (it was four, each reading
+  the rooms), and finds when each chat was last written in by the messages' index (as one query MySQL read the
+  whole table of messages). New indexes: rooms (status, settled) and (created), messages (room_id, author, id).
+  Clearing old chats runs at most once a minute, whoever's poll asks (visitors' polls asked it too); a visitor's
+  request lets go of their session at once, so their poll does not hold up their own message.
+- **Lighter in the browser**: the colour under the console holds still after a minute with nobody at it, its
+  glows smaller and laid over without blending. Scrolling the side reads all cards' places first, then marks
+  them (it made the page lay out once a card each frame), and styles only the search as it shrinks. Scrolling
+  the dashboard no longer draws every widget again (only the map's box and the rail move).
+- The chats of one customer are found by their address on an index (rooms (email); MySQL compares without case
+  already), once a request however many cards ask. The packages carry the extensions' scripts and styles made
+  smaller (AI Ask's script a third of its size on the wire; the sources in the repository stay as they are).
+
 ## AI Ask Desk 0.6.0
 
 - **Closing cases (結案)**: a chat that ends by itself with the visitor's last words unanswered, and a
@@ -318,6 +454,35 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
 - **The console's look**: the side in a deep wash of one's status (blue online, amber busy, grey-black away), the
   status switched from the desk's card; new waiting chats light up red and ring a bell on the count; ended chats fold
   away; drop-down menus, Mac-like scroll bars, and the work on a calm grey-blue with white cards.
+
+## AI Ask for Joomla 0.20.7
+
+- **The pet on a phone, embedded, as on the site**: its phone size and its half-body picture in the rounded frame,
+  not the whole pet at the size the other website set (`data-size` is the size on a wider screen now). Embedded on
+  a wider screen the pet takes the module's wide size (it took the phone size, the frame being narrow).
+- **`embed.js` keeps itself current**: browsers keep the file long, so a page could run an old copy for months.
+  The line on an embed key's page now carries the script's version (`embed.js?v=…`: the module's version and when
+  the file changed), and the frame tells the page which is current: a copy that is not takes the current one in
+  its place, and remembers it for the website's next pages (taken before anything is put in the page). Lines
+  written before work too, once their copy is one that listens (this one on).
+- **Smaller to load**: the package's scripts and styles are made smaller as it is built (`ask.js` about 37 kB on
+  the wire instead of 63 kB); what is in the repository stays readable.
+- **Documents in a chat with a person**: a document's card shows its name and size with buttons to Preview it
+  (a PDF, Word or a spreadsheet, with AI Ask Desk's viewer when the site has it) and to Download it. The
+  embedded frame's words in the site's sans-serif (they fell back to the browser's serif).
+
+## AI Ask for Joomla 0.20.6
+
+- **The phone layout embedded, without waiting on the page around**: the frame knows a phone by its screen (500px
+  or narrower its short side) and lays the open box out for it at once. An `embed.js` that browsers kept from
+  before (it is cached for long) never says, and the frame stayed in the wider layout on a phone.
+
+## AI Ask for Joomla 0.20.5
+
+- **On a phone, embedded on another website** (`embed.js`): the open box is laid out as on the site itself, a card
+  across the bottom of the screen with the pet pressed onto its corner, not the narrow box of a wider screen cut
+  off at the side. The page around the frame tells it whether the window is a phone's (640px or narrower, told
+  again when that changes); the frame then spans the screen's width and is as tall as the card says.
 
 ## AI Ask for Joomla 0.20.4
 

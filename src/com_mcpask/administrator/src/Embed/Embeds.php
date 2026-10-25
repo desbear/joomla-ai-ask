@@ -34,6 +34,26 @@ final class Embeds
     }
 
     /**
+     * The version of the embed script now: the module's version and when the file last changed (0.20.7).
+     * In the line of script for the other website (embed.js?v=…) and told by the frame, so a page holding
+     * an older copy (browsers keep it long) takes this one.
+     */
+    public static function scriptVersion(): string
+    {
+        static $version = null;
+
+        if ($version === null) {
+            $manifest = JPATH_SITE . '/modules/mod_mcp_ask/mod_mcp_ask.xml';
+            $file     = JPATH_ROOT . '/media/mod_mcp_ask/js/embed.js';
+            $xml      = is_file($manifest) ? @simplexml_load_file($manifest) : false;
+            $version  = preg_replace('/[^0-9A-Za-z.]/', '', (string) ($xml ? $xml->version : '')) ?: '0';
+            $version .= is_file($file) ? '-' . filemtime($file) : '';
+        }
+
+        return $version;
+    }
+
+    /**
      * @return  object[]  With params as Registry and domains as a list of origins
      */
     public function all(): array

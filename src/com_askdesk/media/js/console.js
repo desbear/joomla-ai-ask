@@ -105,6 +105,10 @@
   const ICONS = {
     // Ordered: lines shortening downward, an arrow beside them
     sort: 'M4 6h9M4 12h7M4 18h5M17 6v12m0 0l-3-3m3 3l3-3',
+    eye: 'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12zM12 9a3 3 0 1 0 0 6 3 3 0 1 0 0-6',
+    upload: 'M12 16V4m0 0l-4 4m4-4l4 4M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2',
+    // Two lines, a knob on each: how a list is shown
+    sliders2: 'M4 8h9M17 8h3M4 16h3M11 16h9M15 6v4M9 14v4',
     headset: 'M4 14v-3a8 8 0 0 1 16 0v3M4 14a2 2 0 0 0 2 2h1v-5H6a2 2 0 0 0-2 2zm16 0a2 2 0 0 1-2 2h-1v-5h1a2 2 0 0 1 2 2zm-3 2v1a3 3 0 0 1-3 3h-2',
     send: 'M10 14L21 3M21 3l-6.5 18a.55.55 0 0 1-1 0L10 14l-7-3.5a.55.55 0 0 1 0-1L21 3',
     link: 'M9 15l6-6M11 6l.5-.5a5 5 0 0 1 7 7l-.5.5M13 18l-.5.5a5 5 0 0 1-7-7l.5-.5',
@@ -137,6 +141,10 @@
     search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4',
     refresh: 'M20 11a8 8 0 0 0-14.8-3.5M4 4v4h4M4 13a8 8 0 0 0 14.8 3.5M20 20v-4h-4',
     chat: 'M8 9h8M8 13h6M18 4a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3h-5l-5 3v-3H6a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3z',
+    // Two corners pulled apart: opened large
+    expand: 'M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6',
+    // A clipboard with lines: a form to fill
+    form: 'M9 3h6a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM8 4.5H6.5A1.5 1.5 0 0 0 5 6v13.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H16M8.5 11h7M8.5 15h4.5',
   };
 
   const icon = (name) => {
@@ -214,6 +222,16 @@
   };
 
   // Something that comes into view on a click rises and fades in
+  // A menu comes in from the side of what opened it (0.6.1): fading in, ten pixels from its button (down
+  // from one above it, up from one below)
+  const popIn = (node, fromBelow) => {
+    if (!reduced.matches && node && node.animate) {
+      node.animate([{ opacity: 0, transform: `translateY(${fromBelow ? 10 : -10}px)` }, { opacity: 1, transform: 'none' }], { duration: 200, easing: EASE });
+    }
+
+    return node;
+  };
+
   const rise = (node) => {
     if (!reduced.matches && node && node.animate) {
       node.animate([{ opacity: 0, transform: 'translateY(6px)' }, { opacity: 1, transform: 'none' }], { duration: 260, easing: EASE });
@@ -274,6 +292,9 @@
   // An iPhone or iPad: push only from the console added to the home screen and opened from there
   const apple = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const standalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  // iPhone and iPad (an iPad says it is a Mac, but has a touch screen): Safari's own swipe from the edge goes
+  // back a page; there the console keeps no steps of its own and the edge is its own (below)
+  const ios = /iP(hone|ad|od)/.test(window.navigator.userAgent) || (window.navigator.platform === 'MacIntel' && window.navigator.maxTouchPoints > 1);
 
   const paintNotify = () => {
     const granted = 'Notification' in window && Notification.permission === 'granted';
@@ -649,7 +670,7 @@
 
   home.append(el('p', 'askdesk-home__lead', t.pick));
   empty.append(home);
-  const opener = button('askdesk-button askdesk-button--text askdesk-bar__inbox', '', () => setSide(state.lastSide || SIDE_DEFAULT));
+  const opener = button('askdesk-button askdesk-button--text askdesk-bar__inbox', '', () => unfold());
 
   opener.append(icon('sidebar'));
   opener.setAttribute('aria-label', t.showInbox);
@@ -875,6 +896,8 @@
   const wash = el('span', 'askdesk__wash');
 
   wash.setAttribute('aria-hidden', 'true');
+  // Three glows of colour over it, each an uneven shape turning and wandering at its own pace
+  [1, 2, 3].forEach((n) => wash.append(el('span', `askdesk__glow askdesk__glow--${n}`)));
   // No bar above the work while the side is there: its things are at the side's foot (above). The bar
   // shows with the side folded away, and they come to it
   const barSpace = el('span', 'askdesk-bar__space');
@@ -1018,6 +1041,12 @@
     }
 
     brand.classList.toggle('askdesk-brand--narrow', size < 200);
+
+    // Opened however (dragged, the bar's button): what came meanwhile is in view now
+    if (!folded) {
+      folded_news_seen();
+    }
+
     splitter.setAttribute('aria-valuenow', String(size));
     splitter.setAttribute('aria-valuemax', String(max));
 
@@ -1030,18 +1059,98 @@
     }
   };
 
+  // The list folded away: what came meanwhile (someone waiting, a message left, one's own chat written
+  // in), a bell on its edge's handle, with how many; the handle clicked, the list opens on the newest
+  const folded = { news: [] };
+  const edgeBell = el('span', 'askdesk-edgebell');
+
+  edgeBell.setAttribute('aria-hidden', 'true');
+  edgeBell.hidden = true;
+  edgeBell.append(icon('bell'), el('b'));
+  splitter.append(edgeBell);
+
+  function folded_news_seen() {
+    folded.news = [];
+    paintEdgeBell();
+  }
+
+  const paintEdgeBell = () => {
+    const n = folded.news.length;
+
+    const shut = main.classList.contains('askdesk-main--folded');
+
+    edgeBell.hidden = !n || !shut;
+    edgeBell.lastChild.textContent = n > 1 ? String(n) : '';
+    edgeBell.classList.toggle('has-count', n > 1);
+    splitter.title = !shut ? t.resize : n ? t.edgeNews.replace('%s', String(n)) : t.edgeOpen;
+  };
+
+  function heardWhileFolded(id) {
+    if (!main.classList.contains('askdesk-main--folded')) {
+      return;
+    }
+
+    folded.news = [...folded.news.filter((one) => one !== id), id];
+    paintEdgeBell();
+
+    // Rung again: the bell swings once more
+    edgeBell.classList.remove('is-new');
+    void edgeBell.offsetWidth;
+    edgeBell.classList.add('is-new');
+  }
+
+  // Opened: the newest of what came, in view and lit once; the rest as they are
+  const unfold = () => {
+    const newest = folded.news[folded.news.length - 1];
+
+    folded.news = [];
+    setSide(state.lastSide || SIDE_DEFAULT);
+    paintEdgeBell();
+
+    if (!newest) {
+      return;
+    }
+
+    // In all, so that it is there
+    if (state.filter !== 'all') {
+      setFilter('all');
+    }
+
+    window.setTimeout(() => {
+      const row = [...inbox.querySelectorAll('.askdesk-item')].find((item) => item.dataset.room === String(newest));
+
+      if (row) {
+        row.scrollIntoView({ block: 'center', behavior: reduced.matches ? 'auto' : 'smooth' });
+        row.focus({ preventScroll: true });
+        row.classList.add('askdesk-item--found');
+        window.setTimeout(() => row.classList.remove('askdesk-item--found'), 2400);
+      }
+    }, reduced.matches ? 0 : 320);
+  };
+
   splitter.addEventListener('pointerdown', (event) => {
     event.preventDefault();
     splitter.setPointerCapture(event.pointerId);
     root.classList.add('askdesk--dragging');
 
+    const startX = event.clientX;
+    const wasFolded = main.classList.contains('askdesk-main--folded');
     const move = (moved) => setSide(moved.clientX - main.getBoundingClientRect().left, false);
     const stop = (ended) => {
       splitter.removeEventListener('pointermove', move);
       splitter.removeEventListener('pointerup', stop);
       splitter.removeEventListener('pointercancel', stop);
       root.classList.remove('askdesk--dragging');
+
+      // Folded and clicked, not dragged: opened
+      if (wasFolded && Math.abs(ended.clientX - startX) < 5) {
+        unfold();
+
+        return;
+      }
+
       setSide(ended.clientX - main.getBoundingClientRect().left);
+      paintEdgeBell();
     };
 
     splitter.addEventListener('pointermove', move);
@@ -1051,6 +1160,14 @@
 
   splitter.addEventListener('keydown', (event) => {
     const now = inbox.getBoundingClientRect().width;
+
+    // Folded: Enter or space opens it
+    if ((event.key === 'Enter' || event.key === ' ') && main.classList.contains('askdesk-main--folded')) {
+      event.preventDefault();
+      unfold();
+
+      return;
+    }
 
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
       event.preventDefault();
@@ -1084,6 +1201,26 @@
 
   // From the next frame on, folding eases (not as the page opens)
   window.requestAnimationFrame(() => window.requestAnimationFrame(() => root.classList.add('askdesk--ready')));
+
+  // Nobody at the console for a minute: the colour under it holds still until someone is again (0.6.1)
+  let stillTimer = 0;
+  let awakeAt = 0;
+
+  const awake = () => {
+    if (root.classList.contains('askdesk--still')) {
+      root.classList.remove('askdesk--still');
+    } else if (Date.now() - awakeAt < 1000) {
+      // (The pointer moves often: the clock set again a second apart at most)
+      return;
+    }
+
+    awakeAt = Date.now();
+    window.clearTimeout(stillTimer);
+    stillTimer = window.setTimeout(() => root.classList.add('askdesk--still'), 60000);
+  };
+
+  ['pointermove', 'pointerdown', 'keydown', 'wheel', 'touchstart'].forEach((type) => document.addEventListener(type, awake, { passive: true, capture: true }));
+  awake();
 
   let timer = 0;
   let polling = false;
@@ -1227,8 +1364,6 @@
   };
 
   const setFilter = (filter) => {
-    // The white pill behind the tabs slides from the one left to the one chosen
-    state.pillFrom = state.filter;
     state.filter = filter;
     // Another tab: its first rows, asked for at once (until they come, the list says it is reading)
     state.limit = PAGE;
@@ -1307,7 +1442,117 @@
     }
   }, { root: null, rootMargin: '0px 0px 200px 0px' });
 
+  // What the list is drawn from: the same, it is not drawn again at a look (a menu open stays open, a
+  // button being pressed stays to be clicked, what is being looked at in it stays); the minute with it,
+  // for how long they have waited
+  const inboxShape = () => JSON.stringify([state.rooms, state.live, state.counts, state.filter, state.showSettled, state.sort, state.open, state.endedOpen, state.more, state.listed, state.limit, Math.floor(Date.now() / 60000)]);
+  let inboxDrawn = '';
+  let inboxHeld = false;
+  let inboxOwed = false;
+
+  // At a look: drawn again only when it changed, and not while pressed or with its menu open (then once
+  // let go)
+  const repaintInbox = () => {
+    if (inboxHeld || inbox.querySelector('.askdesk-listtools__menu')) {
+      inboxOwed = true;
+
+      return;
+    }
+
+    inboxOwed = false;
+
+    if (inboxShape() !== inboxDrawn) {
+      paintInbox();
+    }
+  };
+
+  inbox.addEventListener('pointerdown', () => {
+    inboxHeld = true;
+  }, true);
+
+  // The list's own scroll thumb, thin, over the list rather than beside it (the browser's took a strip of
+  // the side, the account at its foot stopping short of the edge): shown while pointed at or scrolled,
+  // dragged as a scrollbar's
+  const thumb = el('span', 'askdesk-inbox__thumb');
+  let thumbIdle = 0;
+
+  thumb.setAttribute('aria-hidden', 'true');
+
+  const placeThumb = () => {
+    const seen = inbox.clientHeight;
+    const whole = inbox.scrollHeight;
+
+    thumb.hidden = whole <= seen + 1;
+
+    if (thumb.hidden) {
+      return;
+    }
+
+    const size = Math.max(32, (seen * seen) / whole);
+    const at = inbox.scrollTop + ((seen - size) * inbox.scrollTop) / (whole - seen);
+
+    thumb.style.blockSize = `${size}px`;
+    thumb.style.transform = `translateY(${at}px)`;
+  };
+
+  inbox.addEventListener('scroll', () => {
+    placeThumb();
+    inbox.classList.add('is-scrolling');
+    clearTimeout(thumbIdle);
+    thumbIdle = setTimeout(() => inbox.classList.remove('is-scrolling'), 900);
+  }, { passive: true });
+  new ResizeObserver(placeThumb).observe(inbox);
+
+  thumb.addEventListener('pointerdown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    thumb.setPointerCapture(event.pointerId);
+    thumb.classList.add('is-held');
+
+    const from = event.clientY;
+    const top = inbox.scrollTop;
+    const size = thumb.getBoundingClientRect().height;
+    const rate = (inbox.scrollHeight - inbox.clientHeight) / Math.max(1, inbox.clientHeight - size);
+    const move = (e) => { inbox.scrollTop = top + (e.clientY - from) * rate; };
+    const up = () => {
+      thumb.classList.remove('is-held');
+      thumb.removeEventListener('pointermove', move);
+      thumb.removeEventListener('pointerup', up);
+      thumb.removeEventListener('pointercancel', up);
+    };
+
+    thumb.addEventListener('pointermove', move);
+    thumb.addEventListener('pointerup', up);
+    thumb.addEventListener('pointercancel', up);
+  });
+
+  // The list's menu closes on a press anywhere else
+  document.addEventListener('pointerdown', (event) => {
+    const menu = inbox.querySelector('.askdesk-listtools__menu');
+
+    if (menu && !menu.contains(event.target) && !event.target.closest('.askdesk-listtools__more')) {
+      menu.remove();
+      inbox.querySelector('.askdesk-listtools__more')?.setAttribute('aria-expanded', 'false');
+    }
+  });
+  window.addEventListener('pointerup', () => {
+    if (!inboxHeld) {
+      return;
+    }
+
+    inboxHeld = false;
+
+    // After the click it ends in has had its say
+    if (inboxOwed) {
+      window.setTimeout(repaintInbox, 300);
+    }
+  }, true);
+  window.addEventListener('pointercancel', () => {
+    inboxHeld = false;
+  }, true);
+
   const paintInbox = () => {
+    inboxDrawn = inboxShape();
     moreSeen.disconnect();
     inbox.replaceChildren(brand);
 
@@ -1334,50 +1579,27 @@
 
     // The rows new this time, to slide in once they are in place
     const arrived = [];
-    const filters = el('div', 'askdesk-filters');
-    const slider = el('span', 'askdesk-filters__pill');
-
-    slider.setAttribute('aria-hidden', 'true');
-    filters.setAttribute('role', 'tablist');
-    filters.append(slider);
-
-    // The pill under the tab chosen, the tabs being as wide as their words: put by measuring them once
-    // drawn, from the tab left to the one chosen
-    // The list is drawn again at every look: the pill starts where it was (no growing from nothing), and
-    // moves only when another tab was chosen or the tabs' widths changed
-    if (state.pillAt) {
-      slider.style.transform = `translateX(${state.pillAt.x}px)`;
-      slider.style.inlineSize = `${state.pillAt.w}px`;
-    }
-
-    window.requestAnimationFrame(() => {
-      const chip = filters.querySelector(`[data-list="${state.filter}"]`);
-
-      if (chip && chip.offsetWidth) {
-        state.pillAt = { x: chip.offsetLeft - 3, w: chip.offsetWidth };
-        slider.style.transform = `translateX(${state.pillAt.x}px)`;
-        slider.style.inlineSize = `${state.pillAt.w}px`;
-      }
-    });
-
-    state.pillFrom = '';
-
     const counts = state.counts || {};
+    // All is the list; what waits on someone shows beside the order as a small count, only when there is
+    // any (or it is the one looked at), a click showing it alone, again all (0.6.1)
+    const waits = el('div', 'askdesk-waits');
 
-    [['all', t.all, counts.all ?? state.rooms.length], ['awaiting', t.awaiting, counts.awaiting ?? awaiting.length], ['unhandled', t.unhandled, counts.unhandled ?? 0]].forEach(([name, label, count]) => {
-      const alert = (name === 'awaiting' || name === 'unhandled') && count;
-      const chip = button(`askdesk-filter askdesk-filter--${name}${state.filter === name ? ' askdesk-filter--on' : ''}${alert ? ' askdesk-filter--alert' : ''}`, '', () => setFilter(name));
+    [['awaiting', t.awaiting, counts.awaiting ?? awaiting.length], ['unhandled', t.unhandled, counts.unhandled ?? 0]].forEach(([name, label, count]) => {
+      const on = state.filter === name;
 
-      chip.setAttribute('role', 'tab');
-      chip.setAttribute('aria-selected', String(state.filter === name));
-      chip.dataset.list = name;
-      const total = el('b', '', String(count ?? ''));
+      if (!count && !on) {
+        return;
+      }
 
-      // Those closed: no count (they only grow)
-      chip.append(el('span', '', label));
+      const chip = button(`askdesk-wait askdesk-wait--${name}${on ? ' askdesk-wait--on' : ''}`, '', () => setFilter(on ? 'all' : name));
+      const total = el('b', '', String(count || 0));
 
-      if (count !== null) {
-        chip.append(total);
+      chip.setAttribute('aria-pressed', String(on));
+      chip.title = on ? t.all : label;
+      chip.append(el('span', '', label), total);
+
+      if (on) {
+        chip.append(icon('close'));
       }
 
       // Someone new waiting: the count grows with a bell beside it that swings, then eases back.
@@ -1401,20 +1623,25 @@
           }
         });
       }
-      filters.append(chip);
+
+      waits.append(chip);
     });
 
-    inbox.append(filters);
 
-    // Under the tabs: how the list is ordered; in all, whether those closed are shown too
+    // At the list's top, on one line: what waits on someone; then one round button whose menu holds how the
+    // list is ordered and (in all) whether those closed are shown too, a blue dot on it when either is not
+    // as it is at first (0.6.1)
     const tools = el('div', 'askdesk-listtools');
     const sortNames = { recent: t.sortRecent, oldest: t.sortOldest, created: t.sortCreated };
-    const sorted = state.sort || (state.filter === 'awaiting' ? 'oldest' : 'recent');
-    const sortButton = button('askdesk-listtools__sort', '', () => {
+    const usual = state.filter === 'awaiting' ? 'oldest' : 'recent';
+    const sorted = state.sort || usual;
+    const changed = sorted !== usual || (state.filter === 'all' && state.showSettled);
+    const more = button(`askdesk-listtools__more${changed ? ' is-changed' : ''}`, '', () => {
       const open = tools.querySelector('.askdesk-listtools__menu');
 
       if (open) {
         open.remove();
+        more.setAttribute('aria-expanded', 'false');
 
         return;
       }
@@ -1422,8 +1649,9 @@
       const menu = el('div', 'askdesk-listtools__menu');
 
       menu.setAttribute('role', 'menu');
+      menu.append(el('p', 'askdesk-listtools__heading', t.listOrder));
       SORTS.forEach((name) => {
-        const item = button(`askdesk-listtools__item${name === sorted ? ' askdesk-listtools__item--on' : ''}`, sortNames[name], () => {
+        const item = button(`askdesk-listtools__item${name === sorted ? ' askdesk-listtools__item--on' : ''}`, '', () => {
           state.sort = name;
           keep('askdesk:sort', name);
           relist();
@@ -1431,32 +1659,38 @@
 
         item.setAttribute('role', 'menuitemradio');
         item.setAttribute('aria-checked', String(name === sorted));
+        item.append(name === sorted ? icon('check') : el('i', 'askdesk-listtools__tick'), el('span', '', sortNames[name]));
         menu.append(item);
       });
+
+      if (state.filter === 'all') {
+        const toggle = el('label', 'askdesk-listtools__switch');
+        const box = el('input');
+
+        box.type = 'checkbox';
+        box.checked = state.showSettled;
+        box.setAttribute('role', 'switch');
+        box.addEventListener('change', () => {
+          state.showSettled = box.checked;
+          keep('askdesk:showSettled', box.checked ? '1' : '0');
+          relist();
+        });
+        toggle.append(el('span', '', t.showSettled), box, el('i', 'askdesk-listtools__track'));
+        menu.append(toggle);
+      }
+
       tools.append(menu);
+      popIn(menu, false);
+      more.setAttribute('aria-expanded', 'true');
       menu.querySelector('[aria-checked="true"]')?.focus();
     });
 
-    sortButton.setAttribute('aria-haspopup', 'menu');
-    sortButton.append(icon('sort'), el('span', '', sortNames[sorted]), icon('down'));
-    tools.append(sortButton);
-
-    if (state.filter === 'all') {
-      const toggle = el('label', 'askdesk-listtools__switch');
-      const box = el('input');
-
-      box.type = 'checkbox';
-      box.checked = state.showSettled;
-      box.setAttribute('role', 'switch');
-      box.addEventListener('change', () => {
-        state.showSettled = box.checked;
-        keep('askdesk:showSettled', box.checked ? '1' : '0');
-        relist();
-      });
-      toggle.append(el('span', '', t.showSettled), box, el('i', 'askdesk-listtools__track'));
-      tools.append(toggle);
-    }
-
+    more.setAttribute('aria-haspopup', 'menu');
+    more.setAttribute('aria-expanded', 'false');
+    more.setAttribute('aria-label', `${t.listOrder}：${sortNames[sorted]}`);
+    more.title = [sortNames[sorted], state.filter === 'all' && state.showSettled ? t.showSettled : ''].filter(Boolean).join(' · ');
+    more.append(icon('sliders2'));
+    tools.append(waits, more);
     inbox.append(tools);
 
     // The tab's own rows once they came (another tab's are not shown in it)
@@ -1522,6 +1756,8 @@
         const litAt = lit.get(`${room.id}|${room.since}`);
         const isNew = ringing && litAt !== undefined && !reduced.matches;
         const item = button(`askdesk-item${room.id === state.open ? ' askdesk-item--open' : ''}${ringing ? ' askdesk-item--ringing' : ''}${isNew ? ' askdesk-item--fresh' : ''}`, '', () => openRoom(room.id));
+
+        item.dataset.room = String(room.id);
 
         if (isNew) {
           item.style.animationDelay = `-${now - litAt}ms`;
@@ -1656,7 +1892,8 @@
     const bar = el('span', 'askdesk-inbox__bar');
 
     bar.setAttribute('aria-hidden', 'true');
-    inbox.append(bar, account);
+    inbox.append(bar, account, thumb);
+    placeThumb();
 
     if (open) {
       const where = () => {
@@ -1749,8 +1986,11 @@
   sendGo.classList.add('askdesk-send__go');
   send.append(sendRest, sendGo, sendLabel);
   // A file to send: pictures (1 MB), videos and documents (10 MB), kept 30 days
-  const attach = button('askdesk-attach', '', () => attachInput.click());
+  // The clip opens a small menu (0.6.1): one's library's files to send as they are, and below them a box to
+  // pick a file from the computer or drop one on
+  const attach = button('askdesk-attach', '', () => toggleAttach());
   const attachInput = el('input');
+  const attachMenu = el('div', 'askdesk-attach-menu');
 
   attach.append(icon('clip'));
   attach.title = t.attach;
@@ -1771,7 +2011,23 @@
   stickerMenu.hidden = true;
   stickerMenu.setAttribute('role', 'dialog');
   stickerMenu.setAttribute('aria-label', t.stickers);
-  box.append(attach, attachInput, stickerButton, field, send, stickerMenu);
+  // A form to fill in the chat (0.6.1): picked from a short list; the card only the people answering see
+  const workButton = button('askdesk-attach askdesk-work-button', '', () => toggleWorkMenu(box));
+  const workMenu = el('div', 'askdesk-work-menu');
+
+  workButton.append(icon('form'));
+  workButton.title = t.workButton;
+  workButton.setAttribute('aria-label', t.workButton);
+  workButton.setAttribute('aria-expanded', 'false');
+  workButton.hidden = true;
+  workMenu.hidden = true;
+  workMenu.setAttribute('role', 'dialog');
+  workMenu.setAttribute('aria-label', t.workPick);
+  attachMenu.hidden = true;
+  attachMenu.setAttribute('role', 'dialog');
+  attachMenu.setAttribute('aria-label', t.attach);
+  attach.setAttribute('aria-expanded', 'false');
+  box.append(attach, attachInput, stickerButton, workButton, field, send, stickerMenu, workMenu, attachMenu);
 
   // Phrases (0.1.3): those pinned on a row inside the box, a click puts one in; the rest, and one's
   // own to keep, delete or pin, in a list that opens from the end of the row
@@ -1941,6 +2197,7 @@
     }
 
     phraseMenu.hidden = false;
+    popIn(phraseMenu, phraseMenu.getBoundingClientRect().top >= phraseMore.getBoundingClientRect().bottom ? false : true);
     phraseMore.setAttribute('aria-expanded', 'true');
     paintPhrases();
     phraseFind.focus();
@@ -2074,6 +2331,120 @@
     stickerMenu.replaceChildren(...(stickerPacks.length > 1 ? [tabs] : []), grid);
   };
 
+  const closeAttach = () => {
+    attachMenu.hidden = true;
+    attach.setAttribute('aria-expanded', 'false');
+  };
+
+  let attachWhich = 'mine';
+
+  const paintAttach = () => {
+    const list = el('div', 'askdesk-attach-menu__list');
+    const drop = button('askdesk-attach-menu__drop', '', () => { closeAttach(); attachInput.click(); });
+    const parts = [];
+
+    drop.append(icon('upload'), el('strong', '', t.attachPick), el('span', '', t.attachLimits));
+    ['dragenter', 'dragover'].forEach((type) => drop.addEventListener(type, (event) => {
+      if ([...event.dataTransfer.types].includes('Files')) {
+        event.preventDefault();
+        event.stopPropagation();
+        drop.classList.add('is-over');
+      }
+    }));
+    drop.addEventListener('dragleave', () => drop.classList.remove('is-over'));
+    drop.addEventListener('drop', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      drop.classList.remove('is-over');
+
+      if (event.dataTransfer.files.length) {
+        closeAttach();
+        sendFiles([...event.dataTransfer.files]);
+      }
+    });
+
+    if (!library.data) {
+      list.append(skeleton(2));
+    } else if (library.data.available) {
+      const tabs = el('div', 'askdesk-attach-menu__tabs');
+
+      [['mine', t.libraryMine], ['shared', t.libraryShared]].forEach(([which, label]) => {
+        const tab = button('askdesk-library__tab', label, () => { attachWhich = which; paintAttach(); });
+
+        tab.setAttribute('aria-pressed', String(which === attachWhich));
+        tabs.append(tab);
+      });
+      parts.push(tabs);
+
+      const files = library.data[attachWhich] || [];
+
+      if (!files.length) {
+        list.append(el('p', 'askdesk-panel__hint', t.libraryEmpty));
+      }
+
+      files.forEach((file) => {
+        const pick = button(`askdesk-attach-menu__file askdesk-library__item--${file.kind}`, '', async () => {
+          closeAttach();
+          say(t.uploading);
+
+          try {
+            const data = await post(config.urls.librarySend, { room: state.open, file: file.id });
+
+            say(data.error || '');
+          } catch (error) {
+            say(t.error);
+          }
+
+          later(true);
+        });
+        const words = el('span', 'askdesk-library__words');
+
+        words.append(el('strong', '', file.name), el('span', '', [sizeOf(file.size), timeOf(file.added)].filter(Boolean).join(' · ')));
+        pick.title = file.name;
+        pick.append(kindIcon(file.kind), words);
+        list.append(pick);
+      });
+    }
+
+    attachMenu.replaceChildren(...parts, list, drop);
+  };
+
+  async function toggleAttach() {
+    if (!attachMenu.hidden) {
+      closeAttach();
+
+      return;
+    }
+
+    closeStickers();
+    attachMenu.hidden = false;
+    attach.setAttribute('aria-expanded', 'true');
+    paintAttach();
+    popIn(attachMenu, true);
+
+    if (!library.data && !library.loading) {
+      await loadLibrary();
+    }
+
+    if (!attachMenu.hidden) {
+      paintAttach();
+    }
+  }
+
+  document.addEventListener('pointerdown', (event) => {
+    if (!attachMenu.hidden && !attachMenu.contains(event.target) && !attach.contains(event.target)) {
+      closeAttach();
+    }
+  });
+
+  attachMenu.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      closeAttach();
+      attach.focus();
+    }
+  });
+
   async function toggleStickers() {
     if (!stickerMenu.hidden) {
       closeStickers();
@@ -2083,7 +2454,7 @@
 
     stickerMenu.hidden = false;
     stickerButton.setAttribute('aria-expanded', 'true');
-    rise(stickerMenu);
+    popIn(stickerMenu, true);
 
     if (stickerPacks === null) {
       stickerMenu.replaceChildren(skeleton(2));
@@ -2124,7 +2495,18 @@
   list.setAttribute('aria-live', 'polite');
   thread.append(intro, list);
   log.append(thread);
-  column.append(log, composer);
+  // A chat one does not write in (ended, another's): the form button alone at its foot, to go on with work
+  // for this customer (0.6.1)
+  const workDock = el('div', 'askdesk-workdock');
+  const workFloat = button('askdesk-workdock__button', '', () => toggleWorkMenu(workDock));
+
+  workDock.hidden = true;
+  workFloat.title = t.workButton;
+  workFloat.setAttribute('aria-label', t.workButton);
+  workFloat.setAttribute('aria-expanded', 'false');
+  workFloat.append(icon('form'), el('span', '', t.workButton));
+  workDock.append(workFloat);
+  column.append(log, composer, workDock);
   body.append(column, aside);
 
   const atBottom = () => log.scrollHeight - log.scrollTop - log.clientHeight < 80;
@@ -2419,6 +2801,7 @@
     const wasHidden = composer.hidden;
 
     composer.hidden = !mine && !email;
+    syncWorkDock();
 
     // Coming into view (a chat taken): its glow rises first, then the box floats up into it
     if (wasHidden && !composer.hidden) {
@@ -2454,6 +2837,36 @@
   };
 
   // A picture to open whole, a video to play, a document to download; with its size and its days
+  // What the viewer opens (as it knows them): PDF, Word, spreadsheets
+  const PREVIEWED = /\.(pdf|docx|xlsx|xlsm|xls|ods|csv)$/i;
+  let previewer = null;
+
+  const openPreview = (file) => {
+    previewer = previewer || new Promise((resolve, reject) => {
+      const script = el('script');
+
+      script.src = config.preview.script;
+      script.onload = () => (window.AskdeskPreview ? resolve(window.AskdeskPreview) : reject(new Error('preview')));
+      script.onerror = () => { previewer = null; reject(new Error('preview')); };
+      document.head.append(script);
+    });
+
+    previewer.then((viewer) => viewer.open({
+      url: file.url,
+      name: file.name,
+      base: config.preview.base,
+      version: config.preview.version,
+      labels: { download: t.download, close: t.previewClose, loading: t.previewLoading, failed: t.previewFailed, tooLarge: t.previewTooLarge, page: t.previewPage, truncated: t.previewTruncated },
+    })).catch(() => {
+      // No viewer: the file is downloaded as before
+      const save = el('a');
+
+      save.href = file.url;
+      save.setAttribute('download', file.name);
+      save.click();
+    });
+  };
+
   const fileView = (file) => {
     const view = el('div', `askdesk-file askdesk-file--${file.kind}`);
 
@@ -2481,14 +2894,30 @@
       video.preload = 'metadata';
       view.append(video);
     } else {
-      const card = el('a', 'askdesk-file__doc');
+      // Its name and size; beside them a button to read it here (a PDF, Word, a spreadsheet: 0.6.1) and one to
+      // download it (the only one, for what cannot be read here)
+      const card = el('div', 'askdesk-file__doc');
       const words = el('span', 'askdesk-file__words');
+      const acts = el('span', 'askdesk-file__acts');
+      const save = el('a', 'askdesk-file__act');
 
-      card.href = file.url;
-      card.setAttribute('download', file.name);
+      save.href = file.url;
+      save.setAttribute('download', file.name);
+      save.title = t.download;
+      save.append(icon('download'), el('span', '', t.download));
+
+      if (config.preview && PREVIEWED.test(file.name)) {
+        const look = button('askdesk-file__act askdesk-file__act--look', '', () => openPreview(file));
+
+        look.title = t.preview;
+        look.append(icon('eye'), el('span', '', t.preview));
+        acts.append(look);
+      }
+
+      acts.append(save);
       words.append(el('strong', '', file.name), el('span', '', sizeOf(file.size)));
-      card.append(icon('file'), words, icon('download'));
-      card.title = t.download;
+      words.title = file.name;
+      card.append(icon('file'), words, acts);
       view.append(card);
     }
 
@@ -2995,7 +3424,10 @@
   // A part that is an AI's reading (a brief of the visitor): a card of its own above the rest, blue-violet
   const featured = el('div', 'askdesk-featured');
 
-  panels.append(panel(t.suggestions, 'bulb', suggestList), panel(t.history, 'history', historyList), libraryPanel);
+  // The desk's own cards, those not hidden as set (0.6.1)
+  const hiddenSide = new Set(config.sideHidden || []);
+
+  panels.append(...[['suggest', panel(t.suggestions, 'bulb', suggestList)], ['history', panel(t.history, 'history', historyList)], ['library', libraryPanel]].filter(([name]) => !hiddenSide.has(name)).map(([, part]) => part));
   asideScroll.append(search, results, featured, panels);
 
   // The search, as the side scrolls down, shrinks away toward the top end, and a round search button
@@ -3006,6 +3438,7 @@
     window.setTimeout(() => searchField.focus({ preventScroll: true }), reduced.matches ? 0 : 380);
   });
   let shrinking = 0;
+  let shrunk = '';
 
   searchDot.append(icon('search'));
   searchDot.setAttribute('aria-label', t.search);
@@ -3018,8 +3451,16 @@
       const reach = Math.max(1, search.offsetHeight + 12);
       const progress = Math.min(1, Math.max(0, asideScroll.scrollTop / reach));
       const compact = progress > 0.75;
+      const now = progress.toFixed(3);
 
-      aside.style.setProperty('--askdesk-search-p', progress.toFixed(3));
+      // Only on the two that follow it, and only when it moved: on the whole side it asked every part of it
+      // to be styled again with each frame of scrolling (0.6.1)
+      if (now !== shrunk) {
+        shrunk = now;
+        search.style.setProperty('--askdesk-search-p', now);
+        searchDot.style.setProperty('--askdesk-search-p', now);
+      }
+
       aside.classList.toggle('askdesk-room__aside--compact', compact);
       searchDot.tabIndex = compact ? 0 : -1;
     });
@@ -3049,20 +3490,22 @@
   const held = () => {
     window.cancelAnimationFrame(holding);
     holding = window.requestAnimationFrame(() => {
-      const heads = [...panels.querySelectorAll(':scope > .askdesk-panel')].map((part) => {
+      // All read first, then all written: reading after each write made the page lay itself out again for
+      // every card, each frame of scrolling (0.6.1)
+      const read = [...panels.querySelectorAll(':scope > .askdesk-panel')].map((part) => {
         const head = part.querySelector(':scope > .askdesk-panel__title');
-        const shift = head.getBoundingClientRect().top - part.querySelector(':scope > .askdesk-panel__mark').getBoundingClientRect().top;
 
+        return { head, shift: head.getBoundingClientRect().top - part.querySelector(':scope > .askdesk-panel__mark').getBoundingClientRect().top };
+      });
+      const top = read.filter((item) => item.shift > 1).map((item) => item.head);
+      const bottom = read.filter((item) => item.shift < -1).map((item) => item.head);
+
+      read.forEach(({ head, shift }) => {
         head.classList.toggle('is-held-top', shift > 1);
         head.classList.toggle('is-held-bottom', shift < -1);
-
-        return head;
+        // The shadow only where a stack meets what scrolls: the last held at the top, the first at the bottom
+        head.classList.toggle('is-edge', head === top[top.length - 1] || head === bottom[0]);
       });
-      const top = heads.filter((head) => head.classList.contains('is-held-top'));
-      const bottom = heads.filter((head) => head.classList.contains('is-held-bottom'));
-
-      // The shadow only where a stack meets what scrolls: the last held at the top, the first at the bottom
-      heads.forEach((head) => head.classList.toggle('is-edge', head === top[top.length - 1] || head === bottom[0]));
     });
   };
 
@@ -3080,6 +3523,11 @@
   const addons = new Map();
   // The actions panels asked to run on opening, already run (for which chat)
   const followed = new Set();
+
+  // An AI's card while its reading is being made: a little smaller, a halo of colours turning round it
+  const thinking = (entry, on) => {
+    entry.wrap?.classList.toggle('is-thinking', on);
+  };
 
   // A brief to read (an AI's of the visitor): its parts, each point with where it comes from
   const paintBrief = (brief) => {
@@ -3120,16 +3568,49 @@
   };
   const noteEdits = new Map();
   const noteTicks = new Map();
+  // What was written in a panel's form, as it was, until it is sent or drafted again
+  const formEdits = new Map();
+  // A folded form (something already made from it for this chat) opened again on asking
+  const formOpened = new Set();
 
   // Records kept elsewhere (notes before, in a CRM): one, short or whole
-  const paintRecord = (item, short) => {
+  const paintRecord = (item, short, name) => {
     const record = el('article', short ? 'askdesk-addon__record is-short' : 'askdesk-addon__record');
     const head = el('div', 'askdesk-addon__record-head');
 
-    head.append(el('strong', '', item.title));
+    // Opened whole in the side card when the panel can show it; else where it is kept, when it says where
+    if (item.ref && name) {
+      const open = button('askdesk-addon__record-title', item.title, () => showAddon(name, item.ref, open));
+
+      head.append(open);
+    } else if (item.url) {
+      const open = el('a', 'askdesk-addon__record-title', item.title);
+
+      open.href = item.url;
+      open.target = '_blank';
+      open.rel = 'noopener';
+      head.append(open);
+    } else {
+      head.append(el('strong', '', item.title));
+    }
 
     if (item.meta) {
       head.append(el('span', '', item.meta));
+    }
+
+    // The chat it came from: this one, said so; another of the visitor's, to go to
+    if (item.room) {
+      if (item.room === state.open) {
+        head.append(el('span', 'askdesk-addon__record-room is-here', t.workHere));
+      } else {
+        const go = button('askdesk-addon__record-room', `#${item.room}`, () => {
+          closeDrawer();
+          openRoom(item.room);
+        });
+
+        go.title = t.workGoChat.replace('%s', String(item.room));
+        head.append(go);
+      }
     }
 
     record.append(head);
@@ -3165,21 +3646,40 @@
   fades(drawerBody);
   aside.append(drawer);
 
+  // Where the side opens over the chat (a narrower screen), it comes in with what is opened in it, and
+  // going back closes it first
+  const overlaid = window.matchMedia('(max-width: 1180px)');
+  const sideOpen = () => overlaid.matches && body.classList.contains('askdesk-room__body--aside');
+
+  function openSide() {
+    if (overlaid.matches && !body.classList.contains('askdesk-room__body--aside')) {
+      body.classList.add('askdesk-room__body--aside');
+      head.querySelector('.askdesk-room__refer')?.setAttribute('aria-expanded', 'true');
+    }
+  }
+
+  function closeSide() {
+    closeDrawer();
+    body.classList.remove('askdesk-room__body--aside');
+    head.querySelector('.askdesk-room__refer')?.setAttribute('aria-expanded', 'false');
+  }
+
   const closeDrawer = () => {
     if (drawer.hidden || drawer.classList.contains('is-leaving')) {
       return;
     }
 
     drawer.classList.add('is-leaving');
+    aside.classList.remove('has-drawer');
     window.setTimeout(() => {
       drawer.hidden = true;
       drawer.classList.remove('is-leaving');
     }, 220);
   };
 
-  const openDrawer = (list) => {
+  const openDrawer = (list, name) => {
     drawerTitle.textContent = list.title;
-    drawerBody.replaceChildren(...list.items.map((item) => paintRecord(item, false)));
+    drawerBody.replaceChildren(...list.items.map((item) => paintRecord(item, false, name)));
 
     if (list.more) {
       const more = el('a', 'askdesk-addon__link askdesk-drawer__more');
@@ -3193,6 +3693,37 @@
 
     drawer.classList.remove('is-leaving');
     drawer.hidden = false;
+    openSide();
+    aside.classList.add('has-drawer');
+    drawerBody.scrollTop = 0;
+    drawerClose.focus();
+  };
+
+  // One record whole (a panel's show): its fields, a link to where it is kept
+  const openShown = (record) => {
+    const fields = el('dl', 'askdesk-drawer__fields');
+
+    drawerTitle.textContent = record.title;
+    record.fields.forEach((field) => fields.append(el('dt', '', field.label), el('dd', '', field.value)));
+    drawerBody.replaceChildren(...[
+      record.meta ? el('p', 'askdesk-drawer__meta', record.meta) : null,
+      fields,
+    ].filter(Boolean));
+
+    if (record.url) {
+      const more = el('a', 'askdesk-addon__link askdesk-drawer__more');
+
+      more.href = record.url;
+      more.target = '_blank';
+      more.rel = 'noopener noreferrer';
+      more.append(el('span', '', record.open || record.title), icon('external'));
+      drawerBody.append(more);
+    }
+
+    drawer.classList.remove('is-leaving');
+    drawer.hidden = false;
+    openSide();
+    aside.classList.add('has-drawer');
     drawerBody.scrollTop = 0;
     drawerClose.focus();
   };
@@ -3210,11 +3741,6 @@
     const count = Math.max(list.total, list.items.length);
 
     head.append(icon('history'), el('strong', '', list.title));
-
-    if (count) {
-      head.append(el('span', 'askdesk-addon__records-count', String(count)));
-    }
-
     box.append(head);
 
     if (!list.items.length) {
@@ -3223,10 +3749,10 @@
       return box;
     }
 
-    list.items.slice(0, 3).forEach((item) => box.append(paintRecord(item, true)));
+    list.items.slice(0, 3).forEach((item) => box.append(paintRecord(item, true, view.name)));
 
     if (list.items.length > 3 || list.more) {
-      box.append(button('askdesk-addon__records-all', t.panelListAll.replace('%s', String(count)), () => openDrawer(list)));
+      box.append(button('askdesk-addon__records-all', t.panelListAll.replace('%s', String(count)), () => openDrawer(list, view.name)));
     }
 
     return box;
@@ -3311,7 +3837,13 @@
     }
     draft.append(icon('sparkles'), el('span', '', field.value.trim() ? t.panelNoteRedraft : t.panelNoteDraft));
     actions.append(draft, send);
-    box.append(field);
+
+    // The box in a frame of its own: a glow turns round it while the AI writes, a light runs round it once
+    // what it wrote comes (0.6.1)
+    const frame = el('div', 'askdesk-addon__memo-frame');
+
+    frame.append(el('span', 'askdesk-addon__memo-glow'), field);
+    box.append(frame);
 
     if (note.blocked) {
       box.append(el('p', 'askdesk-addon__memo-blocked', note.blocked));
@@ -3321,6 +3853,118 @@
 
     if (note.hint) {
       box.append(el('p', 'askdesk-addon__memo-hint', note.hint));
+    }
+
+    box.append(actions);
+
+    return box;
+  };
+
+  // A small form to fill and send elsewhere (a to-do, say): drafted by AI from the chat on asking, changed
+  // here, sent only on the button; what was written stays while the panel is drawn again
+  const paintForm = (view) => {
+    const form = view.form;
+    const key = `${view.name}:${state.open}`;
+
+    // Already made from it for this chat: folded, what was made right under it, opened again on asking
+    if (form.folded && !formOpened.has(key)) {
+      const folded = el('div', 'askdesk-addon__memo askdesk-addon__form is-folded');
+      const head = el('div', 'askdesk-addon__memo-head');
+
+      head.append(icon('check'), el('strong', '', form.title));
+      folded.append(head);
+
+      if (form.sent) {
+        folded.append(el('p', 'askdesk-addon__memo-sent', form.sent));
+      }
+
+      if (form.made) {
+        const task = paintRecord(form.made, true, view.name);
+
+        task.classList.add('askdesk-addon__task');
+        folded.append(task);
+      }
+
+      if (form.again) {
+        const again = button('askdesk-addon__form-again', '', () => {
+          formOpened.add(key);
+          folded.replaceWith(paintForm(view));
+        });
+
+        again.append(icon('plus'), el('span', '', form.again));
+        folded.append(again);
+      }
+
+      return folded;
+    }
+
+    const values = formEdits.get(key) || Object.fromEntries(form.fields.map((f) => [f.key, f.value]));
+    const box = el('div', 'askdesk-addon__memo askdesk-addon__form');
+    const head = el('div', 'askdesk-addon__memo-head');
+    const actions = el('div', 'askdesk-addon__memo-actions');
+    const ready = () => !form.blocked && form.fields.every((f) => !f.required || String(values[f.key] || '').trim() !== '');
+    const send = button('askdesk-addon__memo-send', form.submit || t.panelNoteSend, () => {
+      if (ready()) {
+        actAddon(view.name, 'submit', { values });
+      }
+    });
+    const keep = () => {
+      formEdits.set(key, values);
+      send.disabled = !ready();
+    };
+
+    head.append(icon('check'), el('strong', '', form.title));
+    box.append(head);
+
+    if (form.sent) {
+      box.append(el('p', 'askdesk-addon__memo-sent', form.sent));
+    }
+
+    form.fields.forEach((f) => {
+      const row = el('label', 'askdesk-addon__form-row');
+      let input;
+
+      if (f.kind === 'select') {
+        input = el('select', 'askdesk-addon__form-input');
+        input.append(el('option', '', '—'));
+        input.firstChild.value = '';
+        f.options.forEach((o) => {
+          const option = el('option', '', o);
+
+          option.value = o;
+          input.append(option);
+        });
+      } else if (f.kind === 'textarea') {
+        input = el('textarea', 'askdesk-addon__form-input');
+        input.rows = 3;
+      } else {
+        input = el('input', 'askdesk-addon__form-input');
+        input.type = f.kind === 'date' ? 'date' : f.kind === 'number' ? 'number' : 'text';
+      }
+
+      input.value = values[f.key] || '';
+      input.addEventListener(f.kind === 'select' ? 'change' : 'input', () => {
+        values[f.key] = input.value;
+        keep();
+      });
+      row.append(el('span', 'askdesk-addon__form-label', f.label + (f.required ? ' *' : '')), input);
+      box.append(row);
+    });
+
+    if (form.fill) {
+      const fill = button('askdesk-addon__memo-draft', '', () => actAddon(view.name, 'fill', { values }));
+
+      fill.append(icon('sparkles'), el('span', '', form.fill));
+      actions.append(fill);
+    }
+
+    send.disabled = !ready();
+    actions.append(send);
+
+    if (form.blocked) {
+      box.append(el('p', 'askdesk-addon__memo-blocked', form.blocked));
+    } else if (form.hint) {
+      box.append(el('p', 'askdesk-addon__memo-hint', form.hint));
     }
 
     box.append(actions);
@@ -3441,6 +4085,17 @@
       parts.push(paintNote(view));
     }
 
+    if (view.buttons && view.buttons.length) {
+      const row = el('div', 'askdesk-addon__buttons');
+
+      view.buttons.forEach((b) => row.append(button(`askdesk-button${b.primary ? ' askdesk-button--primary' : ''} askdesk-addon__button`, b.label, () => actAddon(view.name, b.action, {}))));
+      parts.push(row);
+    }
+
+    if (view.form) {
+      parts.push(paintForm(view));
+    }
+
     const foot = el('div', 'askdesk-addon__foot');
 
     if (view.link) {
@@ -3507,7 +4162,88 @@
     }
 
     body.dataset.state = view.state;
+
+    // From nothing (or the grey of loading) to what came: the card grows to it and what is in it rises in,
+    // a part after another. An AI's reading new or changed: a light runs once round its card and its
+    // lines come in one by one (0.6.1). Drawn again as it was (a quiet reload): as it is, still
+    const arriving = !body.childElementCount || Boolean(body.querySelector(':scope > .askdesk-skeleton, :scope > .askdesk-panel__hint'));
+    const briefKey = view.brief ? JSON.stringify(view.brief.sections) : '';
+    const briefNew = briefKey !== '' && briefKey !== (body.dataset.brief || '');
+    const from = body.offsetHeight;
+    // The note the AI was writing: the side kept where it was, and the new box lit as it comes
+    const wrote = Boolean(body.querySelector('.askdesk-addon__memo-frame.is-writing'));
+    const side = wrote ? body.closest('.askdesk-room__aside-scroll') : null;
+    const sideAt = side ? side.scrollTop : 0;
+
+    body.dataset.brief = briefKey;
     body.replaceChildren(...parts);
+
+    if (wrote) {
+      if (side) {
+        side.scrollTop = sideAt;
+      }
+
+      body.querySelector('.askdesk-addon__memo-frame')?.classList.add(reduced.matches ? 'is-still' : 'is-written');
+    }
+
+    // Done thinking: the halo fades first, the card grows back to its size, then the rest
+    const wrap = body.closest('.askdesk-ai-wrap');
+    const woke = Boolean(wrap?.classList.contains('is-thinking'));
+
+    wrap?.classList.remove('is-thinking');
+
+    if (reduced.matches || !body.offsetParent || !(arriving || briefNew)) {
+      return;
+    }
+
+    const after = woke ? 620 : 0;
+
+    const to = body.offsetHeight;
+
+    if (Math.abs(to - from) > 2) {
+      body.animate([{ blockSize: `${from}px`, overflow: 'hidden' }, { blockSize: `${to}px`, overflow: 'hidden' }], { duration: 450, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' });
+    }
+
+    const lines = briefNew
+      ? [...body.querySelectorAll('.askdesk-brief__notice, .askdesk-brief__title, .askdesk-brief__points > li, .askdesk-brief__when'), ...parts.filter((part) => !part.classList.contains('askdesk-brief'))]
+      : parts;
+
+    lines.forEach((line, index) => {
+      line.classList.add('askdesk-arrive');
+      line.style.setProperty('--askdesk-arrive', `${after + Math.min(index, 14) * (briefNew ? 110 : 60) + (briefNew ? 220 : 80)}ms`);
+      line.addEventListener('animationend', () => line.classList.remove('askdesk-arrive'), { once: true });
+    });
+
+    if (briefNew) {
+      const card = body.closest('.askdesk-panel');
+
+      window.setTimeout(() => {
+        card?.classList.remove('is-shining');
+        void card?.offsetWidth;
+        card?.classList.add('is-shining');
+        window.setTimeout(() => card?.classList.remove('is-shining'), 2100);
+      }, after);
+    }
+  };
+
+  // How many it lists, in its heading (seen folded too); none, no number
+  const countAddon = (entry, view) => {
+    const title = entry.details.querySelector('.askdesk-panel__title > span:not(.askdesk-icon)');
+    const n = view.list ? Math.max(view.list.total, view.list.items.length) : 0;
+    let count = entry.details.querySelector('.askdesk-panel__title > .askdesk-panel__count');
+
+    if (!n) {
+      count?.remove();
+
+      return;
+    }
+
+    if (!count) {
+      count = el('span', 'askdesk-panel__count');
+      title.after(count);
+    }
+
+    count.textContent = String(n);
   };
 
   const showAddons = (views) => {
@@ -3529,6 +4265,7 @@
 
       entry.details.querySelector('.askdesk-panel__title > span:not(.askdesk-icon)').textContent = view.title || view.name;
       paintAddon(entry.body, view);
+      countAddon(entry, view);
       entry.details.classList.toggle('askdesk-panel--ai', view.look === 'ai');
 
       // Slow work it asks for (an AI's brief, say): once for this chat, after it is drawn
@@ -3539,10 +4276,26 @@
         actAddon(view.name, view.follow, {});
       }
       if (view.look === 'ai') {
-        if (entry.details.parentNode !== featured) {
-          featured.append(entry.details);
+        // In a frame of its own with a halo behind it, shown while the AI is thinking (outside the card, so
+        // its rounded edge does not cut it off)
+        if (!entry.wrap) {
+          entry.wrap = el('div', 'askdesk-ai-wrap');
+          entry.wrap.append(el('span', 'askdesk-ai-wrap__halo'));
+        }
+
+        if (entry.details.parentNode !== entry.wrap) {
+          entry.wrap.append(entry.details);
+        }
+
+        if (entry.wrap.parentNode !== featured) {
+          featured.append(entry.wrap);
         }
       } else {
+        if (entry.wrap) {
+          entry.wrap.remove();
+          entry.wrap = null;
+        }
+
         panels.insertBefore(entry.details, before);
         before = entry.details.nextSibling;
       }
@@ -3550,17 +4303,23 @@
 
     addons.forEach((entry, name) => {
       if (!seen.has(name)) {
-        entry.details.remove();
+        (entry.wrap || entry.details).remove();
         addons.delete(name);
       }
     });
   };
 
   // Once for each chat opened
-  const loadAddons = async () => {
+  // Quietly (after work in the chat, 0.6.1): the cards as they are until the new ones come
+  const loadAddons = async (quiet = false) => {
     const room = state.open;
 
-    addons.forEach((entry) => entry.body.replaceChildren(skeleton(3)));
+    if (!quiet) {
+      addons.forEach((entry) => {
+        entry.body.replaceChildren(skeleton(3));
+        thinking(entry, true);
+      });
+    }
 
     try {
       const data = await post(config.urls.panels, { room });
@@ -3569,7 +4328,27 @@
         showAddons(Array.isArray(data.panels) ? data.panels : []);
       }
     } catch (error) {
-      addons.forEach((entry) => entry.body.replaceChildren(el('p', 'askdesk-panel__hint', t.panelError)));
+      addons.forEach((entry) => {
+        entry.body.replaceChildren(el('p', 'askdesk-panel__hint', t.panelError));
+        thinking(entry, false);
+      });
+    }
+  };
+
+  // A record of a panel opened whole in the side card; the panel itself left as it is
+  const showAddon = async (name, ref, trigger) => {
+    trigger.classList.add('is-busy');
+
+    try {
+      const data = await post(config.urls.panel, { room: state.open, name, action: 'show', ref });
+
+      if (data.panel && data.panel.record) {
+        openShown(data.panel.record);
+      }
+    } catch (error) {
+      // Nothing opened: the list stays as it was
+    } finally {
+      trigger.classList.remove('is-busy');
     }
   };
 
@@ -3581,13 +4360,35 @@
       return;
     }
 
-    entry.body.replaceChildren(...(action === 'draft' ? [el('p', 'askdesk-panel__hint', t.panelNoteWriting), skeleton(4)] : [skeleton(3)]));
+    // The AI writing the note: the box stays where it is, as it is, a glow round it until the words come
+    // (drawn as grey lines instead, the card shrank and the side jumped away from it, 0.6.1)
+    const writing = action === 'draft' ? entry.body.querySelector('.askdesk-addon__memo-frame') : null;
+
+    if (writing) {
+      writing.classList.add('is-writing');
+      writing.querySelector('textarea')?.setAttribute('readonly', '');
+      writing.closest('.askdesk-addon__memo')?.querySelector('.askdesk-addon__memo-draft')?.classList.add('is-busy');
+    } else {
+      entry.body.replaceChildren(...(action === 'draft' || action === 'fill' ? [el('p', 'askdesk-panel__hint', t.panelNoteWriting), skeleton(4)] : [skeleton(3)]));
+    }
+
+    thinking(entry, true);
     entry.details.querySelector(':scope > .askdesk-panel__title > .askdesk-panel__again')?.classList.add('is-busy');
 
     try {
       const data = await post(config.urls.panel, { room, name, action, ...extra });
 
       // A new draft, or the note sent: what was being changed in the box is done with
+      // The form drafted again, or sent: what was being written in it is done with
+      if (data.panel && (action === 'fill' || (action === 'submit' && data.panel.form && data.panel.form.sent))) {
+        formEdits.delete(`${name}:${room}`);
+      }
+
+      // Sent: folded again, what was made under it
+      if (data.panel && action === 'submit' && data.panel.form && data.panel.form.sent) {
+        formOpened.delete(`${name}:${room}`);
+      }
+
       if (data.panel && (action === 'draft' || (action === 'send' && data.panel.note && data.panel.note.sent))) {
         noteEdits.delete(`${name}:${room}`);
 
@@ -3598,8 +4399,10 @@
 
       if (room === state.open && data.panel) {
         paintAddon(entry.body, data.panel);
+        countAddon(entry, data.panel);
       } else if (room === state.open) {
         entry.body.replaceChildren(el('p', 'askdesk-panel__hint', data.error || t.panelError));
+        thinking(entry, false);
       }
     } catch (error) {
       entry.body.replaceChildren(el('p', 'askdesk-panel__hint', t.panelError));
@@ -3608,6 +4411,538 @@
     }
   };
 
+
+  // ---------- Work in a chat (0.6.1): a form filled in a card that only the people answering see ----------
+
+  // The chat's cards and its forms to pick from
+  const works = { room: 0, stamp: null, forms: [], asked: 0, items: new Map() };
+  // What was written in a card, until it is drafted again or sent
+  const workEdits = new Map();
+
+  const loadWorks = async (fresh) => {
+    const room = state.open;
+    const mark = ++works.asked;
+
+    if (fresh) {
+      workModal.close();
+      works.room = room;
+      works.stamp = null;
+      works.forms = [];
+    }
+
+    try {
+      const data = await post(config.urls.works, { room });
+
+      if (room !== state.open || mark !== works.asked) {
+        return;
+      }
+
+      const changed = !fresh && works.stamp !== null && works.stamp !== data.stamp;
+
+      works.stamp = data.stamp;
+      works.forms = data.forms || [];
+      workButton.hidden = !works.forms.length;
+      syncWorkDock();
+      paintWorks(data.works || []);
+
+      // Something made meanwhile (by another, say): the cards beside the chat with it
+      if (changed) {
+        loadAddons(true);
+      }
+    } catch (error) {
+      // No work this time: the chat as it is
+    }
+  };
+
+  // A card in its place in the chat: among the messages by when it was started
+  const placeWork = (node, item) => {
+    const after = state.messages.find((message) => message.node && message.node.isConnected && message.time > item.time);
+
+    if (after) {
+      list.insertBefore(node, after.node);
+    } else if (typingNode && typingNode.parentNode === list) {
+      list.insertBefore(node, typingNode);
+    } else {
+      list.append(node);
+    }
+  };
+
+  const paintWorks = (items) => {
+    const kept = new Set(items.map((item) => String(item.id)));
+
+    works.items = new Map(items.map((item) => [item.id, item]));
+
+    list.querySelectorAll(':scope > [data-work]').forEach((node) => {
+      if (!kept.has(node.dataset.work)) {
+        node.remove();
+      }
+    });
+
+    items.forEach((item) => {
+      const was = list.querySelector(`:scope > [data-work="${item.id}"]`);
+
+      // The same as drawn: left as it is (what is being written in it with it)
+      if (was && was.dataset.modified === item.modified) {
+        return;
+      }
+
+      const node = paintWork(item);
+
+      if (was) {
+        was.replaceWith(node);
+      } else {
+        placeWork(node, item);
+      }
+
+      if (workModal.id === item.id && !workModal.busy) {
+        workModal.show(item);
+      }
+    });
+  };
+
+  // A card as it is now: in its place in the chat, and opened large when it is
+  const putWork = (work) => {
+    const was = list.querySelector(`:scope > [data-work="${work.id}"]`);
+    const node = paintWork(work);
+
+    if (was) {
+      was.replaceWith(node);
+    } else {
+      placeWork(node, work);
+    }
+
+    if (workModal.id === work.id) {
+      workModal.show(work);
+    }
+
+    return node;
+  };
+
+  // A card opened large over the console, the rest blurred behind; under it, a box to tell the AI how
+  // to fill it in
+  const workModal = (() => {
+    const scrim = el('div', 'askdesk-workmodal');
+    const sheet = el('div', 'askdesk-workmodal__sheet');
+    const self = { id: 0, busy: false };
+
+    scrim.hidden = true;
+    scrim.setAttribute('role', 'dialog');
+    scrim.setAttribute('aria-modal', 'true');
+    scrim.append(sheet);
+    root.append(scrim);
+    scrim.addEventListener('pointerdown', (event) => {
+      if (event.target === scrim) {
+        self.close();
+      }
+    });
+    scrim.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation();
+        self.close();
+      }
+    });
+
+    self.show = (item) => {
+      const first = scrim.hidden;
+
+      self.id = item.id;
+      sheet.replaceChildren(paintWork(item, true));
+      scrim.hidden = false;
+
+      if (first) {
+        rise(sheet);
+        sheet.querySelector('.askdesk-work__note textarea, input, select, textarea')?.focus();
+      }
+    };
+
+    self.close = () => {
+      if (scrim.hidden) {
+        return;
+      }
+
+      const id = self.id;
+
+      scrim.hidden = true;
+      self.id = 0;
+      sheet.replaceChildren();
+
+      // The card in the chat with what was written in the large one
+      const work = works.items && works.items.get(id);
+      const inList = list.querySelector(`:scope > [data-work="${id}"]`);
+
+      if (work && inList) {
+        inList.replaceWith(paintWork(work));
+      }
+    };
+
+    return self;
+  })();
+
+  // A card: who started it and when; its form to fill, or what it made once sent
+  const paintWork = (item, big = false) => {
+    const node = el('article', `askdesk-msg askdesk-msg--work${big ? ' is-big' : ''}`);
+    const card = el('div', 'askdesk-work');
+    const head = el('div', 'askdesk-work__head');
+    const form = item.card || { title: '', fields: [] };
+    const key = String(item.id);
+
+    node.dataset.work = key;
+    node.dataset.modified = item.modified;
+    head.append(icon('form'), el('strong', 'askdesk-work__title', form.title), el('span', 'askdesk-work__only', t.workOnly));
+
+    // Opened large (to fill at ease, with a box to tell the AI), or closed back into the chat
+    if (item.state !== 'sent' || big) {
+      const size = button('askdesk-work__size', '', () => (big ? workModal.close() : workModal.show(item)));
+
+      size.title = big ? t.workClose : t.workExpand;
+      size.setAttribute('aria-label', size.title);
+      size.append(icon(big ? 'close' : 'expand'));
+      head.append(size);
+    }
+
+    if (works.items) {
+      works.items.set(item.id, item);
+    }
+
+    card.append(head, el('p', 'askdesk-work__meta', [item.staffName ? t.workBy.replace('%s', item.staffName) : '', timeOf(item.time)].filter(Boolean).join(' · ')));
+    node.append(card);
+
+    // Sent: what it made, to open in the side card
+    if (item.state === 'sent') {
+      card.classList.add('is-sent');
+
+      if (form.sent) {
+        card.append(el('p', 'askdesk-work__sent', form.sent));
+      }
+
+      if (form.made) {
+        const task = paintRecord(form.made, true, item.panel);
+
+        task.classList.add('askdesk-addon__task');
+        card.append(task);
+      }
+
+      return node;
+    }
+
+    const values = workEdits.get(key) || Object.fromEntries(form.fields.map((f) => [f.key, f.value]));
+    const actions = el('div', 'askdesk-work__actions');
+    const ready = () => !form.blocked && form.fields.every((f) => f.readonly || !f.required || String(values[f.key] || '').trim() !== '');
+    const sendIt = button('askdesk-button askdesk-button--primary askdesk-work__send', form.submit || t.panelNoteSend, () => {
+      if (ready()) {
+        actWork(item, 'submit', { values }, node);
+      }
+    });
+    const keep = () => {
+      workEdits.set(key, values);
+      sendIt.disabled = !ready();
+    };
+
+    form.fields.forEach((f) => {
+      const row = el('label', 'askdesk-addon__form-row');
+      let input;
+
+      // Filled by itself (the customer, say): shown, not changed
+      if (f.readonly) {
+        row.append(el('span', 'askdesk-addon__form-label', f.label), el('span', 'askdesk-work__fixed', f.value || '—'));
+        card.append(row);
+
+        return;
+      }
+
+      if (f.kind === 'select') {
+        input = el('select', 'askdesk-addon__form-input');
+        input.append(el('option', '', '—'));
+        input.firstChild.value = '';
+        f.options.forEach((o) => {
+          const option = el('option', '', o);
+
+          option.value = o;
+          input.append(option);
+        });
+      } else if (f.kind === 'textarea') {
+        input = el('textarea', 'askdesk-addon__form-input');
+        input.rows = 3;
+      } else {
+        input = el('input', 'askdesk-addon__form-input');
+        input.type = f.kind === 'date' ? 'date' : f.kind === 'number' ? 'number' : 'text';
+      }
+
+      input.value = values[f.key] || '';
+      input.addEventListener(f.kind === 'select' ? 'change' : 'input', () => {
+        values[f.key] = input.value;
+        keep();
+      });
+      row.append(el('span', 'askdesk-addon__form-label', f.label + (f.required ? ' *' : '')), input);
+      card.append(row);
+    });
+
+    if (form.blocked) {
+      card.append(el('p', 'askdesk-addon__memo-blocked', form.blocked));
+    } else if (form.hint) {
+      card.append(el('p', 'askdesk-addon__memo-hint', form.hint));
+    }
+
+    actions.append(button('askdesk-button askdesk-button--text askdesk-work__drop', t.workDrop, () => actWork(item, 'drop', {}, node)));
+
+    if (form.fill) {
+      const fill = button('askdesk-addon__memo-draft', '', () => actWork(item, 'fill', { values }, node));
+
+      fill.append(icon('sparkles'), el('span', '', form.fill));
+      actions.append(fill);
+    }
+
+    sendIt.disabled = !ready();
+    actions.append(sendIt);
+    card.append(actions);
+
+    // Large: a box under it to say how to fill it in ("due next Friday, high priority"), the AI fills it so
+    if (big && form.fill) {
+      const note = el('form', 'askdesk-work__note');
+      const words = el('textarea');
+      const go = el('button', 'askdesk-work__note-send');
+
+      words.rows = 1;
+      words.placeholder = t.workNote;
+      go.type = 'submit';
+      go.setAttribute('aria-label', t.workNoteSend);
+      go.append(icon('sparkles'));
+      words.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+          event.preventDefault();
+          note.requestSubmit();
+        }
+      });
+      words.addEventListener('input', () => {
+        words.style.height = 'auto';
+        words.style.height = `${Math.min(words.scrollHeight, 140)}px`;
+      });
+      note.addEventListener('submit', (event) => {
+        event.preventDefault();
+
+        if (words.value.trim()) {
+          actWork(item, 'fill', { values, note: words.value.trim() }, node);
+        }
+      });
+      note.append(words, go);
+      card.append(note);
+    }
+
+    return node;
+  };
+
+  const actWork = async (item, action, extra, node) => {
+    const room = state.open;
+    const card = node.querySelector('.askdesk-work');
+
+    workModal.busy = true;
+
+    card.classList.add('is-busy');
+    card.querySelectorAll('button, input, select, textarea').forEach((control) => {
+      control.disabled = true;
+    });
+
+    if (action === 'fill') {
+      card.append(el('p', 'askdesk-panel__hint', t.panelNoteWriting));
+    }
+
+    try {
+      const data = await post(config.urls.work, { room, id: item.id, action, ...extra });
+
+      if (room !== state.open) {
+        return;
+      }
+
+      if (action === 'fill' || (action === 'submit' && data.work && data.work.state === 'sent')) {
+        workEdits.delete(String(item.id));
+      }
+
+      if (data.work) {
+        const next = putWork(data.work);
+
+        rise(next);
+
+        // Sent: the large card closes on the one in the chat; the cards beside the chat with what it made
+        if (data.work.state === 'sent') {
+          workModal.close();
+          next.scrollIntoView({ block: 'nearest', behavior: reduced.matches ? 'auto' : 'smooth' });
+          loadAddons(true);
+        }
+      } else if (action === 'drop') {
+        workModal.close();
+        list.querySelector(`:scope > [data-work="${item.id}"]`)?.remove();
+      }
+
+      works.stamp = data.stamp;
+    } catch (error) {
+      card.classList.remove('is-busy');
+      card.querySelectorAll('button, input, select, textarea').forEach((control) => {
+        control.disabled = false;
+      });
+      card.append(el('p', 'askdesk-addon__memo-blocked', t.panelError));
+    } finally {
+      workModal.busy = false;
+    }
+  };
+
+  // A new card of the form picked, at the end of the chat (a moment of dots while it is drafted)
+  const startWork = async (form) => {
+    const room = state.open;
+    const waiting = el('article', 'askdesk-msg askdesk-msg--work');
+    const card = el('div', 'askdesk-work is-busy');
+
+    closeWorkMenu();
+    card.append(el('div', 'askdesk-work__head'), el('p', 'askdesk-panel__hint', t.panelNoteWriting), skeleton(3));
+    card.firstChild.append(icon('form'), el('strong', 'askdesk-work__title', form.title), el('span', 'askdesk-work__only', t.workOnly));
+    waiting.append(card);
+    list.append(waiting);
+    toBottom(true);
+
+    try {
+      const data = await post(config.urls.work, { room, panel: form.panel, form: form.id });
+
+      if (room !== state.open) {
+        return;
+      }
+
+      if (data.work && list.querySelector(`:scope > [data-work="${data.work.id}"]`)) {
+        // Already drawn by a look at the chat's cards meanwhile
+        waiting.remove();
+      } else if (data.work) {
+        const node = paintWork(data.work);
+
+        waiting.replaceWith(node);
+        rise(node);
+        toBottom(true);
+        works.stamp = data.stamp;
+      } else {
+        waiting.remove();
+      }
+    } catch (error) {
+      waiting.remove();
+    }
+  };
+
+  // The forms to pick from, as a short list over the box: the usual one first; one that is better
+  // after another asks which first
+  const closeWorkMenu = () => {
+    workMenu.hidden = true;
+    workButton.setAttribute('aria-expanded', 'false');
+    workFloat.setAttribute('aria-expanded', 'false');
+  };
+
+  // The form button at the chat's foot when there is no box to write in, and forms to fill
+  function syncWorkDock() {
+    workDock.hidden = !composer.hidden || !state.detail || !works.forms.length;
+
+    if (workDock.hidden && workMenu.parentNode === workDock) {
+      closeWorkMenu();
+    }
+  }
+
+  const paintWorkMenu = (asking = null) => {
+    const head = el('div', 'askdesk-work-menu__head');
+
+    head.append(el('strong', '', t.workPick), el('p', '', t.workPickHint));
+
+    // Another first? (a customer record before a to-do, say)
+    if (asking) {
+      const first = works.forms.find((form) => form.panel === asking.panel && form.id === asking.before);
+      const choices = el('div', 'askdesk-work-menu__list');
+
+      choices.append(el('p', 'askdesk-work-menu__ask', asking.suggest));
+
+      if (first) {
+        choices.append(workOption(first, () => startWork(first), true));
+      }
+
+      choices.append(workOption(asking, () => startWork(asking), !first));
+      workMenu.replaceChildren(head, choices);
+      choices.querySelector('button')?.focus();
+
+      return;
+    }
+
+    if (!works.forms.length) {
+      workMenu.replaceChildren(head, el('p', 'askdesk-panel__hint', t.workNone));
+
+      return;
+    }
+
+    const options = el('div', 'askdesk-work-menu__list');
+
+    works.forms.forEach((form, index) => {
+      options.append(workOption(form, () => (form.suggest && form.before ? paintWorkMenu(form) : startWork(form)), index === 0 && form.first));
+    });
+    workMenu.replaceChildren(head, options);
+    options.querySelector('button')?.focus();
+  };
+
+  const workOption = (form, pick, first) => {
+    const option = button(`askdesk-work-menu__option${first ? ' is-first' : ''}`, '', pick);
+    const words = el('span', 'askdesk-work-menu__words');
+
+    words.append(el('strong', '', form.title));
+
+    if (form.description) {
+      words.append(el('small', '', form.description));
+    }
+
+    option.append(icon('form'), words);
+
+    if (first) {
+      option.append(icon('enter'));
+    }
+
+    return option;
+  };
+
+  async function toggleWorkMenu(from = box) {
+    if (!workMenu.hidden) {
+      closeWorkMenu();
+
+      return;
+    }
+
+    // Over the box, or over the button at the chat's foot
+    if (workMenu.parentNode !== from) {
+      from.append(workMenu);
+    }
+
+    closeStickers();
+    workMenu.hidden = false;
+    (from === box ? workButton : workFloat).setAttribute('aria-expanded', 'true');
+    popIn(workMenu, true);
+    workMenu.replaceChildren(skeleton(2));
+    await loadWorks(false);
+
+    if (!workMenu.hidden) {
+      paintWorkMenu();
+    }
+  }
+
+  document.addEventListener('pointerdown', (event) => {
+    if (!workMenu.hidden && !workMenu.contains(event.target) && !workButton.contains(event.target) && !workFloat.contains(event.target)) {
+      closeWorkMenu();
+    }
+  });
+
+  workMenu.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      closeWorkMenu();
+      workButton.focus();
+    }
+
+    // Up and down through the forms
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      const options = [...workMenu.querySelectorAll('.askdesk-work-menu__option')];
+      const at = options.indexOf(document.activeElement);
+
+      event.preventDefault();
+      options[(at + (event.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length]?.focus();
+    }
+  });
 
   const skeleton = (lines = 2) => {
     const box = el('div', 'askdesk-skeleton');
@@ -3997,6 +5332,7 @@
     paintSuggestions();
     loadHistory();
     loadAddons();
+    loadWorks(true);
     suggestNow();
   };
 
@@ -4015,6 +5351,7 @@
     if (state.open !== id) {
       clearTray();
       closeDrawer();
+      closeWorkMenu();
       state.open = id;
       state.after = 0;
       state.detail = null;
@@ -4027,8 +5364,11 @@
 
     // On a phone the chat is a page over the list: a step in the history, so going back (the button,
     // a swipe, the browser's own) comes to the list
-    if (phone.matches && !(window.history.state && window.history.state.askdesk === 'room')) {
-      window.history.pushState({ askdesk: 'room', room: id }, '');
+    if (phone.matches && !ios && !(window.history.state && window.history.state.askdesk === 'room')) {
+      window.history.pushState({ askdesk: 'room', room: id }, '', `#room=${id}`);
+    } else {
+      // The address says which chat (0.6.1): to come back to it, or give it to someone
+      window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}#room=${id}`);
     }
 
     paintInbox();
@@ -4048,6 +5388,12 @@
     const fromHome = main.classList.contains('askdesk-main--home');
     const done = () => {
       leaving = false;
+
+      // Back at the list: the address no longer at a chat
+      if (/^#room=/.test(window.location.hash)) {
+        window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
+      }
+
       main.classList.remove('askdesk-main--room', 'askdesk-main--peek', 'askdesk-main--home');
       stage.style.transform = '';
       inbox.style.transform = '';
@@ -4073,13 +5419,18 @@
 
   // ---------- The home (the dashboard) as the app opens on a phone ----------
 
-  // On a phone, as an app: the dashboard first, over the list, the list's edge showing (5px) at the left;
-  // dragged from that edge (or the edge tapped), the list; the logo at the list's top, the dashboard again
-  const appHome = () => phone.matches && standalone;
+  // On a phone (as an app or in the browser): the dashboard first, over the list, the list's edge showing
+  // (5px) at the left; dragged from that edge (or the edge tapped), the list; the logo at the list's top,
+  // the dashboard again
+  const appHome = () => phone.matches;
   const HOME_EDGE = 5;
 
   // The dashboard, no chat open: on a phone as a page over the list; elsewhere in place of the chat
   const toHome = () => {
+    if (/^#room=/.test(window.location.hash)) {
+      window.history.replaceState(window.history.state, '', window.location.pathname + window.location.search);
+    }
+
     if (state.open) {
       clearTray();
       closeDrawer();
@@ -4149,6 +5500,13 @@
   // Back from a chat: the chat slides away, and the history steps back with it when the chat is a
   // step in it (its popstate then finds the list already there)
   const goBack = () => {
+    // The side open over the chat: put away first
+    if (sideOpen()) {
+      closeSide();
+
+      return;
+    }
+
     toList();
 
     if (window.history.state && window.history.state.askdesk === 'room') {
@@ -4206,6 +5564,11 @@
         rise(node);
       }
     });
+
+    // Work cards changed (one's own elsewhere, or another's): asked for again
+    if (!fresh && room.works !== undefined && room.works !== works.stamp && works.room === room.id) {
+      loadWorks(false);
+    }
 
     if (fresh) {
       paintRoom();
@@ -5141,11 +6504,14 @@
         if (room.status === 'waiting' && (!was || was.status !== 'waiting')) {
           tell(`${t.waiting}: ${room.name || `${t.visitor} #${room.id}`}`);
           nudge();
+          heardWhileFolded(room.id);
         } else if (room.status === 'message' && !was) {
           tell(`${t.message}: ${room.name || `${t.visitor} #${room.id}`}`);
           nudge();
+          heardWhileFolded(room.id);
         } else if (was && room.staff === config.me && room.unread > was.unread && !(room.id === state.open && !document.hidden)) {
           tell(room.preview);
+          heardWhileFolded(room.id);
         }
       });
     }
@@ -5170,7 +6536,7 @@
     }
 
     state.asking = false;
-    paintInbox();
+    repaintInbox();
   };
 
   async function poll() {
@@ -5261,7 +6627,7 @@
   // chat over it (openRoom). Back to the list from a chat; back from the list: still the list
   const app = () => phone.matches || window.matchMedia('(display-mode: standalone)').matches;
 
-  if (app() && !(window.history.state && window.history.state.askdesk)) {
+  if (app() && !ios && !(window.history.state && window.history.state.askdesk)) {
     window.history.replaceState({ askdesk: 'base' }, '');
     window.history.pushState({ askdesk: 'list' }, '');
   }
@@ -5296,7 +6662,8 @@
       return;
     }
 
-    swipe = { x: event.touches[0].clientX, y: event.touches[0].clientY, t: Date.now(), dx: 0, on: false };
+    // The side open over the chat: it is what the finger takes away, to the right
+    swipe = { x: event.touches[0].clientX, y: event.touches[0].clientY, t: Date.now(), dx: 0, on: false, side: sideOpen() };
   }, { passive: true });
 
   stage.addEventListener('touchmove', (event) => {
@@ -5320,11 +6687,21 @@
       }
 
       swipe.on = true;
-      main.classList.add('askdesk-main--peek');
+
+      if (!swipe.side) {
+        main.classList.add('askdesk-main--peek');
+      }
     }
 
     event.preventDefault();
     swipe.dx = Math.max(0, dx);
+
+    if (swipe.side) {
+      aside.style.transition = 'none';
+      aside.style.transform = `translateX(${swipe.dx}px)`;
+
+      return;
+    }
 
     const width = stage.clientWidth || window.innerWidth;
 
@@ -5349,8 +6726,26 @@
     const width = stage.clientWidth || window.innerWidth;
     const fast = swipe.dx / Math.max(1, Date.now() - swipe.t) > 0.6;
     const away = swipe.dx > width * 0.35 || fast;
+    const side = swipe.side;
 
     swipe = null;
+
+    // The side: away to the right from where the finger left it, or back in place
+    if (side) {
+      const from = aside.style.transform;
+
+      aside.style.transition = '';
+      aside.style.transform = '';
+
+      if (away) {
+        aside.animate([{ transform: from }, { transform: 'translateX(105%)' }], { duration: 220, easing: 'cubic-bezier(0.3, 0.7, 0.3, 1)' });
+        closeSide();
+      } else {
+        aside.animate([{ transform: from }, { transform: 'none' }], { duration: 200, easing: 'cubic-bezier(0.3, 0.7, 0.3, 1)' });
+      }
+
+      return;
+    }
 
     if (away) {
       goBack();
@@ -5367,7 +6762,43 @@
     window.setTimeout(() => main.classList.remove('askdesk-main--peek'), 200);
   };
 
-  // Opened as an app on a phone, no chat asked for: the dashboard first
+  // On iPhone and iPad the screen's left edge is the console's: a touch starting there does not go back a
+  // page (Safari's swipe), it drags the chat or the dashboard aside (the swipe above); the dashboard's edge
+  // of list, tapped, is the list
+  let edge = null;
+
+  document.addEventListener('touchstart', (event) => {
+    edge = null;
+
+    if (!ios || !phone.matches || event.touches.length !== 1 || event.touches[0].clientX > 14) {
+      return;
+    }
+
+    event.preventDefault();
+    edge = { x: event.touches[0].clientX, y: event.touches[0].clientY, home: main.classList.contains('askdesk-main--home') && inbox.contains(event.target) };
+  }, { passive: false, capture: true });
+
+  // From the dashboard's edge of list, dragged to the right: the list
+  document.addEventListener('touchmove', (event) => {
+    const touch = event.touches[0];
+
+    if (edge && edge.home && touch && touch.clientX - edge.x > 30) {
+      edge = null;
+      toList();
+    }
+  }, { passive: true, capture: true });
+
+  document.addEventListener('touchend', (event) => {
+    const touch = event.changedTouches[0];
+
+    if (edge && edge.home && touch && Math.abs(touch.clientX - edge.x) < 10 && Math.abs(touch.clientY - edge.y) < 10) {
+      toList();
+    }
+
+    edge = null;
+  }, true);
+
+  // Opened on a phone, no chat asked for: the dashboard first
   if (appHome() && !wanted) {
     toHome();
   }

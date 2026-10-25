@@ -202,6 +202,17 @@ final class Settings
         return max(0, (int) $this->params->get('library_root', 0));
     }
 
+    /**
+     * The cards beside a chat not shown (0.6.1): the desk's own (suggest, history, library) and the
+     * panels', by name.
+     *
+     * @return  string[]
+     */
+    public function sideHidden(): array
+    {
+        return array_values(array_filter(array_map('strval', (array) $this->params->get('side_hidden', [])), static fn ($n) => preg_match('/^[a-z0-9]{1,30}$/', $n) === 1));
+    }
+
     public function sound(): bool
     {
         return (bool) $this->params->get('sound', 1);

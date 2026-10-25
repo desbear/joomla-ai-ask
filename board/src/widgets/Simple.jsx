@@ -2,6 +2,7 @@
 // is given (data.rows) and the fields ticked for it.
 import { useEffect, useRef } from 'react';
 import { Chart, registerables } from 'chart.js';
+import { useActive } from './active.js';
 import { PALETTE, parts, doneOf, tone, total, groupBy, months, monthLabels, short, fmt, today } from '../kinds.js';
 
 Chart.register(...registerables);
@@ -62,9 +63,19 @@ export const BatteryW = ({ fields, data, ctx }) => {
   );
 };
 
-export const ChartW = ({ widget, fields, data, ctx, big }) => {
+export const ChartW = ({ widget, fields, data, ctx, big, active = true }) => {
   const canvas = useRef(null);
+  const drawn = useRef(null);
   const { t, lang } = ctx;
+  const seen = useActive(canvas, active);
+
+  // Not seen: an animation still running is stopped where it is; seen again, drawn to its box as it is now
+  useEffect(() => {
+    const chart = drawn.current;
+
+    if (!chart) return;
+    if (seen) chart.resize(); else chart.stop();
+  }, [seen]);
 
   useEffect(() => {
     const el = canvas.current;
@@ -150,7 +161,9 @@ export const ChartW = ({ widget, fields, data, ctx, big }) => {
 
     const chart = new Chart(el, config);
 
-    return () => chart.destroy();
+    drawn.current = chart;
+
+    return () => { drawn.current = null; chart.destroy(); };
   }, [widget.kind, widget.w, fields, data, big, lang, t]);
 
   return <div className="adb-chart"><canvas ref={canvas} /></div>;

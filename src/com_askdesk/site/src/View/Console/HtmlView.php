@@ -80,16 +80,19 @@ class HtmlView extends BaseHtmlView
                 'meFace'    => $profile['face']['src'] ?? '',
                 'root'      => rtrim(Uri::root(), '/'),
                 'sound'     => $settings->sound(),
+                // The desk's own cards beside a chat not shown, as set (0.6.1)
+                'sideHidden' => $settings->sideHidden(),
                 'translate' => $settings->translates(),
                 'browser'   => $settings->translates() && $settings->browserTranslate(),
                 'library'   => \Gss\Component\Askdesk\Administrator\Desk\Library::available(),
                 'languages' => $languages,
-                'urls'      => ['poll' => $task('poll'), 'take' => $task('take'), 'send' => $task('message'), 'close' => $task('close'), 'settle' => $task('settle'), 'status' => $task('status'), 'translate' => $task('translate'), 'reply' => $task('reply'), 'suggest' => $task('suggest'), 'history' => $task('history'), 'past' => $task('past'), 'search' => $task('search'), 'upload' => $task('upload'), 'profile' => $task('profile'), 'saveProfile' => $task('saveProfile'), 'library' => $task('library'), 'libraryAdd' => $task('libraryAdd'), 'librarySend' => $task('librarySend'), 'libraryKeep' => $task('libraryKeep'), 'endCheck' => $task('endCheck'), 'stickers' => $task('stickers'), 'phrases' => $task('phrases'), 'phraseSave' => $task('phraseSave'), 'phraseDelete' => $task('phraseDelete'), 'panels' => $task('panels'), 'panel' => $task('panel'), 'pushSubscribe' => $task('pushSubscribe'), 'pushForget' => $task('pushForget'), 'board' => $task('board'), 'boardSave' => $task('boardSave'), 'boardTemplate' => $task('boardTemplate'), 'sourceTemplates' => $task('sourceTemplates'), 'sourceFields' => $task('sourceFields'), 'sourceRows' => $task('sourceRows'), 'sourceUpdate' => $task('sourceUpdate'), 'worker' => $pwa('worker')],
+                'urls'      => ['poll' => $task('poll'), 'take' => $task('take'), 'send' => $task('message'), 'close' => $task('close'), 'settle' => $task('settle'), 'status' => $task('status'), 'translate' => $task('translate'), 'reply' => $task('reply'), 'suggest' => $task('suggest'), 'history' => $task('history'), 'past' => $task('past'), 'search' => $task('search'), 'upload' => $task('upload'), 'profile' => $task('profile'), 'saveProfile' => $task('saveProfile'), 'library' => $task('library'), 'libraryAdd' => $task('libraryAdd'), 'librarySend' => $task('librarySend'), 'libraryKeep' => $task('libraryKeep'), 'endCheck' => $task('endCheck'), 'stickers' => $task('stickers'), 'phrases' => $task('phrases'), 'phraseSave' => $task('phraseSave'), 'phraseDelete' => $task('phraseDelete'), 'panels' => $task('panels'), 'panel' => $task('panel'), 'works' => $task('works'), 'work' => $task('work'), 'pushSubscribe' => $task('pushSubscribe'), 'pushForget' => $task('pushForget'), 'board' => $task('board'), 'boardSave' => $task('boardSave'), 'boardTemplate' => $task('boardTemplate'), 'sourceTemplates' => $task('sourceTemplates'), 'sourceFields' => $task('sourceFields'), 'sourceRows' => $task('sourceRows'), 'sourceUpdate' => $task('sourceUpdate'), 'sourceDelete' => $task('sourceDelete'), 'worker' => $pwa('worker')],
                 'push'      => \Gss\Component\Askdesk\Administrator\Desk\Push::possible() ? \Gss\Component\Askdesk\Administrator\Desk\Push::make()->publicKey() : '',
                 'scope'     => Uri::root(true) . '/',
                 'logo'      => $settings->logo(),
                 'strings'   => $this->strings(),
                 'board'     => $this->board(),
+                'preview'   => $this->preview(),
             ];
 
             // An app on a phone's home screen, or a computer's: its manifest, icon, colour, name
@@ -108,7 +111,13 @@ class HtmlView extends BaseHtmlView
 
             $assets = $document->getWebAssetManager();
             $assets->getRegistry()->addExtensionRegistryFile('com_askdesk');
-            $assets->useStyle('com_askdesk.console')->useScript('com_askdesk.console');
+
+            // Asked for anew whenever the files change (an update installed), not kept from before by the browser
+            $media = JPATH_ROOT . '/media/com_askdesk/';
+            $stamp = static fn (string $file) => is_file($media . $file) ? (string) filemtime($media . $file) : '';
+
+            $assets->registerAndUseStyle('com_askdesk.console', 'com_askdesk/console.css', ['version' => $stamp('css/console.css')]);
+            $assets->registerAndUseScript('com_askdesk.console', 'com_askdesk/console.js', ['version' => $stamp('js/console.js')], ['defer' => true]);
         }
 
         parent::display($tpl);
@@ -123,6 +132,21 @@ class HtmlView extends BaseHtmlView
      *
      * @return  array<string, string>|null
      */
+    private function preview(): ?array
+    {
+        // The viewer of documents in a chat (0.6.1): a small script fetched when one is first opened, each kind's
+        // library after it from the same place; versioned by when it was built
+        $media = JPATH_ROOT . '/media/com_askdesk/';
+
+        if (!is_file($media . 'js/preview.js')) {
+            return null;
+        }
+
+        $base = Uri::root(true) . '/media/com_askdesk/';
+
+        return ['script' => $base . 'js/preview.js?' . filemtime($media . 'js/preview.js'), 'base' => $base, 'version' => (string) filemtime($media . 'js/preview.js')];
+    }
+
     private function board(): ?array
     {
         $media = JPATH_ROOT . '/media/com_askdesk/';
@@ -146,9 +170,9 @@ class HtmlView extends BaseHtmlView
     {
         $keys = [
             'waiting', 'active', 'message', 'closed', 'mine', 'none', 'take', 'close', 'send', 'placeholder', 'original', 'translation',
-            'translatedTo', 'untranslated', 'translateMine', 'before', 'page', 'pagesVisited', 'pagesAll', 'remove', 'phrases', 'phrasesMore', 'phrasesAll', 'phrasesShared', 'phrasesMine', 'phrasesSearch', 'phrasesNone', 'phraseSaveMine', 'phraseSaved', 'phrasePin', 'phraseDelete', 'phraseFailed', 'panelSearch', 'panelChoose', 'panelRefresh', 'panelError', 'panelSetup', 'panelNoteDraft', 'panelNoteRedraft', 'panelNoteSend', 'panelNotePlaceholder', 'panelNoteWriting', 'panelNoteChoose', 'panelListAll', 'panelListClose', 'panelTagsMore', 'panelTagsLess', 'homeTitle', 'homeEmpty', 'homeSources', 'homeConnect', 'homeConnected', 'homeManage', 'homeNotReady', 'homeNone', 'homeWidgets', 'pushOn', 'pushOff', 'pushInstall', 'pushDenied', 'pushFailed', 'notifications', 'doneOn', 'member', 'guest', 'email', 'online', 'busy', 'away',
+            'translatedTo', 'untranslated', 'translateMine', 'before', 'page', 'pagesVisited', 'pagesAll', 'remove', 'phrases', 'phrasesMore', 'phrasesAll', 'phrasesShared', 'phrasesMine', 'phrasesSearch', 'phrasesNone', 'phraseSaveMine', 'phraseSaved', 'phrasePin', 'phraseDelete', 'phraseFailed', 'panelSearch', 'panelChoose', 'panelRefresh', 'panelError', 'panelSetup', 'panelNoteDraft', 'panelNoteRedraft', 'panelNoteSend', 'panelNotePlaceholder', 'panelNoteWriting', 'panelNoteChoose', 'panelListAll', 'panelListClose', 'workButton', 'workPick', 'workPickHint', 'workOnly', 'workDrop', 'workNone', 'workBy', 'workExpand', 'workClose', 'workNote', 'workNoteSend', 'workHere', 'workGoChat', 'edgeOpen', 'edgeNews', 'listOrder', 'panelTagsMore', 'panelTagsLess', 'homeTitle', 'homeEmpty', 'homeSources', 'homeConnect', 'homeConnected', 'homeManage', 'homeNotReady', 'homeNone', 'homeWidgets', 'pushOn', 'pushOff', 'pushInstall', 'pushDenied', 'pushFailed', 'notifications', 'doneOn', 'member', 'guest', 'email', 'online', 'busy', 'away',
             'language', 'notify', 'notifyOn', 'unread', 'back', 'taken', 'error', 'signedOut', 'expired', 'visitor', 'ai', 'pick',
-            'staffNow', 'answeredBy', 'reply', 'question', 'report', 'replyPlaceholder', 'replySend', 'replyNote', 'replyOpened', 'done', 'showInbox', 'resize', 'suggestions', 'suggesting', 'noSuggestion', 'useReply', 'openPage', 'relevance', 'history', 'pastChats', 'pastQuestions', 'noHistory', 'guestHistory', 'answered', 'notAnswered', 'helpful', 'notHelpful', 'reference', 'messages', 'search', 'searchPlaceholder', 'searching', 'noResults', 'insert', 'confirmEnd', 'confirmEndNote', 'cancel', 'all', 'awaiting', 'awaitingNote', 'endedUnanswered', 'unhandled', 'unhandledNote', 'settled', 'settledNote', 'settle', 'settleOn', 'settledAt', 'settledBy', 'loadingMore', 'emptyList', 'showSettled', 'sortRecent', 'sortOldest', 'sortCreated', 'justNow', 'minutes', 'hours', 'rated', 'notRated', 'attach', 'uploading', 'expiresIn', 'expired', 'download', 'tooLarge', 'imageTooLarge', 'profile', 'displayName', 'pet', 'noPet', 'petNoThanks', 'picture', 'thanksPicture', 'save', 'saved', 'clearFace', 'library', 'libraryMine', 'libraryShared', 'libraryAdd', 'libraryEmpty', 'librarySend', 'libraryNone', 'keepMine', 'keepShared', 'kept', 'endChecking', 'endOk', 'endWait', 'endCheckFailed', 'endAnyway', 'dropHere', 'stickers', 'noStickers', 'newChat', 'uploadOwn', 'faceTile', 'faceHint', 'thanksTile', 'thanksHint', 'choosePicture', 'change', 'reachOpen', 'reachAway', 'reachOutside', 'reachClosedDay', 'reachNoOne', 'reachNoAgent', 'translating', 'draft', 'quick', 'untranslatedSent',
+            'staffNow', 'answeredBy', 'reply', 'question', 'report', 'replyPlaceholder', 'replySend', 'replyNote', 'replyOpened', 'done', 'showInbox', 'resize', 'suggestions', 'suggesting', 'noSuggestion', 'useReply', 'openPage', 'relevance', 'history', 'pastChats', 'pastQuestions', 'noHistory', 'guestHistory', 'answered', 'notAnswered', 'helpful', 'notHelpful', 'reference', 'messages', 'search', 'searchPlaceholder', 'searching', 'noResults', 'insert', 'confirmEnd', 'confirmEndNote', 'cancel', 'all', 'awaiting', 'awaitingNote', 'endedUnanswered', 'unhandled', 'unhandledNote', 'settled', 'settledNote', 'settle', 'settleOn', 'settledAt', 'settledBy', 'loadingMore', 'emptyList', 'showSettled', 'sortRecent', 'sortOldest', 'sortCreated', 'justNow', 'minutes', 'hours', 'rated', 'notRated', 'attach', 'uploading', 'expiresIn', 'expired', 'download', 'tooLarge', 'imageTooLarge', 'profile', 'displayName', 'pet', 'noPet', 'petNoThanks', 'picture', 'thanksPicture', 'save', 'saved', 'clearFace', 'library', 'libraryMine', 'libraryShared', 'libraryAdd', 'libraryEmpty', 'librarySend', 'libraryNone', 'keepMine', 'keepShared', 'kept', 'endChecking', 'endOk', 'endWait', 'endCheckFailed', 'endAnyway', 'dropHere', 'stickers', 'noStickers', 'newChat', 'uploadOwn', 'faceTile', 'faceHint', 'thanksTile', 'thanksHint', 'choosePicture', 'change', 'reachOpen', 'reachAway', 'reachOutside', 'reachClosedDay', 'reachNoOne', 'reachNoAgent', 'translating', 'draft', 'quick', 'untranslatedSent', 'preview', 'previewLoading', 'previewFailed', 'previewTooLarge', 'previewPage', 'previewTruncated', 'previewClose', 'attachPick', 'attachLimits',
         ];
         $strings = [];
 

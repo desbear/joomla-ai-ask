@@ -62,9 +62,15 @@ final class Panels
      */
     public static function views(object $room, object $staff): array
     {
-        $views = [];
+        $views  = [];
+        $hidden = Settings::load()->sideHidden();
 
         foreach (self::all() as $name => $panel) {
+            // Not shown beside the chats, as set (0.6.1); its work forms are still offered
+            if (\in_array($name, $hidden, true)) {
+                continue;
+            }
+
             try {
                 $view = $panel->view($room, $staff);
 
@@ -89,11 +95,14 @@ final class Panels
      *
      * @return  array<string, mixed>|null  Null when there is no such panel
      */
+    /** What the person answering may do in a panel (fill, submit, make: its form and buttons, 0.6.1; show: a record in the side card) */
+    public const ACTIONS = ['search', 'choose', 'refresh', 'draft', 'send', 'fill', 'submit', 'make', 'show'];
+
     public static function act(string $name, object $room, object $staff, string $action, array $input): ?array
     {
         $panel = self::all()[$name] ?? null;
 
-        if (!$panel || !\in_array($action, ['search', 'choose', 'refresh', 'draft', 'send'], true)) {
+        if (!$panel || !\in_array($action, self::ACTIONS, true)) {
             return null;
         }
 
@@ -102,6 +111,30 @@ final class Panels
         } catch (\Throwable) {
             return self::clean($name, ['state' => 'error']);
         }
+    }
+
+    /**
+     * A work card (a form, 0.6.1) made safe to draw, as a panel's form.
+     *
+     * @param   array<string, mixed>  $card
+     *
+     * @return  array<string, mixed>|null
+     */
+    public static function card(array $card): ?array
+    {
+        return self::clean('', ['form' => $card])['form'];
+    }
+
+    /**
+     * Records listed (a work tab's, 0.6.1) made safe to draw, as a panel's list's items.
+     *
+     * @param   array<int, mixed>  $items
+     *
+     * @return  array<int, array<string, mixed>>
+     */
+    public static function items(array $items): array
+    {
+        return self::clean('', ['list' => ['items' => $items]])['list']['items'];
     }
 
     /**
@@ -119,6 +152,19 @@ final class Panels
         $note  = \is_array($view['note'] ?? null) ? $view['note'] : null;
         $brief = \is_array($view['brief'] ?? null) ? $view['brief'] : null;
         $items = \is_array($view['list'] ?? null) ? $view['list'] : null;
+        $form  = \is_array($view['form'] ?? null) ? $view['form'] : null;
+        $shown = \is_array($view['record'] ?? null) ? $view['record'] : null;
+        $item  = static fn ($item) => \is_array($item) ? [
+            'title' => $text($item['title'] ?? '', 120),
+            'meta'  => $text($item['meta'] ?? '', 160),
+            'text'  => $text($item['text'] ?? '', 4000),
+            'tags'  => array_slice(array_values(array_filter(array_map(static fn ($tag) => $text($tag, 60), $list($item['tags'] ?? [])))), 0, 10),
+            'url'   => $https($item['url'] ?? null),
+            // Opened in the side card by the panel (show), when it says which
+            'ref'   => $text($item['ref'] ?? '', 100),
+            // The chat it came from (0.6.1): another, to go to; this one, said so
+            'room'  => max(0, (int) ($item['room'] ?? 0)),
+        ] : null;
         $link  = \is_array($view['link'] ?? null) && $https($view['link']['url'] ?? null) !== '' ? ['title' => $text($view['link']['title'] ?? '', 80), 'url' => $https($view['link']['url'])] : null;
 
         return [
@@ -150,12 +196,44 @@ final class Panels
                 'empty' => $text($items['empty'] ?? '', 160),
                 'total' => max(0, (int) ($items['total'] ?? 0)),
                 'more'  => \is_array($items['more'] ?? null) && $https($items['more']['url'] ?? null) !== '' ? ['title' => $text($items['more']['title'] ?? '', 80), 'url' => $https($items['more']['url'])] : null,
-                'items' => array_slice(array_values(array_filter(array_map(static fn ($item) => \is_array($item) ? [
-                    'title' => $text($item['title'] ?? '', 120),
-                    'meta'  => $text($item['meta'] ?? '', 160),
-                    'text'  => $text($item['text'] ?? '', 4000),
-                    'tags'  => array_slice(array_values(array_filter(array_map(static fn ($tag) => $text($tag, 60), $list($item['tags'] ?? [])))), 0, 10),
-                ] : null, $list($items['items'] ?? [])), static fn ($item) => $item && ($item['title'] !== '' || $item['text'] !== ''))), 0, 50),
+                'items' => array_slice(array_values(array_filter(array_map($item, $list($items['items'] ?? [])), static fn ($item) => $item && ($item['title'] !== '' || $item['text'] !== ''))), 0, 50),
+            ] : null,
+            // A small form to fill and send (0.6.1): its fields, a draft by AI, the button that sends it
+            'form'     => $form ? [
+                'title'   => $text($form['title'] ?? '', 80),
+                'hint'    => $text($form['hint'] ?? '', 300),
+                'sent'    => $text($form['sent'] ?? '', 300),
+                'blocked' => $text($form['blocked'] ?? '', 300),
+                'submit'  => $text($form['submit'] ?? '', 40),
+                'fill'    => $text($form['fill'] ?? '', 40),
+                // Folded once something was made from it (so it is not made twice); opened again on asking
+                'folded'  => !empty($form['folded']),
+                'again'   => $text($form['again'] ?? '', 40),
+                'made'    => $item($form['made'] ?? null),
+                'fields'  => array_slice(array_values(array_filter(array_map(static fn ($field) => \is_array($field) && preg_match('/^[A-Za-z0-9_-]{1,64}$/', (string) ($field['key'] ?? '')) ? [
+                    'key'      => (string) $field['key'],
+                    'label'    => $text($field['label'] ?? '', 60),
+                    'kind'     => \in_array($field['kind'] ?? '', ['text', 'textarea', 'select', 'date', 'number'], true) ? $field['kind'] : 'text',
+                    'options'  => array_slice(array_values(array_filter(array_map(static fn ($o) => $text($o, 100), $list($field['options'] ?? [])), 'strlen')), 0, 100),
+                    'value'    => $text($field['value'] ?? '', 4000),
+                    'required' => !empty($field['required']),
+                    // Shown, not changed (what is filled by itself: the customer, say)
+                    'readonly' => !empty($field['readonly']),
+                ] : null, $list($form['fields'] ?? [])))), 0, 30),
+            ] : null,
+            // Buttons of its own (make: something made there, say a record of the visitor)
+            'buttons'  => array_slice(array_values(array_filter(array_map(static fn ($b) => \is_array($b) && \in_array($b['action'] ?? '', ['make', 'refresh', 'fill'], true) && $text($b['label'] ?? '', 40) !== '' ? [
+                'action'  => $b['action'],
+                'label'   => $text($b['label'], 40),
+                'primary' => !empty($b['primary']),
+            ] : null, $list($view['buttons'] ?? [])))), 0, 4),
+            // One record, whole, for the side card (show)
+            'record'   => $shown ? [
+                'title'  => $text($shown['title'] ?? '', 160),
+                'meta'   => $text($shown['meta'] ?? '', 160),
+                'url'    => $https($shown['url'] ?? null),
+                'open'   => $text($shown['open'] ?? '', 60),
+                'fields' => array_slice(array_values(array_filter(array_map(static fn ($field) => \is_array($field) ? ['label' => $text($field['label'] ?? '', 60), 'value' => $text($field['value'] ?? '', 4000)] : null, $list($shown['fields'] ?? [])), static fn ($field) => $field && $field['value'] !== '')), 0, 60),
             ] : null,
             'icon'     => preg_match('/^[a-z]{1,20}$/', (string) ($view['icon'] ?? '')) ? (string) $view['icon'] : '',
             'look'     => ($view['look'] ?? '') === 'ai' ? 'ai' : '',

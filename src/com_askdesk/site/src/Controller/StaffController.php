@@ -79,6 +79,8 @@ class StaffController extends BaseController
 
             $result['room'] = $rooms->forStaff($room, max(0, (int) ($body['after'] ?? 0)), (int) $me->user_id, $me->language);
             $result['room']['updates'] = $rooms->updates($room, (array) ($body['pending'] ?? []), 'staff', (int) $me->user_id, $me->language);
+            // Its work cards changed (0.6.1): asked for again, so others' come in too
+            $result['room']['works'] = \Gss\Component\Askdesk\Administrator\Desk\Works::stamp((int) $room->id);
         }
 
         $this->send($result);
@@ -250,10 +252,53 @@ class StaffController extends BaseController
             'ref'  => \is_string($body['ref'] ?? null) ? mb_substr(trim($body['ref']), 0, 100) : '',
             'note'    => \is_string($body['note'] ?? null) ? mb_substr(trim($body['note']), 0, 4000) : '',
             'choices' => \is_array($body['choices'] ?? null) ? \array_slice(array_values(array_filter(array_map(static fn ($choice) => \is_string($choice) ? mb_substr(trim($choice), 0, 100) : '', $body['choices']))), 0, 60) : [],
+            // A panel's form as filled (0.6.1): its fields' values by key
+            'values'  => self::formValues($body['values'] ?? null),
         ];
         $view  = \Gss\Component\Askdesk\Administrator\Desk\Panels::act((string) ($body['name'] ?? ''), $room, $me, (string) ($body['action'] ?? ''), $input);
 
         $this->send($view === null ? ['error' => Text::_('JERROR_ALERTNOAUTHOR')] : ['panel' => $view]);
+    }
+
+    /**
+     * Work in a chat (0.6.1, {room}): the forms to pick from, its cards.
+     */
+    public function works(): void
+    {
+        [$rooms, , $me, $body] = $this->check();
+
+        $room = $this->room($rooms, $body);
+
+        $this->send([
+            'forms' => \Gss\Component\Askdesk\Administrator\Desk\Works::forms($room, $me),
+            'works' => \Gss\Component\Askdesk\Administrator\Desk\Works::of($room),
+            'stamp' => \Gss\Component\Askdesk\Administrator\Desk\Works::stamp((int) $room->id),
+        ]);
+    }
+
+    /**
+     * A work card started ({room, panel, form}) or something done in one ({room, id, action: fill,
+     * submit, drop, values?, note?: how the person answering wants it filled}): the card as it is now,
+     * and whether the chat's cards changed.
+     */
+    public function work(): void
+    {
+        [$rooms, , $me, $body] = $this->check();
+
+        $room = $this->room($rooms, $body);
+        $id   = (int) ($body['id'] ?? 0);
+        $card = $id
+            ? \Gss\Component\Askdesk\Administrator\Desk\Works::act($room, $me, $id, (string) ($body['action'] ?? ''), ['values' => self::formValues($body['values'] ?? null), 'note' => \is_string($body['note'] ?? null) ? mb_substr(trim($body['note']), 0, 2000) : ''])
+            : \Gss\Component\Askdesk\Administrator\Desk\Works::start($room, $me, (string) ($body['panel'] ?? ''), (string) ($body['form'] ?? ''));
+
+        if (!$card && !($id && ($body['action'] ?? '') === 'drop')) {
+            $this->send(['error' => Text::_('JERROR_ALERTNOAUTHOR')]);
+        }
+
+        $this->send([
+            'work'  => $card,
+            'stamp' => \Gss\Component\Askdesk\Administrator\Desk\Works::stamp((int) $room->id),
+        ]);
     }
 
     /**
@@ -649,6 +694,24 @@ class StaffController extends BaseController
         $this->send(['widgets' => $boards->savePerson((int) $me->user_id, $body['widgets'] ?? [], true)]);
     }
 
+    /**
+     * A panel form's values: text by key (keys of letters, digits, _ and -), 40 at most.
+     *
+     * @return  array<string, string>
+     */
+    private static function formValues(mixed $values): array
+    {
+        $out = [];
+
+        foreach (\is_array($values) ? \array_slice($values, 0, 40, true) : [] as $key => $value) {
+            if (preg_match('/^[A-Za-z0-9_-]{1,64}$/', (string) $key) && \is_scalar($value)) {
+                $out[(string) $key] = mb_substr(trim((string) $value), 0, 4000);
+            }
+        }
+
+        return $out;
+    }
+
     /** Whether this person sets the dashboard template (given it in the desk's permissions; Super Users) */
     private function templater(): bool
     {
@@ -714,6 +777,24 @@ class StaffController extends BaseController
     }
 
     /**
+     * A record deleted from the dashboard ({source, template, row}, 0.6.1): by a source that can (remove()).
+     */
+    public function sourceDelete(): void
+    {
+        [, , $me, $body] = $this->check();
+
+        $this->fromSource($body, function ($source) use ($me, $body) {
+            if (!method_exists($source, 'remove')) {
+                throw new \RuntimeException('Not deleted here', 403);
+            }
+
+            $source->remove($me, $this->templateOf($body), \is_scalar($body['row'] ?? null) ? mb_substr((string) $body['row'], 0, 100) : '');
+
+            return ['ok' => true];
+        });
+    }
+
+    /**
      * What a source answers, or why it can't: sign in first ({signin: where}), or what went wrong.
      */
     private function fromSource(array $body, callable $work): never
@@ -729,7 +810,15 @@ class StaffController extends BaseController
         } catch (\Gss\Component\Askdesk\Administrator\Desk\SignInNeeded $e) {
             $this->send(['signin' => $e->connect, 'error' => Text::sprintf('COM_ASKDESK_CONSOLE_SOURCE_SIGNIN', $source->title())]);
         } catch (\Throwable $e) {
-            $this->send(['error' => Text::sprintf('COM_ASKDESK_CONSOLE_SOURCE_ERROR', $source->title()), 'detail' => mb_substr($e->getMessage(), 0, 200)]);
+            // Refused as not this person's to change (403), or under review in its system (423): said so, so
+            // the dashboard greys the record (0.6.1)
+            $locked = match ((int) $e->getCode()) {
+                403     => 'denied',
+                423     => 'review',
+                default => '',
+            };
+
+            $this->send(['error' => Text::sprintf('COM_ASKDESK_CONSOLE_SOURCE_ERROR', $source->title()), 'detail' => mb_substr($e->getMessage(), 0, 200)] + ($locked !== '' ? ['locked' => $locked] : []));
         }
     }
 

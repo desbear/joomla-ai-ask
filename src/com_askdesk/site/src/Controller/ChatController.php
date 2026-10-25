@@ -199,6 +199,12 @@ class ChatController extends BaseController
         if (class_exists($embed)) {
             $this->embed = $embed::apply($this->app);
         }
+
+        // Nothing here writes to the session: let it go, so a long upload does not hold up the visitor's
+        // polls or another page of theirs while it runs (as the console does, 0.6.1)
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
+        }
     }
 
     /**
@@ -213,6 +219,11 @@ class ChatController extends BaseController
 
         if (class_exists($embed)) {
             $this->embed = $embed::apply($this->app);
+        }
+
+        // Released as below (visitorIdentity), for every request of a chat: a poll no longer holds the session
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_write_close();
         }
 
         $rooms = new Rooms(Factory::getContainer()->get(DatabaseInterface::class), Settings::load());

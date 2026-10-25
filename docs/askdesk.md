@@ -67,20 +67,23 @@ It is a package of its own, `pkg_askdesk`, which needs AI Ask 0.20.0 or later:
   sources, an AI's of the visitor, say; a panel can have the console run an action once on opening (`follow`),
   so slow work runs after it is drawn, choose its icon, and return nothing for a chat it has nothing for. With
   `look: "ai"` (0.4.1) it is drawn as a blue-violet card of its own above the others, read again from beside its
-  heading. The
+  heading. A
+  panel may carry a small form (0.6.1): fields of a few kinds, drafted by AI from the chat on asking
+  (`Summary::fill()`) and sent only on its button, a to-do drawn out of the chat into another system, say;
+  and buttons of its own, and links on its list's items. The
   console draws it all as text; whatever the plugin calls stays on the server.
 - On a narrower screen these open over the chat with **Reference**.
 
 ## The list and closing cases (0.6.0)
 
 - **Three tabs**: **All** that is not closed yet (waiting, answered, messages left, chats ended unanswered, and
-  one's own chats ended in the last hours); **Awaiting reply** (the visitor wrote last and no one answered, or
-  the chat waits to be taken; the longest waiting first); **Unhandled** (messages left, and chats that ended by
+  one's own chats ended in the last hours); **To take** (the visitor wrote last and no one answered, or
+  the chat waits to be taken; the longest waiting first); **To answer** (messages left, and chats that ended by
   themselves with the visitor's words unanswered). Each has its count; a tab shows 30 chats and 30 more as its
   end comes into view. Under the tabs, a menu orders the list (latest activity, untouched longest, latest
   started) and, in All, a switch shows those closed too.
 - **Closing (結案)**: an unhandled chat stays until someone closes it, with the button in the chat or at the row's
-  end in Unhandled; a message left is closed when marked dealt with. A chat ended by the one answering, or ended
+  end in To answer; a message left is closed when marked dealt with. A chat ended by the one answering, or ended
   with the visitor answered, is closed with it. Each chat keeps who wrote last, and when and by whom it was closed.
 - What rings, and the count in the window's title, follow what goes on now whatever the tab.
 - **Whose cases**: with **Staff see others' cases** off (Options → Desk), the people answering see only the chats
@@ -131,10 +134,11 @@ The console loads it the first time no chat is open, and gives it whether the pe
 
 ## On a phone, and notifications
 
-The console works on a phone: the list, then a chat full screen, its side panel over it. Opened as the app
-added to the home screen, it shows the dashboard first, over the list, the list's edge showing at the left:
+The console works on a phone: the list, then a chat full screen, its side panel over it. It shows the
+dashboard first, over the list, the list's edge showing at the left:
 dragged from there (or the edge tapped), the list; the logo at the list's top, the dashboard again. Someone new
-waiting, or a message left, nudges the dashboard open a little and back. It can be added to the
+waiting, or a message left, nudges the dashboard open a little and back. On iPhone and iPad the screen's left
+edge is the console's own: a swipe from it does not go back a page in Safari. It can be added to the
 home screen as an app (Share → Add to Home Screen on an iPhone; Install on Android and on computers). The bell
 in its bar turns on notifications for that device: pushed by the site itself (Web Push, VAPID), they come with the
 console closed: someone new waiting (to everyone not away), a message in one's own chat (to the one answering it),
@@ -250,8 +254,8 @@ longer knows them.
   is deleted.
 - **A pet that bows**: AI Ask's pets have a new moment, **Bowing thanks**. Only a pet that has it can be chosen
   for a person answering; with a picture as the face, a thank-you picture can be given beside it.
-- **Awaiting reply**: the tab of chats whose visitor wrote last and no one answered yet, the longest waiting
-  first, with how long they have waited. Chats that ended unanswered are under **Unhandled** (above).
+- **To take**: the tab of chats whose visitor wrote last and no one answered yet, the longest waiting
+  first, with how long they have waited. Chats that ended unanswered are under **To answer** (above).
 
 ## What is kept
 

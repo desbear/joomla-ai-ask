@@ -32,7 +32,8 @@ export const makeApi = (config) => {
     }
 
     if (data.error) {
-      throw new Error(data.error);
+      // Why, when the source says (0.6.1): not this person's to change, under review
+      throw Object.assign(new Error(data.error), { detail: data.detail || '', locked: data.locked || '' });
     }
 
     return data;
@@ -105,6 +106,8 @@ export const makeApi = (config) => {
     },
 
     update: (body) => post(config.urls.sourceUpdate, body),
+    // A record deleted, for good (0.6.1; a source that can)
+    remove: (body) => post(config.urls.sourceDelete, body),
 
     // What was fetched for a template is old: fetched again when next asked
     forget(source, template) {

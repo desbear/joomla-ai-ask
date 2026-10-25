@@ -89,6 +89,10 @@
 		<field name="privacy_url" type="url" filter="url" validate="url"
 			label="COM_ASKDESK_CONFIG_PRIVACY_URL" description="COM_ASKDESK_CONFIG_PRIVACY_URL_DESC" />
 	</fieldset>
+	<fieldset name="side" label="COM_ASKDESK_CONFIG_SIDE" description="COM_ASKDESK_CONFIG_SIDE_DESC" addfieldprefix="Gss\Component\Askdesk\Administrator\Field">
+		<field name="side_hidden" type="sidecards" multiple="true"
+			label="COM_ASKDESK_CONFIG_SIDE_HIDDEN" description="COM_ASKDESK_CONFIG_SIDE_HIDDEN_DESC" />
+	</fieldset>
 	<fieldset name="library" label="COM_ASKDESK_CONFIG_LIBRARY" description="COM_ASKDESK_CONFIG_LIBRARY_DESC">
 		<field name="library_root" type="sql" default="0" filter="integer" key_field="value" value_field="text"
 			query="SELECT id AS value, CONCAT(REPEAT('- ', level - 1), title) AS text FROM #__categories WHERE extension = 'com_dropfiles' AND published = 1 ORDER BY lft"

@@ -159,10 +159,12 @@ final class Boards
             $o = $mine[$t['id']] ?? null;
 
             if ($o) {
-                // Where they put it, how large, its columns: theirs; the rest the template's
-                $out[] = ['x' => $o['x'], 'y' => $o['y'], 'w' => $o['w'], 'h' => $o['h'], 'cols' => $o['cols'], 'freeze' => $o['freeze']] + $t;
+                // Where they put it, how large, its columns, the name they gave it: theirs; the rest the template's
+                $placed = ['x' => $o['x'], 'y' => $o['y'], 'w' => $o['w'], 'h' => $o['h'], 'cols' => $o['cols'], 'freeze' => $o['freeze']];
+                $out[]  = ($o['named'] ? ['title' => $o['title'], 'named' => true] : ['named' => false]) + $placed + ['base' => $t['title']] + $t;
             } elseif ($keepTemplate) {
-                $out[] = $t;
+                // Its name as the template has it (what a name of one's own gives way to)
+                $out[] = ['base' => $t['title']] + $t;
             }
         }
 
@@ -218,6 +220,10 @@ final class Boards
                 'cols'     => $cols,
                 // Of the dashboard template (0.6.0): kept by everyone, its content the template's
                 'tpl'      => !empty($widget['tpl']),
+                // Named by this person (0.6.1): a template widget keeps the name they gave it
+                'named'    => !empty($widget['named']) && $text($widget['title'] ?? '', 120) !== '',
+                // A change to many records at once made at once (0.6.1); else said first, to confirm
+                'batchDirect' => !empty($widget['batchDirect']),
             ];
         }
 

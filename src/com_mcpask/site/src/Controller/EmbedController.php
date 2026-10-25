@@ -109,6 +109,8 @@ class EmbedController extends BaseController
                     'host'  => $host,
                     'side'  => $params->get('side', 'right') === 'left' ? 'left' : 'right',
                     'login' => $params->get('login', 1) ? Route::_('index.php?option=com_mcpask&task=embed.login&key=' . $embed->public_key . '&format=raw', false) : '',
+                    // The embed script's version now: a page holding an older one takes this (0.20.7)
+                    'script' => Embeds::scriptVersion(),
                 ],
             ], JSON_UNESCAPED_UNICODE),
         ];
@@ -132,7 +134,7 @@ class EmbedController extends BaseController
             '<title>', $e($params->get('title', '') ?: $this->app->get('sitename')), '</title>',
             $css ? '<link rel="stylesheet" href="' . $e($url($css)) . '">' : '',
             // Nothing of this page shows but the button and the conversation: the other website shows through
-            '<style>html,body{margin:0;padding:0;background:transparent!important;color-scheme:normal}</style>',
+            '<style>html,body{margin:0;padding:0;background:transparent!important;color-scheme:normal}body{font-family:system-ui,-apple-system,"Segoe UI","PingFang TC","Microsoft JhengHei","Noto Sans TC",sans-serif}</style>',
             $theme !== '' ? '<style>' . $theme . '</style>' : '',
             '</head><body>', $html,
             $js ? '<script src="' . $e($url($js)) . '" defer></script>' : '',

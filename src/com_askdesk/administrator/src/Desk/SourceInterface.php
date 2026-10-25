@@ -26,6 +26,9 @@ namespace Gss\Component\Askdesk\Administrator\Desk;
  *
  * Text only: nothing in it is read as HTML.
  *
+ * A source may also have remove(object $staff, string $template, string $row): void (0.6.1), a record
+ * deleted from the dashboard (asked first there, always: it is for good).
+ *
  * @since  0.5.0
  */
 interface SourceInterface
@@ -61,7 +64,8 @@ interface SourceInterface
     /**
      * A page of a template's records: {page, size (100 at most), query (words), mine (only this
      * person's), from, to (days Y-m-d, in the site's time, either empty: the records made in that time,
-     * 0.6.0)}.
+     * 0.6.0)}. A row may say it is not this person's to change (locked, 0.6.1: 'review' under review,
+     * 'denied' not theirs), shown greyed and left out of a batch change.
      *
      * @param   array{page: int, size: int, query: string, mine: bool, from?: string, to?: string}  $query
      *

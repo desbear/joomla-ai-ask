@@ -1,0 +1,17 @@
+{
+  "name": "askdesk-preview",
+  "private": true,
+  "description": "AI Ask Desk's viewer of documents in a chat (PDF, Word, Excel), built into com_askdesk/media; loaded only when a document is opened",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "docx-preview": "0.3.3",
+    "pdfjs-dist": "4.4.168",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
+  "devDependencies": {
+    "esbuild": "0.21.5"
+  }
+}

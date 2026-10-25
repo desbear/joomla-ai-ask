@@ -219,7 +219,7 @@
 .adb-chev { width: 12px; height: 12px; opacity: .7; transition: transform .2s; }
 .adb-chev.shut { transform: rotate(-90deg); }
 /* Its own paint box: Safari otherwise lets the frozen (sticky) cells draw outside the scroll area */
-.adb-dt__scroll { position: relative; min-height: 0; overflow: auto; contain: paint; isolation: isolate; }
+.adb-dt__scroll { grid-row: 2; position: relative; min-height: 0; overflow: auto; contain: paint; isolation: isolate; }
 .adb-dt__table { min-width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; color: var(--adb-g800); font-size: 13px; }
 .adb-dt__table th, .adb-dt__table td { height: 40px; padding: 0 12px; overflow: hidden; border-bottom: 1px solid var(--adb-g300); background: var(--adb-surface); text-align: left; text-overflow: ellipsis; white-space: nowrap; }
 .adb-dt__table thead { position: sticky; top: 0; z-index: 30; }
@@ -254,8 +254,25 @@
 .adb-dt__open:hover { border-color: var(--adb-primary); color: var(--adb-primary); }
 .adb-dt__row:hover .adb-dt__open, .adb-dt__open:focus-visible { display: inline-flex; align-items: center; }
 .adb-rs { position: absolute; top: 0; right: 0; bottom: 0; z-index: 3; width: 8px; cursor: col-resize; touch-action: none; }
-.adb-guide { position: absolute; z-index: 70; width: 2px; background: var(--adb-primary); pointer-events: none; }
+@property --adb-rs-line { syntax: '<color>'; inherits: true; initial-value: #dcdfe4; }
+/* A column's edge: always a faint line, clear in the middle and fading at both ends; pointed at, blue; pressed,
+   one clear blue line grown down the whole table */
+.adb-rs::after { content: ""; position: absolute; top: 22%; bottom: 22%; right: 0; width: 1px; background: linear-gradient(to bottom, rgba(0, 0, 0, 0), var(--adb-rs-line) 50%, rgba(0, 0, 0, 0)); transition: top 0.2s ease, bottom 0.2s ease, --adb-rs-line 0.2s ease, opacity 0.2s ease; }
+.adb-rs:hover::after { --adb-rs-line: var(--adb-primary); top: 12%; bottom: 12%; }
+.adb-rs.is-on::after { opacity: 0; }
+.adb-guide { position: absolute; z-index: 70; width: 2px; border-radius: 2px; background: var(--adb-primary); pointer-events: none; transition: height 0.32s cubic-bezier(0.22, 1, 0.36, 1); }
+@media (prefers-color-scheme: dark) { .adb-rs::after { --adb-rs-line: #3a4150; } }
+@media (prefers-reduced-motion: reduce) { .adb-guide, .adb-rs::after { transition: none; } }
 body.adb-resizing, body.adb-resizing * { cursor: col-resize !important; user-select: none; }
+body.adb-sorting, body.adb-sorting * { cursor: grabbing !important; user-select: none; }
+.adb-dt__table th.movable { cursor: grab; }
+.adb-dt__table th.is-lifted { background: var(--adb-primary-soft); color: rgba(14, 134, 254, 0.45); }
+/* A heading being moved: a tag with its name lifted off the table (a shadow beneath), carried sideways */
+@keyframes adb-coltag-lift { from { transform: translateY(-50%) scale(0.9); box-shadow: 0 0 0 rgba(15, 23, 42, 0); } }
+.adb-coltag { position: fixed; z-index: 10000; display: inline-flex; align-items: center; height: 32px; padding: 0 14px; border: 1px solid var(--adb-primary, #0e86fe); border-radius: 8px; background: #fff; color: var(--adb-primary, #0e86fe); font-size: 13px; font-weight: 500; white-space: nowrap; pointer-events: none; transform: translateY(-50%) rotate(-1.5deg); box-shadow: 0 10px 24px -6px rgba(15, 23, 42, 0.28), 0 2px 6px rgba(15, 23, 42, 0.1); animation: adb-coltag-lift 0.18s cubic-bezier(0.22, 1, 0.36, 1); transition: opacity 0.18s ease, transform 0.18s ease; }
+.adb-coltag.is-dropped { opacity: 0; transform: translateY(-50%) scale(0.92); }
+@media (prefers-color-scheme: dark) { .adb-coltag { background: #1f2533; box-shadow: 0 10px 24px -6px rgba(0, 0, 0, 0.6); } }
+@media (prefers-reduced-motion: reduce) { .adb-coltag { animation: none; transition: none; } }
 .adb-dt__foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 16px; padding: 8px 14px; border-top: 1px solid var(--adb-g300); color: var(--adb-g600); font-size: 12px; font-variant-numeric: tabular-nums; }
 .adb-cb { width: 16px; height: 16px; margin: 0; accent-color: var(--adb-primary); cursor: pointer; vertical-align: middle; }
 .adb-cv { display: inline-flex; align-items: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
@@ -333,6 +350,14 @@ body.adb-resizing, body.adb-resizing * { cursor: col-resize !important; user-sel
 .adb-fields { display: grid; gap: 4px; }
 .adb-field { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border: 1px solid var(--adb-line); border-radius: 8px; background: var(--adb-surface); font-size: 13px; cursor: pointer; }
 .adb-field input { accent-color: var(--adb-accent); }
+.adb-field { position: relative; }
+.adb-fgrip { display: grid; flex: none; place-items: center; width: 14px; height: 22px; margin: 0 -2px 0 -4px; padding: 0; border: 0; border-radius: 4px; background: none; color: var(--adb-faint); cursor: grab; touch-action: none; }
+.adb-fgrip:hover, .adb-fgrip:focus-visible { color: var(--adb-primary); background: var(--adb-line); outline: none; }
+span.adb-fgrip { cursor: default; }
+.adb-field.is-lifted { opacity: .5; }
+.adb-field.is-drop::before, .adb-field.is-drop-after::after { content: ''; position: absolute; left: 0; right: 0; height: 2px; border-radius: 2px; background: var(--adb-primary); }
+.adb-field.is-drop::before { top: -4px; }
+.adb-field.is-drop-after::after { bottom: -4px; }
 .adb-ftype { margin-left: auto; padding: 0 6px; border-radius: 4px; background: var(--adb-line); color: var(--adb-muted); font-size: 11px; }
 .adb-sizeinfo { margin: 14px 0 0; color: var(--adb-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .adb-scrim { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 16px; background: rgba(15, 12, 40, .4); }
@@ -886,3 +911,178 @@ body.adb-resizing, body.adb-resizing * { cursor: col-resize !important; user-sel
 .adb-menu__sep { height: 1px; margin: 8px 12px; background: var(--vt-g300, rgba(35, 35, 50, .15)); }
 .adb-menu__label { padding: 2px 12px 4px; color: var(--vt-g500, rgba(35, 35, 50, .4)); font-size: 12px; font-weight: 500; }
 .adb-menu { max-height: 360px; overflow-y: auto; }
+
+/* A widget's name changed in place: an input where its heading was */
+.adb-w__name { flex: 1; min-width: 0; height: 28px; padding: 0 8px; border: 1px solid var(--vt-primary-500, #0e86fe); border-radius: 4px; background: var(--vt-white, #fff); color: var(--vt-g900, #232332); font: inherit; font-size: 16px; font-weight: 500; outline: none; box-shadow: var(--vt-focus-ring, 0 0 0 2px rgba(14, 134, 254, .2)); }
+.adb-w__head h3 { cursor: text; }
+.adb.is-edit .adb-w__head h3 { cursor: inherit; }
+
+/* On a phone (0.6.1): the bar on one line, its tools round icon buttons (their menus as they are); one not
+   as it is at first (a search typed, someone chosen, a time chosen) with a small blue dot; the search opens
+   across the whole bar to type in */
+.adb-bar--phone { flex-wrap: nowrap; gap: 8px; padding: 12px 14px 10px; }
+.adb-bar--phone .adb-bar__title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.adb-tools--icons { display: flex; flex: none; flex-wrap: nowrap; gap: 6px; width: auto; }
+.adb-tool { position: relative; display: grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 1px solid var(--adb-line-strong); border-radius: 50%; background: var(--adb-surface); color: var(--vt-g800, var(--adb-fg)); cursor: pointer; transition: border-color 0.2s, color 0.2s; }
+.adb-tool .adb-icon { width: 18px; height: 18px; }
+.adb-tool:hover, .adb-tool:focus-visible { border-color: var(--adb-primary); color: var(--adb-primary); outline: none; }
+.adb-tool[aria-pressed="true"]::after { content: ""; position: absolute; top: 1px; right: 1px; width: 9px; height: 9px; border: 2px solid var(--adb-surface); border-radius: 50%; background: var(--adb-primary); box-sizing: border-box; }
+.adb-tool--main { border: 0; background: linear-gradient(135deg, #5ac8fa, #1e6ff0); color: #fff; box-shadow: 0 6px 16px rgba(30, 111, 240, 0.35); }
+.adb-tool--main:hover, .adb-tool--main:focus-visible { color: #fff; }
+.adb-tool--main:disabled { opacity: 0.45; box-shadow: none; cursor: default; }
+.adb-bar--phone.is-searching { gap: 8px; }
+.adb-bar--phone .adb-search--wide { flex: 1; min-width: 0; height: 40px; }
+.adb-bar--phone .adb-search--wide input { flex: 1; width: auto; min-width: 0; }
+
+/* The phone bar's buttons: their own colours over the board's buttons (which take their parent's) */
+.adb .adb-tool { color: var(--vt-g800, var(--adb-fg)); }
+.adb .adb-tool:hover, .adb .adb-tool:focus-visible { color: var(--adb-primary); }
+.adb .adb-tool--main, .adb .adb-tool--main:hover, .adb .adb-tool--main:focus-visible { color: #fff; }
+
+/* The record last opened from a widget: its row a pale blue (the frozen cells too), easing in and out */
+.adb-dt__row td { transition: background-color 0.25s ease; }
+.adb .adb-dt__row.is-open td, .adb .adb-dt__row.is-open:hover td { background: #edf5ff; }
+@media (prefers-color-scheme: dark) {
+  .adb .adb-dt__row.is-open td, .adb .adb-dt__row.is-open:hover td { background: #1b2c45; }
+}
+
+/* A menu or popover comes in from the side of what opened it: fading in, a few pixels from its button
+   (down from one above it, up from one below); one still being placed is not seen */
+@keyframes adb-pop-down { from { opacity: 0; transform: translateY(-10px); } }
+@keyframes adb-pop-up { from { opacity: 0; transform: translateY(10px); } }
+.adb-pop { animation: adb-pop-down 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.adb-pop.is-up { animation-name: adb-pop-up; }
+.adb-pop.is-waiting { visibility: hidden; animation: none; }
+@media (prefers-reduced-motion: reduce) { .adb-pop { animation: none; } }
+
+/* On a phone (0.6.1): a widget opened whole has a slim head: its name, the settings as an icon, its link
+   and closing; the form's name (said in the name) not again */
+.adb.is-phone .adb-full__head { flex-wrap: nowrap; gap: 4px; }
+.adb.is-phone .adb-full__head h2 { min-width: 0; overflow: hidden; font-size: 16px; text-overflow: ellipsis; white-space: nowrap; }
+.adb.is-phone .adb-full__head .adb-form { display: none; }
+.adb.is-phone .adb-full__set { width: 32px; padding: 0; justify-content: center; }
+.adb.is-phone .adb-full__set span { display: none; }
+
+/* ---------- Records picked, changed together (0.6.1) ---------- */
+.adb-dt--full { position: relative; }
+
+/* A cell on one line: what does not fit ends in … (a cell that wrapped made its row taller than the list
+   counts on, and the rows ran over one another) */
+.adb .adb-dt__table td, .adb .adb-dt__table th { white-space: nowrap; word-break: normal; overflow-wrap: normal; }
+.adb .adb-dt__table td .adb-cv, .adb .adb-dt__table td .adb-ed, .adb .adb-dt__table td .adb-ed * { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; word-break: normal; }
+
+/* Not this person's to change: greyed, a lock by its first cell, not changed in place */
+.adb-dt__row.is-locked td:not(.sel) { opacity: 0.5; }
+.adb-dt__row.is-locked { cursor: not-allowed; }
+.adb-lock { display: inline-grid; vertical-align: -2px; margin-right: 6px; color: var(--vt-g500, #888); }
+.adb-lock .adb-icon { width: 13px; height: 13px; }
+
+/* Being saved: one band of light sweeping along the whole row (each cell draws its own slice of it,
+   placed by where the cell sits: --x, in a row --w wide); saved, a green breath; not, a red one */
+@keyframes adb-row-sweep { from { background-position: calc(-320px - var(--x, 0px)) 0; } to { background-position: calc(var(--w, 1000px) - var(--x, 0px)) 0; } }
+@keyframes adb-row-ok { from { background-color: #e3f6ea; } }
+@keyframes adb-row-no { 0%, 40% { background-color: #fde6e6; } }
+.adb .adb-dt__row.is-saving td { background-image: linear-gradient(90deg, transparent 0%, rgba(14, 134, 254, 0.16) 50%, transparent 100%); background-size: 320px 100%; background-repeat: no-repeat; animation: adb-row-sweep 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+.adb .adb-dt__row.is-saved td { animation: adb-row-ok 1.4s ease-out; }
+.adb .adb-dt__row.is-failed td { animation: adb-row-no 1.6s ease-out; }
+
+/* The bar of what is picked: dark, at the foot of the table, risen into view */
+@keyframes adb-batch-in { 0% { opacity: 0; transform: translate(-50%, 72px) scale(0.96); } 60% { opacity: 1; } 100% { transform: translate(-50%, 0) scale(1); } }
+.adb-batch { position: absolute; left: 50%; bottom: 44px; z-index: 30; display: flex; align-items: center; gap: 10px; max-width: calc(100% - 24px); min-height: 48px; padding: 6px 8px 6px 10px; border-radius: 14px; background: #1f2329; color: #fff; box-shadow: 0 18px 40px -12px rgba(10, 10, 30, 0.55); transform: translateX(-50%); animation: adb-batch-in 0.45s cubic-bezier(0.22, 1.25, 0.36, 1); transition: background-color 0.25s ease; overflow: hidden; white-space: nowrap; }
+.adb-batch__n { display: grid; place-items: center; min-width: 28px; height: 28px; padding: 0 8px; border-radius: 999px; background: var(--adb-primary); font-size: 13px; font-variant-numeric: tabular-nums; box-sizing: border-box; }
+.adb-batch__what { display: inline-flex; align-items: baseline; gap: 8px; font-size: 13px; }
+.adb-batch__what small { color: rgba(255, 255, 255, 0.6); font-size: 12px; }
+.adb-batch__sep { width: 1px; height: 22px; background: rgba(255, 255, 255, 0.16); }
+.adb .adb-batch__act, .adb .adb-batch__x { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px; border: 0; border-radius: 9px; background: none; color: #fff; font-size: 13px; transition: background-color 0.2s; }
+.adb-batch__act:hover, .adb-batch__x:hover { background: rgba(255, 255, 255, 0.12); }
+.adb-batch__act:disabled { opacity: 0.4; cursor: default; }
+.adb .adb-batch__act--danger { color: #ff8a80; }
+.adb .adb-batch__act--danger:hover { background: rgba(255, 82, 82, 0.16); }
+.adb-batch__x { padding: 0 8px; }
+.adb .adb-batch__go { height: 34px; padding: 0 14px; border: 0; border-radius: 9px; background: #fff; color: #b42318; font-size: 13px; font-weight: 500; }
+.adb-batch > .adb-icon { width: 18px; height: 18px; }
+
+/* To confirm: red, a flash as it turns */
+@keyframes adb-batch-flash { 0%, 50% { background-color: #ef4444; } }
+.adb-batch.is-confirm { background: #b42318; animation: adb-batch-flash 0.6s ease-out; }
+
+/* Being done: a line along its foot, filling */
+.adb-batch.is-run, .adb-batch.is-done { padding-right: 16px; }
+.adb-batch__progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255, 255, 255, 0.12); }
+.adb-batch__progress::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--p, 0%); background: #3ddc84; transition: width 0.3s ease; }
+.adb-batch .adb-dots i { background: #fff; }
+
+/* Done: a tick drawn in a circle */
+@keyframes adb-tick-ring { from { stroke-dashoffset: 63; } }
+@keyframes adb-tick-mark { from { stroke-dashoffset: 16; } }
+.adb-batch__tick { width: 22px; height: 22px; fill: none; stroke: #3ddc84; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.adb-batch__tick circle { stroke-dasharray: 63; animation: adb-tick-ring 0.45s ease-out; }
+.adb-batch__tick path { stroke-dasharray: 16; animation: adb-tick-mark 0.3s ease-out 0.35s backwards; }
+
+.adb-edlist__head { margin: 4px 12px 6px; color: var(--vt-g500, #888); font-size: 12px; }
+.adb-batchtext { display: grid; gap: 8px; padding: 4px 10px 8px; min-width: 220px; }
+.adb-batchtext input { height: 34px; padding: 0 10px; border: 1px solid var(--adb-line-strong); border-radius: 8px; }
+.adb-check-row { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; line-height: 1.5; }
+
+@media (prefers-reduced-motion: reduce) {
+  .adb-batch, .adb-batch.is-confirm, .adb .adb-dt__row.is-saving td, .adb .adb-dt__row.is-saved td, .adb .adb-dt__row.is-failed td, .adb-batch__tick circle, .adb-batch__tick path { animation: none; }
+}
+
+/* Picked rows: a light blue; the cell under the pointer, and the same column in every picked row with it,
+   ringed in blue (what a change there reaches), easing in and out */
+.adb .adb-dt__row.is-sel td, .adb .adb-dt__row.is-sel:hover td { background-color: #f0f7ff; }
+.adb .adb-dt__row.is-sel td:not(.pin) { position: relative; }
+.adb .adb-dt__row.is-sel td::after { content: ""; position: absolute; inset: 1px; border: 1.5px solid var(--adb-primary); border-radius: 6px; opacity: 0; transform: scale(0.97); pointer-events: none; transition: opacity 0.22s ease, transform 0.22s ease; }
+.adb .adb-dt__row.is-sel td.sel::after, .adb .adb-dt__row.is-sel td.act::after, .adb .adb-dt__row.is-sel td.fill::after { content: none; }
+.adb .adb-dt__row.is-sel td.is-hot { background-color: #e3f0ff; }
+.adb .adb-dt__row.is-sel td.is-hot::after { opacity: 1; transform: none; }
+@media (prefers-color-scheme: dark) {
+  .adb .adb-dt__row.is-sel td, .adb .adb-dt__row.is-sel:hover td { background-color: #18263b; }
+  .adb .adb-dt__row.is-sel td.is-hot { background-color: #1d3150; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .adb .adb-dt__row.is-sel td::after { transition: none; }
+}
+
+/* Loading: the widget's shape in grey, a light sweeping across (rows, bars, a ring), each part in a little after
+   the one before */
+@keyframes adb-sk-sweep { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+@keyframes adb-sk-in { from { opacity: 0; } }
+.adb-sk { display: flex; flex-direction: column; height: 100%; min-height: 0; padding: 12px 16px; box-sizing: border-box; overflow: hidden; animation: adb-sk-in 0.3s ease both; }
+.adb-sk__b { display: block; flex: none; border-radius: 6px; background: linear-gradient(90deg, #eef0f3 0%, #eef0f3 40%, #f7f8fa 50%, #eef0f3 60%, #eef0f3 100%) 0 0 / 300% 100%, #eef0f3; animation: adb-sk-sweep 1.6s ease-in-out infinite; animation-delay: var(--d, 0ms); }
+.adb-sk__b.is-round { border-radius: 999px; }
+.adb-sk__table { display: flex; flex-direction: column; margin: -12px -16px; }
+.adb-sk__row { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 16px; align-items: center; height: 44px; padding: 0 16px; border-bottom: 1px solid var(--adb-line, #eceef1); animation: adb-sk-in 0.3s ease both; animation-delay: var(--d, 0ms); }
+.adb-sk__row.is-head { height: 36px; }
+.adb-sk__row .adb-sk__b { --d: inherit; }
+.adb-sk__number { display: grid; place-content: center; justify-items: center; gap: 12px; height: 100%; }
+.adb-sk__number .adb-sk__b, .adb-sk__battery .adb-sk__b { min-width: 60px; }
+.adb-sk__battery { display: grid; place-content: center; justify-items: center; gap: 12px; height: 100%; }
+.adb-sk__cell { width: min(220px, 70%); height: 44px; border-radius: 10px; }
+.adb-sk__pie { display: flex; align-items: center; justify-content: center; gap: 24px; height: 100%; }
+.adb-sk__ring { width: min(150px, 42%); aspect-ratio: 1; border-radius: 50%; }
+.adb-sk__ring.is-hollow { -webkit-mask: radial-gradient(circle, transparent 46%, #000 47%); mask: radial-gradient(circle, transparent 46%, #000 47%); }
+.adb-sk__legend { display: grid; gap: 12px; width: 32%; }
+.adb-sk__legend span { display: flex; align-items: center; gap: 8px; }
+.adb-sk__bars { display: flex; align-items: flex-end; gap: 6%; height: 100%; padding: 8px 4px 0; border-bottom: 1px solid var(--adb-line, #eceef1); box-sizing: border-box; }
+.adb-sk__bars .adb-sk__b { flex: 1; border-radius: 6px 6px 0 0; }
+.adb-sk__hbars { display: grid; align-content: center; gap: 14px; height: 100%; }
+.adb-sk__hbars > div { display: flex; align-items: center; gap: 12px; }
+.adb-sk-over { inset: 0; top: 40px; background: var(--adb-surface, #fff); }
+.adb-sk-over .adb-sk { padding-top: 12px; }
+@media (prefers-color-scheme: dark) {
+  .adb-sk__b { background: linear-gradient(90deg, #252a35 0%, #252a35 40%, #2f3542 50%, #252a35 60%, #252a35 100%) 0 0 / 300% 100%, #252a35; }
+}
+@media (prefers-reduced-motion: reduce) { .adb-sk, .adb-sk__b, .adb-sk__row { animation: none; } }
+
+/* The grey kept over what loaded until it is drawn, then faded */
+@keyframes adb-sk-out { to { opacity: 0; visibility: hidden; } }
+.adb-sk-cover { position: absolute; inset: 0; z-index: 5; padding: inherit; background: var(--adb-surface, #fff); pointer-events: none; }
+.adb-sk-cover.adb-sk-over { top: 40px; padding: 0; }
+.adb-sk-cover.is-out { animation: adb-sk-out 0.35s ease 0.1s forwards; }
+.adb-sk-cover .adb-sk, .adb-sk-cover .adb-sk__row { animation-name: none; }
+.adb-sk-cover .adb-sk__b { animation-name: adb-sk-sweep; }
+@media (prefers-reduced-motion: reduce) { .adb-sk-cover.is-out { animation-duration: 0.01s; animation-delay: 0s; } }
+
+/* The board under a widget opened whole: each widget kept as it is (state, scroll, charts) but not drawn */
+.adb-scroll.is-covered .adb-w { content-visibility: hidden; }

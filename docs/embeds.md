@@ -3,8 +3,13 @@
 Put AI Ask on another website or web application with one line of script. Set up an embed key under **AI Ask → Embeds**; its page gives the line to copy:
 
 ```html
-<script src="https://your-joomla-site/media/mod_mcp_ask/js/embed.js" data-key="pk_…" async></script>
+<script src="https://your-joomla-site/media/mod_mcp_ask/js/embed.js?v=0.20.7-1761300000" data-key="pk_…" async></script>
 ```
+
+The `v` is the script's version (the module's version and when the file last changed). Browsers keep the file
+long; a page holding an older copy is told the current version by the frame and takes it, then remembers it for
+the website's next pages, so a line written once keeps working as AI Ask is updated (0.20.7). Copying the line
+again after an update saves that first step.
 
 The script puts a frame of your Joomla site in a corner of the page: the size of the button, of the open search box, or of the whole window for the conversation. What is asked and answered stays in the frame; the other website cannot read it.
 

@@ -1766,13 +1766,18 @@ html.askdesk-app body {
   color: var(--askdesk-text) !important;
 }
 
+/* A picture's card keeps its width (as it was), the picture filling it: as tall as the picture is for that width,
+   never cut nor stretched (0.6.1; held to a height before, a wide one came narrower than its card) */
+.askdesk-msg--file .askdesk-msg__bubble:has(> .askdesk-file > .askdesk-file__image) {
+  inline-size: min(400px, 100%);
+}
+
 .askdesk-file__image {
   display: block;
-  max-inline-size: min(320px, 100%);
-  max-block-size: 260px;
+  inline-size: 100%;
+  block-size: auto;
   border-radius: 12px;
   cursor: zoom-in;
-  object-fit: cover;
 }
 
 .askdesk-file__video {
@@ -1822,6 +1827,34 @@ html.askdesk-app body {
   span {
     color: var(--askdesk-muted);
     font-size: 12px;
+  }
+}
+
+/* A document in a message: the whole card answers the pointer, lifting a little on a wide, faint shadow.
+   `translate`, not `transform`, so the pop-in animation (which holds its transform) does not override it */
+.askdesk-msg--file .askdesk-msg__bubble:has(> .askdesk-file > .askdesk-file__doc) {
+  transition:
+    box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    translate 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+
+  &:hover,
+  &:focus-within {
+    translate: 0 -2px;
+    box-shadow:
+      0 0 0 0.5px var(--askdesk-line-strong),
+      0 16px 40px -12px rgba(35, 35, 60, 0.18),
+      0 6px 14px -8px rgba(35, 35, 60, 0.1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk-msg--file .askdesk-msg__bubble:has(> .askdesk-file > .askdesk-file__doc) {
+    transition: none;
+
+    &:hover,
+    &:focus-within {
+      translate: none;
+    }
   }
 }
 
@@ -3951,8 +3984,76 @@ button.askdesk-me {
     radial-gradient(30% 30% at 56% 56%, var(--askdesk-wash-1) 0%, transparent 70%),
     linear-gradient(160deg, var(--askdesk-wash-0), var(--askdesk-wash-2) 60%, var(--askdesk-wash-3));
     will-change: transform;
-    animation: askdesk-wash-drift 26s ease-in-out infinite alternate;
+    animation: askdesk-wash-drift 18s ease-in-out infinite alternate;
   }
+}
+
+/* Glows of colour over the wash, wandering each at its own pace: an uneven shape (a few soft spots of one
+   colour, off centre) turning as it goes, so the light changes shape, not only place. Only moved and turned,
+   never redrawn. The colours are the status's own, kept soft */
+.askdesk__glow {
+  position: absolute;
+  z-index: 1;
+  /* Smaller than the window and laid over (no blending): what the screen moves each frame is a quarter
+     of what it was (0.6.1) */
+  inline-size: 75vmax;
+  block-size: 65vmax;
+  opacity: var(--askdesk-glow-strength, 0.4);
+  will-change: transform;
+  pointer-events: none;
+}
+
+.askdesk__glow--1 {
+  inset-block-start: -30vmax;
+  inset-inline-start: -25vmax;
+  background:
+    radial-gradient(30% 34% at 42% 46%, var(--askdesk-glow-1) 0%, transparent 70%),
+    radial-gradient(22% 26% at 62% 38%, var(--askdesk-glow-1) 0%, transparent 72%),
+    radial-gradient(18% 20% at 36% 66%, var(--askdesk-glow-2) 0%, transparent 72%);
+  animation: askdesk-glow-a 23s ease-in-out infinite alternate;
+}
+
+.askdesk__glow--2 {
+  inset-block-end: -35vmax;
+  inset-inline-start: 5vmax;
+  background:
+    radial-gradient(28% 30% at 50% 50%, var(--askdesk-glow-2) 0%, transparent 70%),
+    radial-gradient(20% 30% at 30% 40%, var(--askdesk-glow-2) 0%, transparent 72%),
+    radial-gradient(22% 18% at 68% 64%, var(--askdesk-glow-3) 0%, transparent 72%);
+  animation: askdesk-glow-b 29s ease-in-out infinite alternate;
+  animation-delay: -9s;
+}
+
+.askdesk__glow--3 {
+  inset-block-start: -10vmax;
+  inset-inline-end: -40vmax;
+  background:
+    radial-gradient(26% 32% at 48% 52%, var(--askdesk-glow-3) 0%, transparent 70%),
+    radial-gradient(24% 20% at 30% 62%, var(--askdesk-glow-3) 0%, transparent 72%),
+    radial-gradient(16% 22% at 64% 34%, var(--askdesk-glow-1) 0%, transparent 72%);
+  animation: askdesk-glow-c 19s ease-in-out infinite alternate;
+  animation-delay: -5s;
+}
+
+@keyframes askdesk-glow-a {
+  0% { transform: translate(0, 0) rotate(0deg) scale(1); }
+  30% { transform: translate(18vmax, 8vmax) rotate(40deg) scale(1.15); }
+  65% { transform: translate(8vmax, 22vmax) rotate(95deg) scale(0.92); }
+  100% { transform: translate(26vmax, 14vmax) rotate(140deg) scale(1.1); }
+}
+
+@keyframes askdesk-glow-b {
+  0% { transform: translate(0, 0) rotate(0deg) scale(1.05); }
+  40% { transform: translate(-6vmax, -20vmax) rotate(-50deg) scale(0.9); }
+  75% { transform: translate(22vmax, -12vmax) rotate(-110deg) scale(1.18); }
+  100% { transform: translate(14vmax, -26vmax) rotate(-150deg) scale(1); }
+}
+
+@keyframes askdesk-glow-c {
+  0% { transform: translate(0, 0) rotate(0deg) scale(0.95); }
+  35% { transform: translate(-20vmax, 12vmax) rotate(60deg) scale(1.12); }
+  70% { transform: translate(-30vmax, -4vmax) rotate(120deg) scale(1); }
+  100% { transform: translate(-14vmax, 20vmax) rotate(170deg) scale(1.2); }
 }
 
 .askdesk-main {
@@ -3968,15 +4069,15 @@ button.askdesk-me {
 
 @keyframes askdesk-wash-drift {
   0% {
-    transform: translate(-5%, -4%) rotate(0deg) scale(1);
+    transform: translate(-10%, -8%) rotate(0deg) scale(1);
   }
 
   50% {
-    transform: translate(3%, 2%) rotate(5deg) scale(1.06);
+    transform: translate(6%, 5%) rotate(9deg) scale(1.08);
   }
 
   100% {
-    transform: translate(5%, -2%) rotate(-4deg) scale(1.1);
+    transform: translate(10%, -6%) rotate(-7deg) scale(1.14);
   }
 }
 
@@ -4299,6 +4400,8 @@ button.askdesk-me {
 
 @media (prefers-reduced-motion: reduce) {
   .askdesk__wash,
+  .askdesk__wash::before,
+  .askdesk__glow,
   .askdesk-presence__dot {
     animation: none;
   }
@@ -4477,9 +4580,10 @@ button.askdesk-me {
 }
 
 /* What scrolls fades out at its top and bottom edges */
-/* (only at an edge with more beyond it: the top once scrolled down, the bottom until the end) */
+/* (only at an edge with more beyond it: the top once scrolled down, the bottom until the end). Not the side's
+   list: a mask there would leave its frosted account at the foot nothing to blur (a masked box is where a
+   backdrop filter stops looking), and the account covers that edge anyway */
 .askdesk-room__aside-scroll,
-.askdesk-inbox,
 .askdesk-log {
   --askdesk-fade-top: 0px;
   --askdesk-fade-bottom: 0px;
@@ -4764,6 +4868,54 @@ button.askdesk-me {
 
 .askdesk-history__title {
   margin: 12px 0 2px;
+}
+
+/* Past chats and questions as a timeline (0.6.1): a line down the left, a dot at each, the latest on top */
+.askdesk-history__chat,
+.askdesk-history__question {
+  position: relative;
+  margin-inline-start: 6px;
+  padding-inline-start: 16px;
+  border-block-end: 0;
+  border-inline-start: 1.5px solid var(--askdesk-line-strong);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset-block-start: 14px;
+    inset-inline-start: -5.5px;
+    inline-size: 9px;
+    block-size: 9px;
+    box-sizing: border-box;
+    border: 2px solid var(--askdesk-surface);
+    border-radius: 50%;
+    background: var(--askdesk-accent);
+    box-shadow: 0 0 0 1px var(--askdesk-line-strong);
+  }
+
+  &:hover {
+    border-radius: 0 var(--askdesk-radius-sm) var(--askdesk-radius-sm) 0;
+  }
+}
+
+/* The latest: a ring, the rest quieter */
+.askdesk-history__title + .askdesk-history__chat::before,
+.askdesk-history__title + .askdesk-history__question::before {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--askdesk-accent) 22%, transparent);
+}
+
+.askdesk-history__chat:not(.askdesk-history__title + *)::before,
+.askdesk-history__question:not(.askdesk-history__title + *)::before {
+  background: var(--askdesk-faint);
+}
+
+.askdesk-history__chat summary,
+.askdesk-history__question {
+  padding-block: 8px;
+}
+
+.askdesk-history__question {
+  padding-inline-start: 16px;
 }
 
 @media (max-width: 1180px) {
@@ -5703,6 +5855,56 @@ button.askdesk-me {
   margin-inline-start: auto;
 }
 
+/* A form something was made from for this chat (0.6.1): folded, the record made under it as a task */
+.askdesk-addon__form.is-folded {
+  gap: 6px;
+
+  .askdesk-addon__memo-head {
+    margin: 0;
+  }
+}
+
+.askdesk-addon__record.askdesk-addon__task {
+  position: relative;
+  padding-inline-start: 26px;
+  background: var(--askdesk-surface, #fff);
+  box-shadow: inset 0 0 0 1px var(--askdesk-line);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset-block-start: 11px;
+    inset-inline-start: 10px;
+    inline-size: 10px;
+    block-size: 10px;
+    border: 1.5px solid var(--askdesk-accent);
+    border-radius: 50%;
+  }
+}
+
+.askdesk-addon__form-again {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 4px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--askdesk-accent);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+
+  svg {
+    inline-size: 14px;
+    block-size: 14px;
+  }
+
+  &:hover span {
+    text-decoration: underline;
+  }
+}
+
 /* A note to keep elsewhere (a CRM's record of the chat): read, changed, then sent on confirming */
 .askdesk-addon__memo {
   display: grid;
@@ -5754,6 +5956,89 @@ button.askdesk-me {
     border-color: var(--askdesk-accent);
     outline: none;
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--askdesk-accent) 18%, transparent);
+  }
+}
+
+/* A panel's form (0.6.1): each field a label over its box, in the note's look */
+.askdesk-addon__form-row {
+  display: grid;
+  gap: 4px;
+  margin-block-end: 8px;
+}
+
+.askdesk-addon__form-label {
+  color: var(--askdesk-muted);
+  font-size: 12px;
+}
+
+.askdesk-addon__form-input {
+  box-sizing: border-box;
+  inline-size: 100%;
+  min-block-size: 32px;
+  padding: 6px 10px;
+  border: 0.5px solid var(--askdesk-line-strong);
+  border-radius: 8px;
+  background: var(--askdesk-surface);
+  color: var(--askdesk-text);
+  font: inherit;
+  font-size: 12.5px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+
+  &:focus {
+    border-color: var(--askdesk-accent);
+    outline: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--askdesk-accent) 18%, transparent);
+  }
+}
+
+textarea.askdesk-addon__form-input {
+  line-height: 1.6;
+  resize: vertical;
+}
+
+/* An option to pick: its own chevron, in from the right edge */
+select.askdesk-addon__form-input {
+  padding-inline-end: 36px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b6b7b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right 14px center;
+  background-repeat: no-repeat;
+  background-size: 14px;
+  cursor: pointer;
+}
+
+/* A panel's own buttons, in a row */
+.askdesk-addon__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-block: 4px 10px;
+}
+
+.askdesk-addon__record-title {
+  color: var(--askdesk-accent);
+  font-weight: 600;
+  text-decoration: none;
+
+  /* Opened in the side card: a button drawn as the link */
+  &:is(button) {
+    padding: 0;
+    border: 0;
+    background: none;
+    font: inherit;
+    font-weight: 600;
+    text-align: start;
+    cursor: pointer;
+  }
+
+  &.is-busy {
+    opacity: .5;
+    cursor: progress;
+  }
+
+  &:hover {
+    text-decoration: underline;
   }
 }
 
@@ -6079,6 +6364,33 @@ button.askdesk-me {
   margin-block-start: 4px;
 }
 
+/* One record whole (a panel's show, 0.6.1): its fields as label over value */
+.askdesk-drawer__meta {
+  margin: 0;
+  color: var(--askdesk-muted);
+  font-size: 11.5px;
+}
+
+.askdesk-drawer__fields {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  font-size: 12.5px;
+
+  dt {
+    margin-block-start: 8px;
+    color: var(--askdesk-muted);
+    font-size: 11px;
+  }
+
+  dd {
+    margin: 0;
+    line-height: 1.6;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+}
+
 @keyframes askdesk-drawer-in {
   from {
     opacity: 0;
@@ -6399,10 +6711,12 @@ button.askdesk-me {
 /* The account at the foot: set apart from the list above by a shadow; whether visitors can chat now
    in a line of its own, white; then one's face, name, the language and the bell */
 .askdesk-account {
-  /* Frosted in the list's own violet: what scrolls under it blurred away, not read through (0.6.0) */
-  background: rgba(52, 28, 178, 0.72);
-  backdrop-filter: blur(18px) saturate(1.3);
-  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  /* Frosted in the list's own colour (the status's: violet, orange, slate): what scrolls under it blurred
+     away, not read through (0.6.0) */
+  background: color-mix(in srgb, var(--askdesk-wash-0) 72%, transparent);
+  backdrop-filter: blur(5px) saturate(1.3);
+  -webkit-backdrop-filter: blur(5px) saturate(1.3);
+  transition: background-color 0.4s ease;
   flex-direction: column;
   align-items: stretch;
   gap: 10px;
@@ -6608,14 +6922,15 @@ button.askdesk-me {
 }
 
 /* The visitor's conversation with AI before the chat: a deep blue-violet, as the side's colour, the
-   words white on it (0.3.1) */
+   words white on it (0.3.1); the glows held to their own edges, one at the top and one at the bottom, however
+   tall it is and however far it is scrolled */
 .askdesk-before {
   --askdesk-muted: rgba(255, 255, 255, 0.72);
 
   border: 0;
   background:
     radial-gradient(60% 90% at 100% 0%, rgba(106, 166, 242, 0.55), transparent 70%) top left / 100% 320px no-repeat,
-    radial-gradient(50% 80% at 0% 100%, rgba(127, 101, 255, 0.6), transparent 72%) top left / 100% 320px no-repeat,
+    radial-gradient(50% 80% at 0% 100%, rgba(127, 101, 255, 0.6), transparent 72%) bottom left / 100% 320px no-repeat,
     linear-gradient(120deg, #3b1fc9 0%, #5a2fe6 45%, #3f6ff0 100%);
   box-shadow: 0 10px 26px -14px rgba(59, 31, 201, 0.7);
   color: #fff;
@@ -7059,16 +7374,25 @@ button.askdesk-me {
   --askdesk-wash-3: #61a6ec;
   --askdesk-wash-4: #2f8ff0;
   --askdesk-wash-5: #8a55ea;
+  --askdesk-glow-1: #b25cff;
+  --askdesk-glow-2: #7a3cff;
+  --askdesk-glow-3: #2fb4ff;
 }
 
 .askdesk[data-status="busy"] {
   --askdesk-wash-4: #f0a43a;
   --askdesk-wash-5: #d9641a;
+  --askdesk-glow-1: #ff7a1a;
+  --askdesk-glow-2: #e0482b;
+  --askdesk-glow-3: #ffc24a;
 }
 
 .askdesk[data-status="away"] {
   --askdesk-wash-4: #5b6474;
   --askdesk-wash-5: #3a404c;
+  --askdesk-glow-1: #7d8aa6;
+  --askdesk-glow-2: #5a6684;
+  --askdesk-glow-3: #9aa6bd;
 }
 
 .askdesk__wash::before {
@@ -7626,15 +7950,1234 @@ button.askdesk-me {
   }
 }
 
-/* The dashboard mounted (0.5.1): the empty card is its page, edge to edge */
+/* The dashboard mounted (0.5.1): the empty card is its page, edge to edge; no card of its own around it
+   (0.6.1): the dashboard is the work's card itself, no margin, colour or shadow of another layer */
 .askdesk-room > .askdesk-room__empty--board:only-child {
   display: block;
+  margin: 0;
   padding: 0;
   overflow: hidden;
   place-items: stretch;
+  border-radius: inherit;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 .askdesk-room__empty--board > .askdesk-home {
   width: 100%;
   height: 100%;
+}
+
+/* ---------- Work in a chat (0.6.1): a form in a card only the people answering see ---------- */
+
+/* Pale beige, across the chat's width: work, not a message the visitor gets */
+.askdesk-msg--work {
+  --askdesk-work-bg: #fbf6e9;
+  --askdesk-work-line: #eadfbf;
+  --askdesk-work-ink: #8a6a1f;
+
+  display: block;
+  align-self: stretch;
+  max-inline-size: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .askdesk-msg--work {
+    --askdesk-work-bg: rgba(214, 178, 94, 0.1);
+    --askdesk-work-line: rgba(214, 178, 94, 0.25);
+    --askdesk-work-ink: #e2c27a;
+  }
+}
+
+.askdesk-work {
+  display: grid;
+  gap: 8px;
+  box-sizing: border-box;
+  inline-size: min(560px, 100%);
+  margin-inline: auto;
+  padding: 12px 14px;
+  border: 1px dashed var(--askdesk-work-line);
+  border-radius: 14px;
+  background: var(--askdesk-work-bg);
+  transition: opacity 0.2s;
+
+  &.is-busy {
+    opacity: 0.7;
+  }
+
+  &.is-sent {
+    border-style: solid;
+  }
+
+  .askdesk-addon__form-input {
+    background-color: var(--askdesk-surface);
+  }
+}
+
+.askdesk-work__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  color: var(--askdesk-work-ink);
+
+  .askdesk-icon {
+    inline-size: 18px;
+    block-size: 18px;
+  }
+}
+
+.askdesk-work__title {
+  color: var(--askdesk-text);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.askdesk-work__only {
+  margin-inline-start: auto;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--askdesk-work-line);
+  color: var(--askdesk-work-ink);
+  font-size: 11px;
+}
+
+.askdesk-work__meta {
+  margin: -4px 0 2px;
+  color: var(--askdesk-faint);
+  font-size: 11px;
+}
+
+.askdesk-work__fixed {
+  font-size: 13px;
+}
+
+.askdesk-work__sent {
+  margin: 0;
+  color: var(--askdesk-ok);
+  font-size: 12px;
+}
+
+.askdesk-work__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-block-start: 2px;
+}
+
+.askdesk-work__drop {
+  margin-inline-end: auto;
+  color: var(--askdesk-muted);
+}
+
+/* The forms to pick from: a short list over the box, the usual one first */
+.askdesk-work-menu {
+  position: absolute;
+  inset-block-end: calc(100% + 8px);
+  inset-inline-start: 0;
+  z-index: 30;
+  display: grid;
+  gap: 8px;
+  inline-size: min(400px, 100%);
+  max-block-size: 360px;
+  padding: 12px;
+  overflow-y: auto;
+  border-radius: var(--askdesk-radius);
+  background: var(--askdesk-surface);
+  box-shadow:
+    0 0 0 0.5px var(--askdesk-line-strong),
+    0 12px 32px -4px rgba(35, 35, 50, 0.22);
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.askdesk-work-menu__head {
+  display: grid;
+  gap: 2px;
+  padding: 0 4px;
+
+  strong {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  p {
+    margin: 0;
+    color: var(--askdesk-muted);
+    font-size: 11.5px;
+  }
+}
+
+.askdesk-work-menu__list {
+  display: grid;
+  gap: 4px;
+}
+
+.askdesk-work-menu__ask {
+  margin: 0 4px 4px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #fff1e0;
+  color: #b35c00;
+  font-size: 12.5px;
+}
+
+.askdesk-work-menu__option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+
+  > .askdesk-icon:first-child {
+    flex: none;
+    color: #8a6a1f;
+  }
+
+  > .askdesk-icon:last-child:not(:first-child) {
+    margin-inline-start: auto;
+    color: var(--askdesk-faint);
+  }
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    background: var(--askdesk-canvas);
+  }
+
+  &.is-first {
+    box-shadow: inset 0 0 0 1px var(--askdesk-line-strong);
+  }
+}
+
+.askdesk-work-menu__words {
+  display: grid;
+  gap: 1px;
+
+  strong {
+    font-size: 13.5px;
+    font-weight: 500;
+  }
+
+  small {
+    color: var(--askdesk-muted);
+    font-size: 11.5px;
+  }
+}
+
+
+/* A work card opened large (0.6.1): over the console, the rest blurred behind; a box under it to tell
+   the AI how to fill it in */
+.askdesk-workmodal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: rgba(20, 20, 40, 0.28);
+  backdrop-filter: blur(10px) saturate(1.2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.askdesk-workmodal__sheet {
+  inline-size: min(720px, 100%);
+  max-block-size: calc(100dvh - 48px);
+  overflow-y: auto;
+  border-radius: 18px;
+  box-shadow: 0 30px 80px -20px rgba(10, 10, 50, 0.55);
+}
+
+.askdesk-msg--work.is-big .askdesk-work {
+  inline-size: 100%;
+  gap: 10px;
+  padding: 18px 20px;
+  border-style: solid;
+  border-radius: 18px;
+
+  .askdesk-work__title {
+    font-size: 16px;
+  }
+
+  .askdesk-addon__form-row {
+    gap: 4px;
+  }
+}
+
+.askdesk-work__size {
+  display: inline-grid;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--askdesk-work-ink);
+  cursor: pointer;
+
+  .askdesk-icon {
+    inline-size: 16px;
+    block-size: 16px;
+  }
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    background: var(--askdesk-work-line);
+  }
+}
+
+/* The large card's box: one line that grows, the AI's spark to send */
+.askdesk-work__note {
+  position: sticky;
+  inset-block-end: -18px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin: 6px -20px -18px;
+  padding: 12px 20px 16px;
+  border-block-start: 1px solid var(--askdesk-work-line);
+  background: var(--askdesk-work-bg);
+
+  textarea {
+    flex: 1;
+    box-sizing: border-box;
+    min-block-size: 42px;
+    padding: 10px 14px;
+    border: 1px solid var(--askdesk-line-strong);
+    border-radius: 14px;
+    background: var(--askdesk-surface);
+    color: inherit;
+    font: inherit;
+    font-size: 13.5px;
+    line-height: 1.5;
+    resize: none;
+
+    &:focus {
+      outline: none;
+      border-color: var(--askdesk-accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--askdesk-accent) 18%, transparent);
+    }
+  }
+}
+
+.askdesk-work__note-send {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 42px;
+  block-size: 42px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5ac8fa, #1e6ff0);
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(30, 111, 240, 0.35);
+
+  &:disabled {
+    opacity: 0.5;
+  }
+}
+
+.askdesk-work__note-send .askdesk-icon {
+  inline-size: 20px;
+  block-size: 20px;
+}
+
+/* No box to write in (an ended chat, another's): the form button alone at the chat's foot, left, its list
+   of forms opening above it (0.6.1) */
+.askdesk-workdock {
+  position: relative;
+  flex: none;
+  padding: 10px 28px 18px;
+
+  &[hidden] {
+    display: none;
+  }
+
+  .askdesk-work-menu {
+    inset-inline-start: 28px;
+    inset-block-end: calc(100% - 6px);
+  }
+}
+
+.askdesk-workdock__button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px 9px 12px;
+  border: 1px solid #eadfbf;
+  border-radius: 999px;
+  background: #fbf6e9;
+  color: #8a6a1f;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 4px 14px -6px rgba(138, 106, 31, 0.35);
+  transition: background-color 0.2s, box-shadow 0.2s;
+
+  .askdesk-icon {
+    inline-size: 18px;
+    block-size: 18px;
+  }
+
+  &:hover,
+  &[aria-expanded="true"] {
+    background: #f6edd3;
+    box-shadow: 0 6px 18px -6px rgba(138, 106, 31, 0.45);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--askdesk-accent);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .askdesk-workdock__button {
+    border-color: rgba(214, 178, 94, 0.25);
+    background: rgba(214, 178, 94, 0.1);
+    color: #e2c27a;
+  }
+}
+
+@media (max-width: 760px) {
+  .askdesk-workdock {
+    padding: 8px 16px 14px;
+
+    .askdesk-work-menu {
+      inset-inline-start: 16px;
+    }
+  }
+}
+
+/* The chat a record came from (0.6.1): another of the visitor's, a chip to go to; this one, said so */
+.askdesk-addon__record-head .askdesk-addon__record-room {
+  flex: none;
+  padding: 1px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--askdesk-accent) 10%, transparent);
+  color: var(--askdesk-accent);
+  font: inherit;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  cursor: pointer;
+
+  &:hover {
+    background: color-mix(in srgb, var(--askdesk-accent) 18%, transparent);
+  }
+
+  &.is-here {
+    background: var(--askdesk-line);
+    color: var(--askdesk-muted);
+    cursor: default;
+  }
+}
+
+/* How many a card beside the chat lists, beside its name in its heading (0.6.1) */
+.askdesk-panel__title > .askdesk-panel__count {
+  flex: none;
+  min-inline-size: 18px;
+  padding: 0 7px;
+  box-sizing: border-box;
+  border-radius: 999px;
+  background: var(--askdesk-accent-soft);
+  color: var(--askdesk-accent);
+  font-size: 11px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* A side card open over the side: the search above it out of the way */
+.askdesk-room__aside.has-drawer .askdesk-search,
+.askdesk-room__aside.has-drawer .askdesk-search-dot {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* The list folded away: its edge's handle on the coloured ground, white and see-through (whiter when
+   pointed at, held or focused) */
+.askdesk-main--folded .askdesk-splitter::after {
+  background: rgba(255, 255, 255, 0.45);
+  box-shadow: none;
+}
+
+.askdesk-main--folded .askdesk-splitter:hover::after,
+.askdesk-main--folded .askdesk-splitter:focus-visible::after,
+.askdesk--dragging .askdesk-main--folded .askdesk-splitter::after {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+/* What waits on someone, beside the list's order (0.6.1): a small coloured count, only when there is any;
+   a click shows it alone (on: white, with a cross to go back to all) */
+.askdesk-waits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-inline-size: 0;
+  margin-inline-end: auto;
+}
+
+.askdesk-wait {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px 3px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.92);
+  font: inherit;
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+
+  b {
+    position: relative;
+    min-inline-size: 18px;
+    padding: 0 6px;
+    box-sizing: border-box;
+    border-radius: 999px;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+  }
+
+  .askdesk-icon {
+    inline-size: 14px;
+    block-size: 14px;
+    margin-inline-end: 2px;
+  }
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.24);
+  }
+
+  &:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  }
+}
+
+.askdesk-wait--awaiting b {
+  background: #f59e0b;
+}
+
+.askdesk-wait--unhandled b {
+  background: #e5484d;
+}
+
+.askdesk-wait--on {
+  gap: 4px;
+  padding-inline-end: 6px;
+  background: #fff;
+  /* Dark on the white (the list's own words are white on its colour) */
+  color: #2b2470;
+  font-weight: 500;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.9);
+  }
+
+  /* The way back to all: small and quiet */
+  .askdesk-icon {
+    inline-size: 11px;
+    block-size: 11px;
+    margin: 0 0 0 2px;
+    color: #2b2470;
+    opacity: 0.45;
+  }
+
+  &:hover .askdesk-icon {
+    opacity: 0.75;
+  }
+}
+
+/* The list folded away (0.6.1): its edge's handle opens it on a click; what came meanwhile, a red bell on
+   it (with how many when more than one), swinging when something new comes */
+.askdesk-main--folded .askdesk-splitter::before {
+  inset-inline-start: -2px;
+  inline-size: 18px;
+  cursor: pointer;
+}
+
+.askdesk-edgebell {
+  position: absolute;
+  inset-block-start: calc(50% - 40px);
+  inset-inline-start: -4px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  block-size: 22px;
+  min-inline-size: 22px;
+  padding: 0 5px;
+  box-sizing: border-box;
+  border-radius: 11px;
+  background: #e5484d;
+  color: #fff;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85), 0 4px 10px rgba(229, 72, 77, 0.45);
+  pointer-events: none;
+
+  &[hidden] {
+    display: none;
+  }
+
+  .askdesk-icon {
+    inline-size: 12px;
+    block-size: 12px;
+  }
+
+  b {
+    font-size: 11px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  &.is-new .askdesk-icon {
+    animation: askdesk-edgebell-swing 0.9s ease-in-out 2;
+    transform-origin: 50% 10%;
+  }
+}
+
+@keyframes askdesk-edgebell-swing {
+  0%, 100% { transform: rotate(0); }
+  20% { transform: rotate(18deg); }
+  40% { transform: rotate(-14deg); }
+  60% { transform: rotate(8deg); }
+  80% { transform: rotate(-4deg); }
+}
+
+/* Opened on the newest that came: lit once */
+.askdesk-item--found {
+  animation: askdesk-item-found 2.2s ease-out;
+}
+
+@keyframes askdesk-item-found {
+  0%, 30% { box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.9); background-color: rgba(255, 255, 255, 0.22); }
+  100% { box-shadow: inset 0 0 0 2px transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk-edgebell.is-new .askdesk-icon,
+  .askdesk-item--found {
+    animation: none;
+  }
+}
+
+/* The list's top on one line (0.6.1): what waits on someone, then one round button for its order and
+   whether those closed are shown; a blue dot on it when either is not as it is at first */
+.askdesk-listtools {
+  flex-wrap: nowrap;
+}
+
+.askdesk-listtools .askdesk-waits {
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.askdesk-listtools__more {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  margin-inline-start: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.2s;
+
+  .askdesk-icon {
+    inline-size: 16px;
+    block-size: 16px;
+  }
+
+  &:hover,
+  &[aria-expanded="true"] {
+    background: rgba(255, 255, 255, 0.26);
+  }
+
+  &:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+  }
+
+  &.is-changed::after {
+    content: "";
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-end: 0;
+    inline-size: 9px;
+    block-size: 9px;
+    box-sizing: border-box;
+    border: 2px solid #3b1fc9;
+    border-radius: 50%;
+    background: #85b7eb;
+  }
+}
+
+.askdesk-listtools > .askdesk-listtools__menu {
+  inset-block-start: 34px;
+  inset-inline: auto 0;
+  min-inline-size: 180px;
+  padding: 6px 0;
+  border-radius: 10px;
+}
+
+.askdesk-listtools__heading {
+  margin: 2px 14px 4px;
+  color: rgba(35, 35, 50, 0.5);
+  font-size: 11px;
+}
+
+.askdesk-listtools__menu .askdesk-listtools__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px 6px 12px;
+
+  .askdesk-icon,
+  .askdesk-listtools__tick {
+    flex: none;
+    inline-size: 14px;
+    block-size: 14px;
+  }
+}
+
+/* The switch inside the white menu: its own line under a rule, dark words, a grey track */
+.askdesk-listtools__menu .askdesk-listtools__switch {
+  justify-content: space-between;
+  margin-block-start: 4px;
+  padding: 8px 14px 4px 12px;
+  border-block-start: 0.5px solid rgba(35, 35, 50, 0.12);
+  color: rgba(35, 35, 50, 0.85);
+  font-size: 13px;
+  opacity: 1;
+}
+
+.askdesk-listtools__menu .askdesk-listtools__track {
+  background: rgba(35, 35, 50, 0.18);
+}
+
+/* ---------- On a phone, opened from the home screen (0.6.1): the console fills the screen to its very
+   bottom (under the home bar too, where iOS left a fixed layer short), and behind the status bar is the
+   colour of the page under it: the list's purple, or the light of a chat or the dashboard ---------- */
+@media (max-width: 760px) {
+  .askdesk {
+    background: var(--askdesk-wash-0);
+    transition: background-color 0.3s ease;
+  }
+
+  .askdesk:has(.askdesk-main--room),
+  .askdesk:has(.askdesk-main--home) {
+    background: var(--askdesk-canvas);
+  }
+
+  /* The page a chat came from: not in the chat's head on a phone (it ran under 結束對話) */
+  .askdesk-room__head .askdesk-trail {
+    display: none;
+  }
+}
+
+@media (max-width: 760px) and (display-mode: standalone) {
+  .askdesk {
+    inset: 0 0 auto;
+    height: 100vh;
+    height: 100lvh;
+  }
+}
+
+/* What shows past the console, if anything, is its colour, not the site's white */
+html:has(body .askdesk[data-askdesk]),
+body:has(.askdesk[data-askdesk]) {
+  background: #3b1fc9;
+}
+
+/* The list's scroll thumb, its own (the browser's hidden: it took a strip of the side): thin, light, over the
+   list at its edge, shown while pointed at or scrolled */
+.askdesk .askdesk-inbox {
+  scrollbar-width: none;
+}
+
+.askdesk .askdesk-inbox::-webkit-scrollbar {
+  display: none;
+  inline-size: 0;
+}
+
+.askdesk-inbox__thumb {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 3px;
+  z-index: 6;
+  inline-size: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.42);
+  opacity: 0;
+  cursor: default;
+  touch-action: none;
+  transition: opacity 0.25s ease, inline-size 0.15s ease, background-color 0.15s ease;
+
+  &[hidden] {
+    display: none;
+  }
+
+  &:hover,
+  &.is-held {
+    inline-size: 8px;
+    background: rgba(255, 255, 255, 0.6);
+  }
+}
+
+.askdesk-inbox:hover > .askdesk-inbox__thumb,
+.askdesk-inbox.is-scrolling > .askdesk-inbox__thumb,
+.askdesk-inbox__thumb.is-held {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .askdesk-inbox__thumb {
+    display: none;
+  }
+}
+
+/* ---------- What comes into a card beside the chat (0.6.1) ----------
+   Each part rises in after the one before (its delay set as it comes); an AI's reading new: a light runs once
+   round its card, the card glowing as it passes */
+@keyframes askdesk-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.askdesk-arrive {
+  animation: askdesk-arrive 0.42s cubic-bezier(0.22, 1, 0.36, 1) var(--askdesk-arrive, 0ms) backwards;
+}
+
+@property --askdesk-shine {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes askdesk-shine {
+  from {
+    --askdesk-shine: 0deg;
+  }
+
+  80% {
+    opacity: 1;
+  }
+
+  to {
+    --askdesk-shine: 360deg;
+    opacity: 0;
+  }
+}
+
+@keyframes askdesk-shine-glow {
+  0% {
+    box-shadow: 0 10px 26px -14px rgba(59, 31, 201, 0.7);
+  }
+
+  35% {
+    box-shadow: 0 0 0 3px rgba(170, 190, 255, 0.35), 0 12px 34px -10px rgba(110, 120, 255, 0.85);
+  }
+
+  100% {
+    box-shadow: 0 10px 26px -14px rgba(59, 31, 201, 0.7);
+  }
+}
+
+.askdesk-panel--ai {
+  position: relative;
+}
+
+.askdesk-panel--ai.is-shining {
+  animation: askdesk-shine-glow 1.8s ease-out;
+
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    /* Thick enough to be seen at a glance: a long bright arc, its head white */
+    padding: 3.5px;
+    border-radius: inherit;
+    background: conic-gradient(from var(--askdesk-shine), transparent 0deg, transparent 190deg, rgba(160, 200, 255, 0.35) 240deg, #9fd0ff 290deg, #ffe9b0 318deg, #fff 335deg, #fff 345deg, transparent 360deg);
+    filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.9));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    animation: askdesk-shine 1.8s cubic-bezier(0.45, 0, 0.25, 1) forwards;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk-arrive,
+  .askdesk-panel--ai.is-shining,
+  .askdesk-panel--ai.is-shining::before {
+    animation: none;
+  }
+}
+
+/* ---------- An AI's card while it thinks (0.6.1) ----------
+   A little smaller, with a halo of colours turning round it: the halo is behind the card, in the card's own
+   frame, so the card's rounded edge does not cut it off (and the card, smaller, leaves it room). Done: the
+   halo fades first, then the card grows back, then the light runs round it */
+@property --askdesk-halo {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes askdesk-halo {
+  to {
+    --askdesk-halo: 360deg;
+  }
+}
+
+.askdesk-ai-wrap {
+  position: relative;
+  isolation: isolate;
+
+  > .askdesk-panel--ai {
+    transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1) 0.28s;
+  }
+}
+
+.askdesk-ai-wrap__halo {
+  position: absolute;
+  /* Soft, not sharp: spread wide and blurred, the colours greyed a little, turning slowly */
+  /* (within the side's own margin: blurred further it was cut off at the side's edge) */
+  inset: 4px;
+  z-index: -1;
+  border-radius: 22px;
+  background: conic-gradient(from var(--askdesk-halo), #3f6ff0 0deg, #5a4bff 70deg, #8b6cff 150deg, #b39bff 208deg, #ffe9b0 222deg, #b39bff 236deg, #7f65ff 290deg, #3f6ff0 360deg);
+  filter: blur(22px) saturate(0.55);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s ease;
+  animation: askdesk-halo 7s linear infinite paused;
+}
+
+.askdesk-ai-wrap.is-thinking {
+  > .askdesk-panel--ai {
+    transform: scale(0.94);
+    transition-delay: 0s;
+  }
+
+  > .askdesk-ai-wrap__halo {
+    opacity: 0.7;
+    animation-play-state: running;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk-ai-wrap > .askdesk-panel--ai,
+  .askdesk-ai-wrap__halo {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* Nobody at the console for a minute: the colour under it holds still (its drift costs the screen every
+   frame); the first touch, key or move sets it going again (0.6.1) */
+.askdesk--still .askdesk__wash::before,
+.askdesk--still .askdesk__glow {
+  animation-play-state: paused;
+}
+
+/* ---------- The AI's own colours for what it is working on (0.6.1) ----------
+   Blue and violet, with a thin line of gold: the halo round the AI's card while it reads, and round the
+   note's box while it writes (the same gradient in each: it turns on the element it is drawn on) */
+.askdesk-addon__memo-frame {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+
+  > .askdesk-addon__memo-field {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+/* Its glow: behind the box, a little beyond its edge (the note's own padding gives it room) */
+.askdesk-addon__memo-glow {
+  position: absolute;
+  inset: -3px;
+  z-index: 0;
+  border-radius: 13px;
+  background: conic-gradient(from var(--askdesk-halo), #3f6ff0 0deg, #5a4bff 70deg, #8b6cff 150deg, #b39bff 208deg, #ffe9b0 222deg, #b39bff 236deg, #7f65ff 290deg, #3f6ff0 360deg);
+  filter: blur(7px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  animation: askdesk-halo 2.6s linear infinite paused;
+}
+
+.askdesk-addon__memo-frame.is-writing {
+  > .askdesk-addon__memo-glow {
+    opacity: 0.95;
+    animation-play-state: running;
+  }
+
+  > .askdesk-addon__memo-field {
+    color: color-mix(in srgb, var(--askdesk-text) 45%, transparent);
+    cursor: progress;
+  }
+}
+
+/* What it wrote, come: the glow goes, a light runs once round the box, the words come in */
+@keyframes askdesk-memo-glow-out {
+  from {
+    opacity: 0.95;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes askdesk-memo-words {
+  from {
+    color: transparent;
+  }
+}
+
+.askdesk-addon__memo-frame.is-written {
+  > .askdesk-addon__memo-glow {
+    animation: askdesk-memo-glow-out 0.3s ease forwards, askdesk-halo 2.6s linear infinite;
+  }
+
+  > .askdesk-addon__memo-field {
+    animation: askdesk-memo-words 0.6s ease 0.35s backwards;
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    padding: 1px;
+    border-radius: 10px;
+    background: conic-gradient(from var(--askdesk-shine), transparent 0deg, transparent 190deg, rgba(120, 110, 255, 0.35) 240deg, #7f65ff 285deg, #ffe9b0 318deg, #fff 335deg, #fff 345deg, transparent 360deg);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    filter: drop-shadow(0 0 3px rgba(127, 101, 255, 0.7));
+    pointer-events: none;
+    animation: askdesk-shine 1.6s cubic-bezier(0.45, 0, 0.25, 1) 0.3s backwards, askdesk-shine-done 0s linear 1.9s forwards;
+  }
+}
+
+@keyframes askdesk-shine-done {
+  to {
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk-addon__memo-glow,
+  .askdesk-addon__memo-frame.is-written > .askdesk-addon__memo-field,
+  .askdesk-addon__memo-frame.is-written::after {
+    animation: none;
+    transition: none;
+  }
+
+  .askdesk-addon__memo-frame.is-written::after {
+    display: none;
+  }
+}
+
+/* A document's card: its name and size, then its buttons, to read it here and to download it (0.6.1) */
+.askdesk-file__doc {
+  min-inline-size: min(300px, 100%);
+}
+
+.askdesk-file__words {
+  flex: 1;
+  min-inline-size: 0;
+
+  strong {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.askdesk-file__acts {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
+  margin-inline-start: 6px;
+}
+
+.askdesk .askdesk-file__act {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  block-size: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--askdesk-soft);
+  color: var(--askdesk-text);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+
+  .askdesk-icon {
+    inline-size: 15px;
+    block-size: 15px;
+  }
+
+  &:hover {
+    background: var(--askdesk-accent-soft);
+    color: var(--askdesk-accent);
+  }
+}
+
+.askdesk .askdesk-file__act--look {
+  background: var(--askdesk-accent-soft);
+  color: var(--askdesk-accent);
+}
+
+/* The clip's menu: one's library's files to send, and the box to pick or drop a file on (0.6.1) */
+.askdesk-attach-menu {
+  position: absolute;
+  inset-block-end: calc(100% - -8px);
+  inset-inline-start: 0;
+  z-index: 30;
+  display: grid;
+  gap: 8px;
+  inline-size: min(380px, 100%);
+  padding: 10px;
+  border-radius: var(--askdesk-radius);
+  background: var(--askdesk-surface);
+  box-shadow:
+    0 0 0 0.5px var(--askdesk-line-strong),
+    0 16px 40px -8px rgba(35, 35, 50, 0.24);
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.askdesk-attach-menu__tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.askdesk-attach-menu__list {
+  display: grid;
+  gap: 2px;
+  max-block-size: 220px;
+  overflow-y: auto;
+}
+
+.askdesk .askdesk-attach-menu__file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  inline-size: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+
+  > .askdesk-icon {
+    flex: none;
+    inline-size: 20px;
+    block-size: 20px;
+    color: var(--askdesk-accent);
+  }
+
+  .askdesk-library__words {
+    min-inline-size: 0;
+  }
+
+  &:hover {
+    background: var(--askdesk-soft);
+  }
+}
+
+.askdesk .askdesk-attach-menu__drop {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  inline-size: 100%;
+  padding: 16px 12px;
+  border: 1.5px dashed color-mix(in srgb, var(--askdesk-accent) 45%, var(--askdesk-line-strong));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--askdesk-accent) 4%, var(--askdesk-surface));
+  color: var(--askdesk-text);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+
+  .askdesk-icon {
+    inline-size: 22px;
+    block-size: 22px;
+    color: var(--askdesk-accent);
+  }
+
+  strong {
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  span {
+    color: var(--askdesk-muted);
+    font-size: 11.5px;
+  }
+
+  &:hover,
+  &.is-over {
+    border-color: var(--askdesk-accent);
+    background: var(--askdesk-accent-soft);
+  }
 }

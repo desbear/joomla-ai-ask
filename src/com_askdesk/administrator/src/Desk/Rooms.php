@@ -548,14 +548,7 @@ final class Rooms
     {
         $list   = \in_array($list, [...self::LISTS, 'everything'], true) ? $list : 'all';
         $limit  = max(10, min(500, $limit));
-        $counts = [];
-
-        foreach (self::LISTS as $name) {
-            $query = $this->listQuery($name, $staffId)->clear('select')->clear('order')->select('COUNT(*)');
-            $counts[$name] = (int) $this->db->setQuery($query)->loadResult();
-        }
-
-        $counts['everything'] = $counts['all'] + $counts['settled'];
+        $counts = $this->counts($staffId);
         $rows = $this->db->setQuery($this->listQuery($list, $staffId, $sort), 0, $limit)->loadObjectList();
         $live = $list === 'all' ? array_values(array_filter($rows, static fn ($row) => $row->status !== 'closed'))
             : $this->db->setQuery($this->listQuery('live', $staffId), 0, 200)->loadObjectList();
@@ -566,6 +559,50 @@ final class Rooms
             'more'   => $counts[$list] > \count($rows),
             'live'   => $this->listed($live),
         ];
+    }
+
+    /**
+     * How many each list has, asked with each poll: three queries each on an index (0.6.1), not one a list
+     * each scanning the rooms. The lists overlap: awaiting and unhandled are within all, which is what is not
+     * closed yet (open, or closed with no one having closed the case) and this person's own closed lately
+     *
+     * @return  array<string, int>
+     */
+    private function counts(int $staffId): array
+    {
+        $db    = $this->db;
+        $q     = static fn (string $s) => $db->quote($s);
+        $open  = 'r.status IN (' . $q('waiting') . ', ' . $q('active') . ', ' . $q('message') . ')';
+        $left  = '(r.status = ' . $q('closed') . ' AND r.settled IS NULL)';
+        $only  = $this->only;
+        $mine  = static fn ($query) => $only ? $query->where('r.staff_id IN (0, ' . (int) $only . ')') : $query;
+        $rooms = $db->quoteName('#__askdesk_rooms', 'r');
+
+        // Not closed yet (on idx_open), with how many of them wait for an answer or were left unanswered
+        $row = $db->setQuery($mine($db->getQuery(true)
+            ->select('COUNT(*) AS n')
+            ->select('SUM(CASE WHEN ' . $open . ' AND (r.status = ' . $q('waiting') . ' OR r.last_author = ' . $q('visitor') . ') THEN 1 ELSE 0 END) AS awaiting')
+            ->select('SUM(CASE WHEN r.status = ' . $q('message') . ' OR ' . $left . ' THEN 1 ELSE 0 END) AS unhandled')
+            ->from($rooms)->where('(' . $open . ' OR ' . $left . ')')))->loadObject();
+
+        // This person's own, closed lately and the case closed too (those not closed are counted above)
+        $since = Factory::getDate('-6 hours')->toSql();
+        $own   = (int) $db->setQuery($mine($db->getQuery(true)->select('COUNT(*)')->from($rooms)
+            ->where('r.staff_id = :me')->where('r.status = ' . $q('closed'))->where('r.settled IS NOT NULL')->where('r.closed >= :since')
+            ->bind(':me', $staffId, ParameterType::INTEGER)->bind(':since', $since)))->loadResult();
+
+        // Closed cases (on idx_settled)
+        $settled = (int) $db->setQuery($mine($db->getQuery(true)->select('COUNT(*)')->from($rooms)->where('r.settled IS NOT NULL')))->loadResult();
+
+        $counts = [
+            'all'       => (int) ($row->n ?? 0) + $own,
+            'awaiting'  => (int) ($row->awaiting ?? 0),
+            'unhandled' => (int) ($row->unhandled ?? 0),
+            'settled'   => $settled,
+        ];
+        $counts['everything'] = $counts['all'] + $counts['settled'];
+
+        return $counts;
     }
 
     /**
@@ -686,7 +723,7 @@ final class Rooms
 
         foreach ($db->setQuery(
             $db->getQuery(true)->select('m.room_id, m.author, m.created')->from($db->quoteName('#__askdesk_messages', 'm'))
-                ->where('m.id IN (SELECT MAX(l.id) FROM ' . $db->quoteName('#__askdesk_messages') . ' l WHERE l.author <> ' . $db->quote('system') . ' AND l.room_id IN (' . implode(',', $ids) . ') GROUP BY l.room_id)')
+                ->whereIn('m.id', $this->ends($ids, 'MAX', 'author <> ' . $db->quote('system')) ?: [0])
         )->loadObjectList() as $row) {
             $said[(int) $row->room_id] = $row;
         }
@@ -1211,7 +1248,7 @@ final class Rooms
         if ($rows) {
             foreach ($db->setQuery(
                 $db->getQuery(true)->select('m.room_id, m.text, m.translation')->from($db->quoteName('#__askdesk_messages', 'm'))
-                    ->where('m.id IN (SELECT MIN(f.id) FROM ' . $db->quoteName('#__askdesk_messages') . ' f WHERE f.author = ' . $db->quote('visitor') . ' AND f.room_id IN (' . implode(',', array_map(static fn ($row) => (int) $row->id, $rows)) . ') GROUP BY f.room_id)')
+                    ->whereIn('m.id', $this->ends(array_map(static fn ($row) => (int) $row->id, $rows), 'MIN', 'author = ' . $db->quote('visitor')) ?: [0])
             )->loadObjectList() as $row) {
                 $first[(int) $row->room_id] = (string) ($row->translation !== '' ? $row->translation : $row->text);
             }
@@ -1480,6 +1517,11 @@ final class Rooms
      */
     public function tidy(): void
     {
+        // At most once a minute, whoever asks (each poll of anyone, visitors' too, may): taken by one request
+        if (!$this->claimTidy()) {
+            return;
+        }
+
         $db   = $this->db;
         $idle = Factory::getDate('-' . $this->settings->idleMinutes() . ' minutes')->toSql();
 
@@ -1498,6 +1540,42 @@ final class Rooms
 
         // What is still unhandled after the hours set: told once more
         (new Alerts($this->db, $this->settings))->remind();
+    }
+
+    /** Whether it is this request's turn to tidy: a minute since the last, claimed by one request only (0.6.1) */
+    private function claimTidy(): bool
+    {
+        $db    = $this->db;
+        $table = $db->quoteName('#__askdesk_secrets');
+        $now   = (string) time();
+        $due   = (string) (time() - 60);
+
+        try {
+            $db->setQuery(
+                $db->getQuery(true)->update($table)->set($db->quoteName('value') . ' = :now')
+                    ->where($db->quoteName('name') . ' = ' . $db->quote('tidied'))->where($db->quoteName('value') . ' < :due')
+                    ->bind(':now', $now)->bind(':due', $due)
+            )->execute();
+
+            if ($db->getAffectedRows() > 0) {
+                return true;
+            }
+
+            // Never tidied before: the first to put its time down does it
+            $seen = $db->setQuery($db->getQuery(true)->select('COUNT(*)')->from($table)->where($db->quoteName('name') . ' = ' . $db->quote('tidied')))->loadResult();
+
+            if ((int) $seen === 0) {
+                $mark = (object) ['name' => 'tidied', 'value' => $now];
+
+                $db->insertObject('#__askdesk_secrets', $mark);
+
+                return true;
+            }
+        } catch (\Throwable) {
+            // Another request put it down first
+        }
+
+        return false;
     }
 
     private function forgetOld(): void
@@ -1523,11 +1601,38 @@ final class Rooms
 
         if ($ids) {
             $db->setQuery($db->getQuery(true)->delete($db->quoteName('#__askdesk_messages'))->whereIn('room_id', $ids))->execute();
+            // Its work cards with it (0.6.1; what they made is kept where it was made)
+            $db->setQuery($db->getQuery(true)->delete($db->quoteName('#__askdesk_work'))->whereIn('room_id', $ids))->execute();
             $db->setQuery($db->getQuery(true)->delete($db->quoteName('#__askdesk_rooms'))->whereIn('id', $ids))->execute();
         }
     }
 
     // ---------- Underneath ----------
+
+    /**
+     * The first or last message of each room (MIN or MAX) of those that are as said, by their ids: asked
+     * apart, then the messages by their keys (0.6.1). As one query (id IN (SELECT … GROUP BY)) MySQL read the
+     * whole table of messages for it; this way it reads the index on (room_id, author, id)
+     *
+     * @param   int[]  $rooms
+     *
+     * @return  int[]
+     */
+    private function ends(array $rooms, string $end, string $which): array
+    {
+        $rooms = array_values(array_filter(array_map('intval', $rooms)));
+
+        if (!$rooms || !\in_array($end, ['MIN', 'MAX'], true)) {
+            return [];
+        }
+
+        $db = $this->db;
+
+        return array_map('intval', $db->setQuery(
+            $db->getQuery(true)->select($end . '(id)')->from($db->quoteName('#__askdesk_messages'))
+                ->whereIn('room_id', $rooms)->where($which)->group('room_id')
+        )->loadColumn());
+    }
 
     /**
      * @return  object[]

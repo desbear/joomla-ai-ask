@@ -10,6 +10,7 @@
 
 \defined('_JEXEC') or die;
 
+use Gss\Component\Mcpask\Administrator\Embed\Embeds;
 use Joomla\CMS\Factory;
 use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Language\Text;
@@ -50,7 +51,7 @@ $wa->addInlineScript(<<<'JS'
 $e     = fn ($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 $embed = $this->embed;
 $id    = (int) ($embed->id ?? 0);
-$line  = $embed ? '<script src="' . rtrim(Uri::root(), '/') . '/media/mod_mcp_ask/js/embed.js" data-key="' . $embed->public_key . '" async></script>' : '';
+$line  = $embed ? '<script src="' . rtrim(Uri::root(), '/') . '/media/mod_mcp_ask/js/embed.js?v=' . rawurlencode(Embeds::scriptVersion()) . '" data-key="' . $embed->public_key . '" async></script>' : '';
 ?>
 <form action="<?php echo Route::_('index.php?option=com_mcpask'); ?>" method="post" name="adminForm" id="adminForm" class="form-validate">
 	<div class="row">

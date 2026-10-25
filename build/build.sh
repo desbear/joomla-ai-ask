@@ -9,15 +9,31 @@ TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 mkdir -p dist
 
+# The extensions' own scripts and styles, smaller (esbuild, from board/'s tools): what visitors and the console
+# load, on this site and on websites AI Ask is embedded in. Without esbuild they go as they are. Not the
+# vendored ones (already small) nor the dashboard (built small)
+ESBUILD=board/node_modules/.bin/esbuild
+minify() {
+  local file
+  [ -x "$ESBUILD" ] || return 0
+  find "$1" -path '*/media/*' \( -name '*.js' -o -name '*.css' \) ! -name '*.min.*' ! -path '*/vendor/*' ! -name 'board.js' ! -name 'board.css' ! -path '*/js/preview*' -print0 |
+    while IFS= read -r -d '' file; do
+      "$ESBUILD" "$file" --minify --log-level=error --charset=utf8 --outfile="$file.tmp" --allow-overwrite && mv "$file.tmp" "$file"
+    done
+}
+
 # build <package> <manifest> <script> <language dir> <extension>...
 build() {
   local name=$1 manifest=$2 script=$3 language=$4 version ext
   shift 4
   version=$(sed -n 's:.*<version>\(.*\)</version>.*:\1:p' "$manifest" | head -1)
 
-  mkdir -p "$TMP/$name/packages"
+  mkdir -p "$TMP/$name/packages" "$TMP/src"
   for ext in "$@"; do
-    (cd "src/$ext" && zip -qrX "$TMP/$name/packages/$ext.zip" . -x '.*' -x '*/.*')
+    # A copy (in the build's own fresh folder), its own scripts and styles made smaller; the sources stay as they are
+    cp -R "src/$ext" "$TMP/src/$ext"
+    minify "$TMP/src/$ext"
+    (cd "$TMP/src/$ext" && zip -qrX "$TMP/$name/packages/$ext.zip" . -x '.*' -x '*/.*')
   done
   cp "$manifest" "$TMP/$name/"
   cp "$script" "$TMP/$name/script.php"
@@ -51,6 +67,17 @@ if [ -n "$(find board/src board/package.json board/vite.config.js -newer "$board
     (cd board && npm run --silent build >/dev/null)
   else
     echo "$board is older than board/src: run npm install and npm run build in board/" >&2
+    exit 1
+  fi
+fi
+
+# The viewer of documents (in preview/: PDF.js, docx-preview, SheetJS) likewise, built small into com_askdesk's media
+viewer=src/com_askdesk/media/js/preview.js
+if [ -n "$(find preview/src preview/package.json preview/build.mjs -newer "$viewer" 2>/dev/null | head -1)" ] || [ ! -f "$viewer" ]; then
+  if command -v npm >/dev/null && [ -d preview/node_modules ]; then
+    (cd preview && npm run --silent build >/dev/null)
+  else
+    echo "$viewer is older than preview/src: run npm install and npm run build in preview/" >&2
     exit 1
   fi
 fi

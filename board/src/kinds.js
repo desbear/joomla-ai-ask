@@ -20,6 +20,25 @@ export const KINDS = {
 
 export const isGrid = (kind) => kind === 'table' || kind === 'editgrid';
 
+// A widget's fields in its own order (as dragged), not the template's
+export const inOrder = (all, keys) => keys.map((k) => all.find((f) => f.key === k)).filter(Boolean);
+
+// One key moved to before the one at `to` (0…n; n = to the end)
+export const moved = (keys, from, to) => {
+  const next = keys.filter((_, i) => i !== from);
+
+  next.splice(to > from ? to - 1 : to, 0, keys[from]);
+
+  return next;
+};
+
+// Where something dragged would go among these elements: before the first whose middle is past the pointer
+export const slotAt = (els, at, axis) => {
+  const i = els.findIndex((el) => { const r = el.getBoundingClientRect(); return at < (axis === 'x' ? r.left + r.width / 2 : r.top + r.height / 2); });
+
+  return i < 0 ? els.length : i;
+};
+
 export const parts = (fields) => ({
   select: fields.find((f) => f.kind === 'select'),
   num: fields.find((f) => f.kind === 'number'),
