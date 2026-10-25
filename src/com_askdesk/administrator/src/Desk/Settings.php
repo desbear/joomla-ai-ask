@@ -126,6 +126,24 @@ final class Settings
     }
 
     /** Days the chats of signed-in visitors are kept. Guests' chats are not kept. */
+    /** Days a closed chat (結案) is kept here before it is archived and deleted (0.6.2) */
+    public function archiveDays(): int
+    {
+        return min(3650, max(1, (int) $this->params->get('archive_days', 90)));
+    }
+
+    /**
+     * Where archived chats are written: a folder outside the website (0.6.2); by default askdesk-archive beside
+     * the website's own folder
+     */
+    public function archiveFolder(): string
+    {
+        $folder = trim((string) $this->params->get('archive_folder', ''));
+
+        return $folder !== '' ? $folder : \dirname(JPATH_ROOT) . '/askdesk-archive';
+    }
+
+    /** Days ratings and the records of who handled what are kept (chats themselves: archiveDays) */
     public function keepDays(): int
     {
         return min(3650, max(1, (int) $this->params->get('keep_days', 365)));

@@ -259,12 +259,23 @@ longer knows them.
 
 ## What is kept
 
-- **Signed-in visitors**: their chats (and the AI conversation before them) for the days set, 365 by default. They
-  are told so as the chat starts, with a link to the privacy policy when one is set.
-- **Guests**: nothing once the chat is dealt with. A guest's chat is deleted an hour after it is closed (結案); one
-  ended unanswered stays until someone closes it, a message left too, since they are there to be answered (a chat
-  never ended goes after a day).
-- **Files**: 30 days, for everyone; then they are deleted. Those of a guest's chat go with it.
+- **Closed chats (結案), archived then deleted (0.6.2)**: a chat closed longer ago than the days set (90 by default),
+  a guest's too, is written out whole (the chat, its messages, its work cards, its rating, who handled it, and its
+  files themselves) into the **archive folder**, marked as archived, and only then deleted from the site. One that
+  cannot be written out stays and is tried again; one written out is never written out again. A daily scheduled
+  task does it (**AI Ask Desk - Archive closed chats**, in System → Scheduled Tasks); the desk does it itself
+  once a day when the task has not run. The dashboard says when it last ran and warns after two days without.
+- **The archive folder**: a full path **outside the website** (inside it, nothing is archived), by default
+  `askdesk-archive` beside the website's own folder. The site **only writes it and never reads it back**: there is
+  no way in the desk to bring an archived chat back; that is done by hand. Have the site's backups take it (an
+  Akeeba Backup profile that includes only this folder, encrypted as `.jps`, sent to Dropbox by its
+  post-processing, on a schedule); once sent, it may be emptied. In it: `{year-month}/room-{id}/chat.json` (the
+  chat as it was kept, `"format": "askdesk-archive/1"`), `{year-month}/room-{id}/files/…` and `archive.log` (a
+  line for each chat archived, with the SHA-256 of its `chat.json`).
+- **Not archived**: a guest's chat never taken up nor finished is deleted after a day. A chat ended unanswered,
+  or a message left, stays until someone closes it.
+- **Files**: given out for 30 days; kept until their chat is archived with them, then deleted with it.
+- **Ratings and who handled what**: for the days set (365 by default).
 - Nothing is recorded by IP address.
 
 ## Translating

@@ -73,6 +73,27 @@ $e = static fn ($text) => htmlspecialchars((string) $text, ENT_QUOTES, 'UTF-8');
 		</div>
 	</div>
 	<div class="col-lg-5">
+		<?php $archive = $this->archive; $last = $archive['last']; ?>
+		<div class="card mb-3">
+			<div class="card-body">
+				<h2 class="card-title h4"><?php echo Text::_('COM_ASKDESK_DASHBOARD_ARCHIVE'); ?></h2>
+				<?php if ($archive['late'] || ($last && $last['error'] !== '') || $archive['problem'] !== '') : ?>
+					<div class="alert alert-warning mb-3">
+						<?php echo $archive['late'] ? Text::_('COM_ASKDESK_DASHBOARD_ARCHIVE_LATE') : ''; ?>
+						<?php foreach (array_unique(array_filter([$archive['problem'], $last['error'] ?? ''])) as $error) : ?>
+							<div><?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?></div>
+						<?php endforeach; ?>
+					</div>
+				<?php endif; ?>
+				<p class="mb-1">
+					<?php echo $last
+						? Text::sprintf('COM_ASKDESK_DASHBOARD_ARCHIVE_LAST', HTMLHelper::_('date', $last['time'], Text::_('DATE_FORMAT_LC2')), $last['exported'], $last['deleted'])
+						: Text::_('COM_ASKDESK_DASHBOARD_ARCHIVE_NEVER'); ?>
+				</p>
+				<p class="mb-1"><?php echo Text::sprintf('COM_ASKDESK_DASHBOARD_ARCHIVE_DUE', $archive['due']); ?></p>
+				<p class="mb-0 text-muted small"><?php echo Text::sprintf('COM_ASKDESK_DASHBOARD_ARCHIVE_FOLDER', htmlspecialchars($archive['folder'], ENT_QUOTES, 'UTF-8')); ?></p>
+			</div>
+		</div>
 		<div class="card mb-3">
 			<div class="card-body">
 				<h2 class="card-title h4"><?php echo Text::_('COM_ASKDESK_DASHBOARD_NOW'); ?></h2>

@@ -26,6 +26,10 @@ return new class () implements InstallerScriptInterface {
 
     private bool $newPlugin = false;
 
+    /** The plugins this run adds (folder => element), switched on after (0.6.2: the daily task too) */
+
+    private array $newPlugins = [];
+
     public function install(InstallerAdapter $adapter): bool
     {
         return true;
@@ -66,10 +70,18 @@ return new class () implements InstallerScriptInterface {
             return false;
         }
 
-        $this->newPlugin = !(int) $db->setQuery(
-            $db->getQuery(true)->select('COUNT(*)')->from($db->quoteName('#__extensions'))
-                ->where($db->quoteName('type') . ' = ' . $db->quote('plugin'))->where($db->quoteName('folder') . ' = ' . $db->quote('mcpask'))->where($db->quoteName('element') . ' = ' . $db->quote('askdesk'))
-        )->loadResult();
+        foreach (['mcpask', 'task'] as $folder) {
+            $there = (int) $db->setQuery(
+                $db->getQuery(true)->select('COUNT(*)')->from($db->quoteName('#__extensions'))
+                    ->where($db->quoteName('type') . ' = ' . $db->quote('plugin'))->where($db->quoteName('folder') . ' = ' . $db->quote($folder))->where($db->quoteName('element') . ' = ' . $db->quote('askdesk'))
+            )->loadResult();
+
+            if (!$there) {
+                $this->newPlugins[] = $folder;
+            }
+        }
+
+        $this->newPlugin = \in_array('mcpask', $this->newPlugins, true);
 
         return true;
     }
@@ -81,15 +93,18 @@ return new class () implements InstallerScriptInterface {
         }
 
         // Never re-enable what an administrator disabled: only a plugin this run added is switched on
-        if ($type === 'uninstall' || !$this->newPlugin) {
+        if ($type === 'uninstall' || !$this->newPlugins) {
             return true;
         }
 
         $db = Factory::getContainer()->get(DatabaseInterface::class);
-        $db->setQuery(
-            $db->getQuery(true)->update($db->quoteName('#__extensions'))->set($db->quoteName('enabled') . ' = 1')
-                ->where($db->quoteName('type') . ' = ' . $db->quote('plugin'))->where($db->quoteName('folder') . ' = ' . $db->quote('mcpask'))->where($db->quoteName('element') . ' = ' . $db->quote('askdesk'))
-        )->execute();
+
+        foreach ($this->newPlugins as $folder) {
+            $db->setQuery(
+                $db->getQuery(true)->update($db->quoteName('#__extensions'))->set($db->quoteName('enabled') . ' = 1')
+                    ->where($db->quoteName('type') . ' = ' . $db->quote('plugin'))->where($db->quoteName('folder') . ' = ' . $db->quote($folder))->where($db->quoteName('element') . ' = ' . $db->quote('askdesk'))
+            )->execute();
+        }
 
         foreach (['com_plugins', '_system'] as $group) {
             try {

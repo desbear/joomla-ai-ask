@@ -43,6 +43,13 @@ class HtmlView extends BaseHtmlView
 
     public string $console = '';
 
+    /**
+     * Closed chats archived (0.6.2): when it last ran, how many, what went wrong, whether it is late, where
+     *
+     * @var array{last: ?array, late: bool, folder: string, problem: string, due: int}
+     */
+    public array $archive = ['last' => null, 'late' => true, 'folder' => '', 'problem' => '', 'due' => 0];
+
     /** @var array{count: int, dimensions: array<string, array<string, mixed>>, comments: array<int, array<string, string>>} */
     public array $ratings = ['count' => 0, 'dimensions' => [], 'comments' => []];
 
@@ -73,6 +80,23 @@ class HtmlView extends BaseHtmlView
         ];
 
         $this->present = (new Staff($db, $settings))->present();
+
+        $archive = new \Gss\Component\Askdesk\Administrator\Desk\Archive($db, $settings);
+        $last    = $archive->last();
+        $folder  = $archive->folder($problem);
+
+        $this->archive = [
+            'last'    => $last,
+            // Not run for two days: said so
+            'late'    => !$last || strtotime($last['time']) < time() - 2 * 86400,
+            'folder'  => $folder !== '' ? $folder : $settings->archiveFolder(),
+            'problem' => (string) $problem,
+            'due'     => (int) $db->setQuery(
+                $db->getQuery(true)->select('COUNT(*)')->from($db->quoteName('#__askdesk_rooms'))
+                    ->where('settled IS NOT NULL')->where('archived_at IS NULL')
+                    ->where('settled < ' . $db->quote(Factory::getDate('-' . $settings->archiveDays() . ' days')->toSql()))
+            )->loadResult(),
+        ];
 
         foreach ($db->setQuery($db->getQuery(true)->select('status, COUNT(*) AS n')->from($db->quoteName('#__askdesk_rooms'))->group('status'))->loadObjectList() as $row) {
             $this->counts[(string) $row->status] = (int) $row->n;

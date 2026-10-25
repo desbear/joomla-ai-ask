@@ -2,6 +2,28 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.6.2
+
+- **Closed chats archived, then deleted**: a chat closed (結案) longer ago than the days set (90 by default), a
+  guest's too, is written out whole (the chat, its messages, work cards, rating, who handled it, and its files)
+  into an archive folder outside the website, marked (`archived_at`), and only then deleted. One that cannot be
+  written out (the folder missing, not writable, or inside the website) is kept and tried again; one marked is
+  never written out again (a run that stopped after writing and before marking finds it written and only marks
+  it). Each chat is put together beside its place and moved there in one step, so the archive holds no half
+  chat; `archive.log` has a line for each, with the SHA-256 of its `chat.json`.
+- **One way only**: the desk writes the archive folder and never reads it back. Nothing in it brings an archived
+  chat back; that is done by hand from the encrypted backup. Packing, encrypting and sending the folder away is
+  left to the site's backups (an Akeeba Backup profile: encrypted `.jps`, Dropbox, scheduled).
+- **A daily scheduled task**, *AI Ask Desk - Archive closed chats* (the new plg_task_askdesk, switched on when
+  first installed); the desk runs it itself once a day when the task has not. The dashboard says when it last ran,
+  how many it archived and deleted and how many wait, and warns when it has not run for two days or cannot write.
+- **New options**: days before closed chats are archived (90) and the archive folder (empty: `askdesk-archive`
+  beside the website's folder). The days kept now cover ratings and who handled what only.
+- A guest's chat never taken up nor finished is still deleted after a day, not archived. A guest's closed chat is
+  no longer deleted an hour after it is closed: it is archived with the rest.
+- Files are given out for 30 days as before, but kept until their chat is archived with them.
+- New: `#__askdesk_rooms.archived_at` (update 0.6.2).
+
 ## AI Ask Desk 0.6.1
 
 - Every widget can be renamed in place: **Rename** in its menu, or its name double-clicked. A widget of the

@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS `#__askdesk_rooms` (
   `settled_by` int unsigned NOT NULL DEFAULT 0,
   `alerted` datetime NULL DEFAULT NULL,
   `reminded` datetime NULL DEFAULT NULL,
+  `archived_at` datetime NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_token` (`token`),
   KEY `idx_settled` (`settled`),
@@ -34,6 +35,7 @@ CREATE TABLE IF NOT EXISTS `#__askdesk_rooms` (
   KEY `idx_open` (`status`, `settled`),
   KEY `idx_created` (`created`),
   KEY `idx_email` (`email`(191)),
+  KEY `idx_archived` (`archived_at`),
   KEY `idx_user` (`user_id`),
   KEY `idx_staff` (`staff_id`, `status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci;

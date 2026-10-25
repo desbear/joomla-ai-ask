@@ -19,7 +19,7 @@ use Joomla\Database\ParameterType;
 
 /**
  * Files sent in a chat, by either side: pictures (1 MB at most), videos and documents (10 MB at
- * most), kept for 30 days and then deleted. Each is stored under a random name in a folder not
+ * most), given out for 30 days; kept until their chat is archived with them and deleted (0.6.2). Each is stored under a random name in a folder not
  * meant to be read directly, and given out only through the desk, by a random token of its own.
  * Kinds that could run in a page (SVG, HTML) are refused, whatever their name says.
  *
@@ -320,7 +320,9 @@ final class Files
     }
 
     /**
-     * Files past their days, and those of rooms that are gone, are deleted.
+     * The files of rooms being deleted, and those past their days whose chat is gone, are deleted. A file
+     * past its days whose chat is still here is kept (no longer given out) until the chat is archived with
+     * it and deleted (0.6.2: before, it was deleted after its days, and the archive would lack it).
      *
      * @param  int[]  $rooms  Rooms being deleted
      */
@@ -328,13 +330,15 @@ final class Files
     {
         $db    = $this->db;
         $now   = Factory::getDate()->toSql();
-        $query = $db->getQuery(true)->select('id, saved_as')->from($db->quoteName('#__askdesk_files'))->where('expires <= :now')->bind(':now', $now);
+        $query = $db->getQuery(true)->select('f.id, f.saved_as')->from($db->quoteName('#__askdesk_files', 'f'))
+            ->join('LEFT', $db->quoteName('#__askdesk_rooms', 'r'), 'r.id = f.room_id')
+            ->where('(f.expires <= :now AND r.id IS NULL)')->bind(':now', $now);
 
         if ($rooms) {
-            $query->orWhere('room_id IN (' . implode(',', array_map('intval', $rooms)) . ')');
+            $query->orWhere('f.room_id IN (' . implode(',', array_map('intval', $rooms)) . ')');
         }
 
-        $rows = $db->setQuery($query, 0, 500)->loadObjectList();
+        $rows = $db->setQuery($query, 0, 2000)->loadObjectList();
 
         foreach ($rows as $row) {
             @unlink(self::folder() . '/' . basename((string) $row->saved_as));

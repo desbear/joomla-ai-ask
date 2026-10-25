@@ -1538,6 +1538,15 @@ final class Rooms
 
         $this->forgetOld();
 
+        // Closed chats archived and then deleted: by the daily scheduled task, or here once a day when it
+        // has not run (0.6.2)
+        $archive = new Archive($db, $this->settings);
+        $last    = $archive->last();
+
+        if ((!$last || strtotime($last['time']) < time() - 86400) && $this->claim('archive_claimed', 86400)) {
+            $archive->run(20);
+        }
+
         // What is still unhandled after the hours set: told once more
         (new Alerts($this->db, $this->settings))->remind();
     }
@@ -1545,15 +1554,21 @@ final class Rooms
     /** Whether it is this request's turn to tidy: a minute since the last, claimed by one request only (0.6.1) */
     private function claimTidy(): bool
     {
+        return $this->claim('tidied', 60);
+    }
+
+    /** Whether it is this request's turn for what is done every so many seconds: claimed by one request only */
+    private function claim(string $name, int $every): bool
+    {
         $db    = $this->db;
         $table = $db->quoteName('#__askdesk_secrets');
         $now   = (string) time();
-        $due   = (string) (time() - 60);
+        $due   = (string) (time() - $every);
 
         try {
             $db->setQuery(
                 $db->getQuery(true)->update($table)->set($db->quoteName('value') . ' = :now')
-                    ->where($db->quoteName('name') . ' = ' . $db->quote('tidied'))->where($db->quoteName('value') . ' < :due')
+                    ->where($db->quoteName('name') . ' = ' . $db->quote($name))->where($db->quoteName('value') . ' < :due')
                     ->bind(':now', $now)->bind(':due', $due)
             )->execute();
 
@@ -1562,10 +1577,10 @@ final class Rooms
             }
 
             // Never tidied before: the first to put its time down does it
-            $seen = $db->setQuery($db->getQuery(true)->select('COUNT(*)')->from($table)->where($db->quoteName('name') . ' = ' . $db->quote('tidied')))->loadResult();
+            $seen = $db->setQuery($db->getQuery(true)->select('COUNT(*)')->from($table)->where($db->quoteName('name') . ' = ' . $db->quote($name)))->loadResult();
 
             if ((int) $seen === 0) {
-                $mark = (object) ['name' => 'tidied', 'value' => $now];
+                $mark = (object) ['name' => $name, 'value' => $now];
 
                 $db->insertObject('#__askdesk_secrets', $mark);
 
@@ -1581,15 +1596,16 @@ final class Rooms
     private function forgetOld(): void
     {
         $db     = $this->db;
-        $guests = Factory::getDate('-' . self::GUEST_GRACE_MINUTES . ' minutes')->toSql();
         // A guest's chat left alone without closing goes after a day at most
         $stale  = Factory::getDate('-1 day')->toSql();
         $old    = Factory::getDate('-' . $this->settings->keepDays() . ' days')->toSql();
 
+        // A guest's chat never taken up nor finished goes after a day, not archived (0.6.2). Every closed chat
+        // (結案), a guest's too, is archived after the days set and only then deleted (Archive); none is
+        // deleted here for its age any more
         $query = $db->getQuery(true)->select('id')->from($db->quoteName('#__askdesk_rooms'))
-            // A guest's chat goes once closed (結案) a while; one still to be dealt with stays till it is
-            ->where('((user_id = 0 AND status = ' . $db->quote('closed') . ' AND settled IS NOT NULL AND settled < :guests) OR (user_id = 0 AND status IN (' . $db->quote('waiting') . ', ' . $db->quote('active') . ') AND modified < :stale) OR created < :old)')
-            ->bind(':guests', $guests)->bind(':stale', $stale)->bind(':old', $old);
+            ->where('(user_id = 0 AND status IN (' . $db->quote('waiting') . ', ' . $db->quote('active') . ') AND modified < :stale AND settled IS NULL)')
+            ->bind(':stale', $stale);
         $ids = array_map('intval', $db->setQuery($query, 0, 500)->loadColumn());
 
         // Ratings hold nothing of the visitor but what they wrote in the comment, and who handled

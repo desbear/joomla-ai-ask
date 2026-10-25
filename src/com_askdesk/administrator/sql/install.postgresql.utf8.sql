@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS "#__askdesk_rooms" (
   "settled_by" integer DEFAULT 0 NOT NULL,
   "alerted" timestamp without time zone,
   "reminded" timestamp without time zone,
+  "archived_at" timestamp without time zone DEFAULT NULL,
   PRIMARY KEY ("id"),
   CONSTRAINT "#__askdesk_rooms_idx_token" UNIQUE ("token")
 );
@@ -36,6 +37,7 @@ CREATE INDEX "#__askdesk_rooms_idx_settled" ON "#__askdesk_rooms" ("settled");
 CREATE INDEX "#__askdesk_rooms_idx_open" ON "#__askdesk_rooms" ("status", "settled");
 CREATE INDEX "#__askdesk_rooms_idx_created" ON "#__askdesk_rooms" ("created");
 CREATE INDEX "#__askdesk_rooms_idx_email" ON "#__askdesk_rooms" (LOWER("email"));
+CREATE INDEX "#__askdesk_rooms_idx_archived" ON "#__askdesk_rooms" ("archived_at");
 
 CREATE TABLE IF NOT EXISTS "#__askdesk_messages" (
   "id" serial NOT NULL,

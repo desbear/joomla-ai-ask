@@ -75,6 +75,10 @@
 			label="COM_ASKDESK_CONFIG_REMIND" description="COM_ASKDESK_CONFIG_REMIND_DESC" />
 	</fieldset>
 	<fieldset name="privacy" label="COM_ASKDESK_CONFIG_PRIVACY" description="COM_ASKDESK_CONFIG_PRIVACY_DESC">
+		<field name="archive_days" type="number" default="90" min="1" max="3650" filter="integer"
+			label="COM_ASKDESK_CONFIG_ARCHIVE_DAYS" description="COM_ASKDESK_CONFIG_ARCHIVE_DAYS_DESC" />
+		<field name="archive_folder" type="text" filter="string" hint="COM_ASKDESK_CONFIG_ARCHIVE_FOLDER_HINT"
+			label="COM_ASKDESK_CONFIG_ARCHIVE_FOLDER" description="COM_ASKDESK_CONFIG_ARCHIVE_FOLDER_DESC" />
 		<field name="keep_days" type="number" default="365" min="1" max="3650" filter="integer"
 			label="COM_ASKDESK_CONFIG_KEEP_DAYS" description="COM_ASKDESK_CONFIG_KEEP_DAYS_DESC" />
 		<field name="notice_member" type="textarea" rows="2" filter="string"
