@@ -10,6 +10,8 @@
 
 namespace Gss\Component\Mcpask\Administrator\Agent;
 
+use Gss\Component\Mcpask\Administrator\Ask\Masker;
+use Gss\Component\Mcpask\Administrator\Ask\Settings;
 use Joomla\CMS\Factory;
 use Joomla\Database\DatabaseInterface;
 use Joomla\Database\ParameterType;
@@ -36,8 +38,6 @@ final class Handoffs
     /** What may come of it, in order: a later outcome never gives way to an earlier one */
     public const OUTCOMES = ['requested', 'failed', 'opened', 'referred', 'message', 'chatting'];
 
-    private const KEEP_DAYS = 365;
-
     public function __construct(private DatabaseInterface $db)
     {
     }
@@ -60,8 +60,9 @@ final class Handoffs
             'hours'        => (int) $hours,
             'availability' => '',
             'outcome'      => 'requested',
-            'question'     => mb_substr(trim((string) ($entry['question'] ?? '')), 0, 300),
-            'page'         => mb_substr((string) ($entry['page'] ?? ''), 0, 500),
+            // What identifies a person or opens an account is not kept (0.21.0), nor the page's query
+            'question'     => mb_substr(Masker::mask(trim((string) ($entry['question'] ?? ''))), 0, 300),
+            'page'         => mb_substr((string) strtok((string) strtok((string) ($entry['page'] ?? ''), '#'), '?'), 0, 500),
             'report'       => (int) (($entry['report'] ?? '') !== ''),
             'language'     => mb_substr($language, 0, 7),
             'created'      => $now,
@@ -69,7 +70,12 @@ final class Handoffs
         ];
 
         $this->db->insertObject('#__mcpask_handoffs', $row);
-        $this->forgetOld();
+
+        // Now and then, besides the scheduled task
+        if (random_int(1, 20) === 1) {
+            $settings = Settings::load();
+            $this->forget($settings->handoffDays(), $settings->handoffContentDays());
+        }
 
         return $key;
     }
@@ -193,9 +199,30 @@ final class Handoffs
         return $counts;
     }
 
-    private function forgetOld(): void
+    /**
+     * Handoffs older than so many days deleted; their question, page and visitor cleared sooner,
+     * how they ended kept (0.21.0). The key a page reported with is useless after a day already.
+     *
+     * @return  array{deleted: int, cleared: int}
+     */
+    public function forget(int $days, int $contentDays): array
     {
-        $before = Factory::getDate('-' . self::KEEP_DAYS . ' days')->toSql();
-        $this->db->setQuery($this->db->getQuery(true)->delete($this->db->quoteName('#__mcpask_handoffs'))->where('created < :before')->bind(':before', $before))->execute();
+        $db     = $this->db;
+        $table  = $db->quoteName('#__mcpask_handoffs');
+        $before = Factory::getDate('-' . max(1, $days) . ' days')->toSql();
+
+        $db->setQuery($db->getQuery(true)->delete($table)->where('created < :before')->bind(':before', $before))->execute();
+        $deleted = $db->getAffectedRows();
+
+        $before = Factory::getDate('-' . max(1, min($days, $contentDays)) . ' days')->toSql();
+        $db->setQuery(
+            $db->getQuery(true)->update($table)
+                ->set('question = ' . $db->quote(''))->set('page = ' . $db->quote(''))->set('visitor = ' . $db->quote(''))
+                ->where('created < :before')
+                ->where('(question <> ' . $db->quote('') . ' OR page <> ' . $db->quote('') . ' OR visitor <> ' . $db->quote('') . ')')
+                ->bind(':before', $before)
+        )->execute();
+
+        return ['deleted' => $deleted, 'cleared' => $db->getAffectedRows()];
     }
 }

@@ -14,6 +14,7 @@ use Gss\Component\Mcpask\Administrator\Ask\Indexer;
 use Gss\Component\Mcpask\Administrator\Ask\PeerSync;
 use Gss\Component\Mcpask\Administrator\Ask\State;
 use Gss\Component\Mcpask\Administrator\Ask\WebSync;
+use Gss\Component\Mcpask\Administrator\Ask\Retention;
 use Gss\Component\Mcpask\Administrator\Ask\Settings;
 use Gss\Component\Mcpask\Administrator\Ask\Source\FlexicontentSource;
 use Gss\Component\Mcpask\Administrator\Ask\Source\Sources;
@@ -177,6 +178,24 @@ class HtmlView extends BaseHtmlView
                     : Text::_('COM_MCPASK_CHECK_FALLBACK_READY'),
             ];
         }
+
+        // What is kept of visitors is forgotten every day (0.21.0): when that last happened, and what went
+        $last = Retention::last($db);
+        $late = !$last || $last['at'] < Factory::getDate('-2 days')->toSql();
+        $gone = $last ? array_sum($last['counts']) : 0;
+
+        $checks[] = [
+            'status' => $late ? 'warning' : 'ok',
+            'text'   => $last
+                ? Text::sprintf(
+                    $late ? 'COM_MCPASK_CHECK_RETENTION_LATE' : 'COM_MCPASK_CHECK_RETENTION_OK',
+                    HTMLHelper::_('date', $last['at'], Text::_('DATE_FORMAT_LC5')),
+                    $gone,
+                    $settings->questionDays(),
+                    $settings->evidenceDays()
+                )
+                : Text::_('COM_MCPASK_CHECK_RETENTION_NEVER'),
+        ];
 
         return $checks;
     }

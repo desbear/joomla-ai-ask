@@ -455,6 +455,42 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
   status switched from the desk's card; new waiting chats light up red and ring a bell on the count; ended chats fold
   away; drop-down menus, Mac-like scroll bars, and the work on a calm grey-blue with white cards.
 
+## AI Ask for Joomla 0.21.0
+
+- **Less kept, for less long**: what visitors write is kept with e-mail addresses, telephone, ID and card numbers
+  and passwords or keys written out hidden. A question's words, its answer, the reason given with a rating and the
+  account that asked are kept 14 days (Days questions' words are kept), then only its figures, until Days questions
+  are counted (90 by default, a year at most). Updating hides them in what was kept before too.
+- **Attacks kept as evidence**: what was turned away or marked as a probe, an injection attempt, markup or a refused
+  token is kept 90 days (Days attacks are kept) with the network address and the words as they came; so is what
+  reads as reconnaissance even when it was answered (getting the instructions or tools out, addresses inside the
+  server's network or its cloud metadata, commands, searches for passwords and keys, replayed test strings: marked
+  "Reads as an attack"), and the same visitor's other questions of that day ("Same visitor as an attack"), so that
+  the reconnaissance is kept whole. Updating marks what was kept before the same way, by address and day. An ordinary
+  question no longer keeps the network address at all: only a hash of it for a day, with a key made anew every
+  day and thrown away the day after, so that it cannot be traced back. "Record who asked" is off by default and
+  only keeps the account. Updating clears the addresses kept with ordinary questions before.
+- **Handoffs and agents**: handoffs are kept 90 days, their question, page and visitor cleared after 30 (they were
+  kept a year); the counts of agents' use 180 days (they were never cleared); a handoff's page is kept without its
+  query or fragment.
+- **Forgotten every day**: the new scheduled task **AI Ask - Forget old records** does it daily (the index's task
+  does it too), not only when someone asks. The dashboard says when it last ran and how much it removed, and
+  warns when that was more than two days ago.
+
+## AI Ask for Joomla 0.20.8
+
+- **Secrets kept encrypted**: the AI service keys (and the fallback's), this site's export key, other sites' keys, the
+  secret of a module showing another site's AI Ask, the image plugin's key and embed keys' secrets are kept encrypted
+  (AES-256-GCM, with a key made from the site's own secret), so a copy of the database or of a backup no longer gives
+  them away. Updating encrypts those kept in plain text before (the installer says how many). Once saved, a secret is
+  not shown again, only that one is set: its box takes a new one, and Remove clears it. A new embed secret is shown
+  once, to be copied to the other website's server. This does not protect them from someone who controls the site:
+  if a site was taken over, change them.
+- **No administrator through a signed token**: a token signed by another website (an embed key's, or for signing in
+  through it) is refused for an account that may sign in to the back end or manage anything there, so whoever holds
+  that website's secret cannot act here as an administrator by naming an administrator's e-mail address. Each
+  refusal is kept in the question log as turned away, marked "Token for an administrator refused", with the address
+  it came from.
 ## AI Ask for Joomla 0.20.7
 
 - **The pet on a phone, embedded, as on the site**: its phone size and its half-body picture in the rounded frame,

@@ -87,11 +87,17 @@ $line  = $embed ? '<script src="' . rtrim(Uri::root(), '/') . '/media/mod_mcp_as
 
 						<h3 class="h6 mt-4"><?php echo Text::_('COM_MCPASK_EMBED_SECRET'); ?></h3>
 						<p class="small text-muted"><?php echo Text::_('COM_MCPASK_EMBED_SECRET_DESC'); ?></p>
-						<div class="input-group">
-							<input id="mcpask-embed-secret" type="password" class="form-control font-monospace" value="<?php echo $e($embed->secret); ?>" readonly autocomplete="off">
-							<button type="button" class="btn btn-outline-secondary" data-mcpask-reveal="mcpask-embed-secret"><?php echo Text::_('COM_MCPASK_EMBED_SHOW'); ?></button>
-							<button type="button" class="btn btn-outline-secondary" data-mcpask-copy="mcpask-embed-secret" data-done="<?php echo $e(Text::_('COM_MCPASK_EMBED_COPIED')); ?>"><?php echo Text::_('COM_MCPASK_EMBED_COPY'); ?></button>
-						</div>
+						<?php // Shown once, just after it was made; kept encrypted and not shown again (0.20.8) ?>
+						<?php $newSecret = \Gss\Component\Mcpask\Administrator\Embed\Embeds::newSecretOf((int) $embed->id); ?>
+						<?php if ($newSecret !== null) : ?>
+							<div class="alert alert-warning small mb-2"><?php echo Text::_('COM_MCPASK_EMBED_SECRET_ONCE'); ?></div>
+							<div class="input-group">
+								<input id="mcpask-embed-secret" type="text" class="form-control font-monospace" value="<?php echo $e($newSecret); ?>" readonly autocomplete="off">
+								<button type="button" class="btn btn-outline-secondary" data-mcpask-copy="mcpask-embed-secret" data-done="<?php echo $e(Text::_('COM_MCPASK_EMBED_COPIED')); ?>"><?php echo Text::_('COM_MCPASK_EMBED_COPY'); ?></button>
+							</div>
+						<?php else : ?>
+							<div class="small text-success"><span class="icon-lock" aria-hidden="true"></span> <?php echo Text::_('COM_MCPASK_EMBED_SECRET_KEPT'); ?></div>
+						<?php endif; ?>
 						<button type="submit" class="btn btn-outline-danger btn-sm mt-2" onclick="if (!confirm('<?php echo $e(Text::_('COM_MCPASK_EMBED_SECRET_CONFIRM')); ?>')) return false; this.form.task.value='embeds.secret'; this.form.noValidate = true;"><?php echo Text::_('COM_MCPASK_EMBED_SECRET_RENEW'); ?></button>
 
 						<h3 class="h6 mt-4"><?php echo Text::_('COM_MCPASK_EMBED_API'); ?></h3>

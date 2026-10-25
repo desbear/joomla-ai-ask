@@ -32,6 +32,12 @@ final class UsageLog
     /** Seconds after which a question that never finished no longer counts as in progress. */
     private const STALE = 300;
 
+    /** Marks that make a question an attack, kept as evidence (0.21.0) */
+    public const EVIDENCE = ['injection_suspect', 'html_payload', 'probe', 'identity_refused', 'suspicious', 'linked'];
+
+    /** @var array<int, array{ip: string, question: string, hash: string[], linked: bool}>  What start() was given, until finish() */
+    private array $asked = [];
+
     public function __construct(private DatabaseInterface $db, private Settings $settings, private string $secret)
     {
     }
@@ -51,18 +57,22 @@ final class UsageLog
         $minute = $limits === null ? 0 : ($limits['minute'] < 0 ? $this->settings->perMinute() : $limits['minute']);
         $day    = $limits === null ? 0 : ($limits['day'] < 0 ? $this->settings->perDay() : $limits['day']);
 
-        $hash   = $this->hash($ip);
+        // This address today and yesterday (the key changes daily): the limits look back a day
+        $hash   = $this->hashes($ip);
         $who    = $this->settings->logWho();
+        // Kept as written, with the address, only if it turns out to be an attack (finish())
         $record = (object) [
             'created'  => Factory::getDate()->toSql(),
-            'ip_hash'  => $hash,
+            'ip_hash'  => $hash[0],
             'user_id'  => $who ? $userId : 0,
-            'ip'       => $who ? mb_substr($ip, 0, 45) : '',
-            'question' => $this->settings->logQuestions() ? $question : null,
+            'ip'       => '',
+            'question' => $this->settings->logQuestions() ? Masker::mask($question) : null,
             'status'   => 'started',
         ];
 
         $this->db->insertObject('#__mcpask_log', $record, 'id');
+        // A visitor already caught at something today: what else they ask is kept with it
+        $this->asked[(int) $record->id] = ['ip' => $ip, 'question' => $question, 'hash' => $hash, 'linked' => $this->caught($hash)];
 
         // A member is counted by account, so colleagues behind one address do not share a limit
         // (when who asked is recorded; otherwise by address, as for guests)
@@ -101,6 +111,21 @@ final class UsageLog
      */
     public function finish(int $id, array $result, float $startedAt): void
     {
+        $asked = $this->asked[$id] ?? ['ip' => '', 'question' => '', 'hash' => [], 'linked' => false];
+        $flags = array_unique((array) ($result['flags'] ?? []));
+
+        // What reads as reconnaissance is evidence even when it was answered (0.21.0)
+        if (Suspicion::of((string) $asked['question']) !== null) {
+            $flags[] = 'suspicious';
+        }
+
+        if ($asked['linked']) {
+            $flags[] = 'linked';
+        }
+
+        $flags    = array_values(array_unique($flags));
+        $evidence = $result['status'] === 'blocked' || array_intersect($flags, self::EVIDENCE);
+
         $record = (object) [
             'id'          => $id,
             'status'      => $result['status'],
@@ -110,8 +135,18 @@ final class UsageLog
             'tokens_out'  => (int) ($result['output'] ?? 0),
             'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
             'hint_id'     => (int) (($result['hints'] ?? [])[0] ?? 0),
-            'flags'       => mb_substr(implode(',', array_unique((array) ($result['flags'] ?? []))), 0, 255),
+            'flags'       => mb_substr(implode(',', $flags), 0, 255),
         ];
+
+        // An attack: kept longer, with the address and the words as they came (0.21.0)
+        if ($evidence) {
+            $record->evidence = 1;
+            $record->ip       = mb_substr((string) $asked['ip'], 0, 45);
+
+            if ($this->settings->logQuestions()) {
+                $record->question_raw = mb_substr((string) $asked['question'], 0, 60000);
+            }
+        }
 
         // The answer as shown, and as the model wrote it when the filter changed it; kept like the question
         if ($this->settings->logQuestions() && isset($result['answer'])) {
@@ -120,6 +155,48 @@ final class UsageLog
         }
 
         $this->db->updateObject('#__mcpask_log', $record, 'id');
+
+        // ...and what the same visitor asked in the day before, so the reconnaissance is kept whole
+        if ($evidence && $asked['hash']) {
+            $this->link($asked['hash'], (string) $asked['ip']);
+        }
+    }
+
+    /**
+     * Whether this visitor (today's or yesterday's hash) was caught at something in the last day.
+     *
+     * @param  string[]  $hash
+     */
+    private function caught(array $hash): bool
+    {
+        $since = Factory::getDate('-1 day')->toSql();
+
+        return (int) $this->db->setQuery(
+            $this->db->getQuery(true)->select('COUNT(*)')->from($this->db->quoteName('#__mcpask_log'))
+                ->where('evidence = 1')->whereIn('ip_hash', $hash, ParameterType::STRING)
+                ->where('created >= :since')->bind(':since', $since)
+        )->loadResult() > 0;
+    }
+
+    /**
+     * The same visitor's other questions of the last day, kept as evidence too, with the address.
+     *
+     * @param  string[]  $hash
+     */
+    private function link(array $hash, string $ip): void
+    {
+        $since = Factory::getDate('-1 day')->toSql();
+        $ip    = mb_substr($ip, 0, 45);
+
+        $this->db->setQuery(
+            $this->db->getQuery(true)->update($this->db->quoteName('#__mcpask_log'))
+                ->set('evidence = 1')
+                ->set('ip = :ip')
+                ->set($this->db->quoteName('flags') . ' = ' . $this->addFlag('linked'))
+                ->where('evidence = 0')->whereIn('ip_hash', $hash, ParameterType::STRING)
+                ->where('created >= :since')
+                ->bind(':ip', $ip)->bind(':since', $since)
+        )->execute();
     }
 
     /**
@@ -145,20 +222,26 @@ final class UsageLog
 
         // A reason that is a probe: the rating is a scanner's. It is not counted, only marked, and
         // the one who sent it is told it was taken, as anyone else would be
-        if ((new Guard($this->settings))->refusesFeedback($feedback) !== null) {
+        if ((new Guard($this->settings))->refusesFeedback($feedback) !== null || Suspicion::of($feedback) !== null) {
+            // Evidence (0.21.0): with the address the probe came from
+            $ip = mb_substr($this->settings->visitorIp(), 0, 45);
+
             $this->db->setQuery(
                 $this->db->getQuery(true)
                     ->update($this->db->quoteName('#__mcpask_log'))
                     ->set($this->db->quoteName('flags') . ' = ' . $this->addFlag('probe'))
+                    ->set('evidence = 1')
+                    ->set('ip = :ip')
                     ->where('id = ' . (int) $match[1])
                     ->where('created >= :since')
+                    ->bind(':ip', $ip)
                     ->bind(':since', $since)
             )->execute();
 
             return true;
         }
 
-        $text   = mb_substr(trim((string) preg_replace('/\s+/u', ' ', strip_tags($feedback))), 0, 255);
+        $text   = mb_substr(Masker::mask(trim((string) preg_replace('/\s+/u', ' ', strip_tags($feedback)))), 0, 255);
         $query  = $this->db->getQuery(true)
             ->update($this->db->quoteName('#__mcpask_log'))
             ->set('rating = ' . $rating)
@@ -209,42 +292,62 @@ final class UsageLog
             . ' ELSE ' . $this->db->getQuery(true)->concatenate([$flags, $this->db->quote(',' . $flag)]) . ' END';
     }
 
-    public function prune(): void
+    /**
+     * Forget what is older than the administrator wants kept (0.21.0): a question's words, answer,
+     * reason and account after questionDays(), its figures after logDays(), attacks (with their
+     * address and words as sent) after evidenceDays(); the address hash after a day.
+     *
+     * @return  array{deleted: int, evidence: int, cleared: int}  Rows deleted, attacks deleted, rows made anonymous
+     */
+    public function prune(): array
     {
-        $before = Factory::getDate('-' . $this->settings->logDays() . ' days')->toSql();
-        $query  = $this->db->getQuery(true)
-            ->delete($this->db->quoteName('#__mcpask_log'))
-            ->where('created < :before')
-            ->bind(':before', $before);
+        $db     = $this->db;
+        $table  = $db->quoteName('#__mcpask_log');
+        $counts = ['deleted' => 0, 'evidence' => 0, 'cleared' => 0];
+        $run    = static function ($query) use ($db): int {
+            $db->setQuery($query)->execute();
 
-        $this->db->setQuery($query)->execute();
+            return $db->getAffectedRows();
+        };
+
+        $before = Factory::getDate('-' . $this->settings->logDays() . ' days')->toSql();
+        $counts['deleted'] = $run($db->getQuery(true)->delete($table)->where('evidence = 0')->where('created < :before')->bind(':before', $before));
+
+        $before = Factory::getDate('-' . $this->settings->evidenceDays() . ' days')->toSql();
+        $counts['evidence'] = $run($db->getQuery(true)->delete($table)->where('evidence = 1')->where('created < :before')->bind(':before', $before));
+
+        // Only the figures of an ordinary question after a while: no words, no account
+        $before = Factory::getDate('-' . $this->settings->questionDays() . ' days')->toSql();
+        $counts['cleared'] = $run(
+            $db->getQuery(true)->update($table)
+                ->set('question = NULL')->set('question_raw = NULL')->set('answer = NULL')->set('answer_raw = NULL')
+                ->set('feedback = ' . $db->quote(''))->set('user_id = 0')->set('ip = ' . $db->quote(''))
+                ->where('evidence = 0')
+                ->where('created < :before')
+                ->where('(question IS NOT NULL OR answer IS NOT NULL OR feedback <> ' . $db->quote('') . ' OR user_id <> 0 OR ip <> ' . $db->quote('') . ')')
+                ->bind(':before', $before)
+        );
 
         // The limits look back one day. After that the address hash only serves to link a
         // visitor's questions to each other, which nobody needs.
         $before = Factory::getDate('-1 day')->toSql();
-        $query  = $this->db->getQuery(true)
-            ->update($this->db->quoteName('#__mcpask_log'))
-            ->set('ip_hash = ' . $this->db->quote(''))
-            ->where('created < :before')
-            ->where('ip_hash <> ' . $this->db->quote(''))
-            ->bind(':before', $before);
+        $run($db->getQuery(true)->update($table)->set('ip_hash = ' . $db->quote(''))->where('created < :before')->where('ip_hash <> ' . $db->quote(''))->bind(':before', $before));
 
-        $this->db->setQuery($query)->execute();
+        return $counts;
     }
 
     /**
      * Questions of one address that were turned away as probes within the last hour.
      */
-    private function turnedAway(string $hash): int
+    private function turnedAway(array $hash): int
     {
         $since = Factory::getDate('-1 hour')->toSql();
         $query = $this->db->getQuery(true)
             ->select('COUNT(*)')
             ->from($this->db->quoteName('#__mcpask_log'))
             ->where('status = ' . $this->db->quote('blocked'))
-            ->where('ip_hash = :hash')
+            ->whereIn('ip_hash', $hash, ParameterType::STRING)
             ->where('created >= :since')
-            ->bind(':hash', $hash)
             ->bind(':since', $since);
 
         return (int) $this->db->setQuery($query)->loadResult();
@@ -253,16 +356,15 @@ final class UsageLog
     /**
      * Questions of one address that are being answered right now.
      */
-    private function inProgress(string $hash): int
+    private function inProgress(array $hash): int
     {
         $since = Factory::getDate('-' . self::STALE . ' seconds')->toSql();
         $query = $this->db->getQuery(true)
             ->select('COUNT(*)')
             ->from($this->db->quoteName('#__mcpask_log'))
             ->where('status = ' . $this->db->quote('started'))
-            ->where('ip_hash = :hash')
+            ->whereIn('ip_hash', $hash, ParameterType::STRING)
             ->where('created >= :since')
-            ->bind(':hash', $hash)
             ->bind(':since', $since);
 
         return (int) $this->db->setQuery($query)->loadResult();
@@ -271,7 +373,7 @@ final class UsageLog
     /**
      * Questions asked in the last so many seconds, by one account, one address or everyone.
      */
-    public function count(int $seconds, ?string $hash = null, int $userId = 0, bool $paidOnly = false): int
+    public function count(int $seconds, string|array|null $hash = null, int $userId = 0, bool $paidOnly = false): int
     {
         $since = Factory::getDate('-' . $seconds . ' seconds')->toSql();
         $query = $this->db->getQuery(true)
@@ -287,7 +389,7 @@ final class UsageLog
         if ($userId > 0) {
             $query->where('user_id = ' . $userId);
         } elseif ($hash !== null) {
-            $query->where('ip_hash = :hash')->bind(':hash', $hash);
+            $query->whereIn('ip_hash', (array) $hash, ParameterType::STRING);
         }
 
         return (int) $this->db->setQuery($query)->loadResult();
@@ -297,10 +399,10 @@ final class UsageLog
      * @return  object[]  The latest questions, newest first, with the name of who asked when that is known
      */
     /** Marks a question can carry in the log. */
-    public const FLAGS = ['injection_suspect', 'html_payload', 'output_filtered', 'probe', 'dismissed'];
+    public const FLAGS = ['injection_suspect', 'html_payload', 'output_filtered', 'probe', 'dismissed', 'identity_refused', 'suspicious', 'linked'];
 
     /** Marks of questions that are tests, not visitors': left out of what is looked at and counted. */
-    public const NOT_VISITORS = ['injection_suspect', 'html_payload', 'probe', 'dismissed'];
+    public const NOT_VISITORS = ['injection_suspect', 'html_payload', 'probe', 'dismissed', 'identity_refused'];
 
     public function recent(int $limit, string $flag = ''): array
     {
@@ -397,7 +499,14 @@ final class UsageLog
         return [$db->setQuery($query, $start, $limit)->loadObjectList(), $total];
     }
 
-    private function hash(string $ip): string
+    /**
+     * The address, hashed with today's key and with yesterday's (0.21.0): the same address links up
+     * for a day, and once a key is thrown away no hash made with it can be traced back to the
+     * address, not even by someone who has the site's configuration.
+     *
+     * @return  array{0: string, 1: string}  Today's hash, yesterday's
+     */
+    private function hashes(string $ip): array
     {
         // One IPv6 customer has a whole /64 of addresses to choose from, so that is what is counted
         $packed = @inet_pton($ip);
@@ -412,6 +521,39 @@ final class UsageLog
             $ip = (string) inet_ntop(substr($packed, 0, 8) . str_repeat("\0", 8));
         }
 
-        return hash_hmac('sha256', $ip, $this->secret);
+        $keys = $this->keys();
+
+        return [hash_hmac('sha256', $ip, $keys['today']), hash_hmac('sha256', $ip, $keys['yesterday'])];
+    }
+
+    /**
+     * Today's key and yesterday's, random, made anew each day; the day before yesterday's is gone.
+     *
+     * @return  array{today: string, yesterday: string}
+     */
+    private function keys(): array
+    {
+        static $keys = null;
+
+        $day = gmdate('Y-m-d');
+
+        if ($keys !== null && $keys['day'] === $day) {
+            return $keys;
+        }
+
+        $state = new State($this->db);
+        $kept  = $state->get('log:keys');
+
+        if (($kept['day'] ?? '') !== $day || empty($kept['today'])) {
+            $kept = [
+                'day'       => $day,
+                'today'     => bin2hex(random_bytes(32)),
+                // Only yesterday's: one older than that cannot be used for a day's limits anyway
+                'yesterday' => ($kept['day'] ?? '') === gmdate('Y-m-d', time() - 86400) && !empty($kept['today']) ? $kept['today'] : bin2hex(random_bytes(32)),
+            ];
+            $state->set('log:keys', $kept);
+        }
+
+        return $keys = $kept;
     }
 }

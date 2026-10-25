@@ -72,7 +72,10 @@ class Dispatcher extends AbstractModuleDispatcher
         }
 
         $user   = $this->getApplication()->getIdentity();
-        $secret = trim((string) $params->get('remote_secret', ''));
+        $secret = (string) $params->get('remote_secret', '');
+        $crypto = 'Gss\\Component\\Mcpask\\Administrator\\Ask\\Crypto';
+        // Kept encrypted since 0.20.8
+        $secret = class_exists($crypto) ? $crypto::open($secret) : trim($secret);
         $token  = '';
         // Why a signed-in visitor is not passed on, for whoever reads the page's source
         $why    = '';

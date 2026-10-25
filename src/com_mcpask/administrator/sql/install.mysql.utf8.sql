@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS `#__mcpask_log` (
   `user_id` int unsigned NOT NULL DEFAULT 0,
   `ip` varchar(45) NOT NULL DEFAULT '',
   `question` text,
+  `question_raw` text,
   `status` varchar(16) NOT NULL DEFAULT '',
   `message` varchar(255) NOT NULL DEFAULT '',
   `sources` tinyint unsigned NOT NULL DEFAULT 0,
@@ -55,6 +56,7 @@ CREATE TABLE IF NOT EXISTS `#__mcpask_log` (
   `feedback` varchar(255) NOT NULL DEFAULT '',
   `hint_id` int unsigned NOT NULL DEFAULT 0,
   `flags` varchar(255) NOT NULL DEFAULT '',
+  `evidence` tinyint NOT NULL DEFAULT 0,
   `answer` mediumtext,
   `answer_raw` mediumtext,
   `embed_id` int unsigned NOT NULL DEFAULT 0,
@@ -62,7 +64,8 @@ CREATE TABLE IF NOT EXISTS `#__mcpask_log` (
   KEY `idx_created` (`created`),
   KEY `idx_rating` (`rating`),
   KEY `idx_ip_created` (`ip_hash`, `created`),
-  KEY `idx_embed_created` (`embed_id`, `created`)
+  KEY `idx_embed_created` (`embed_id`, `created`),
+  KEY `idx_evidence_created` (`evidence`, `created`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `#__mcpask_state` (
@@ -126,7 +129,8 @@ CREATE TABLE IF NOT EXISTS `#__mcpask_agent_events` (
   `event` varchar(16) NOT NULL DEFAULT '',
   `created` datetime NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `idx_agent_event` (`agent_id`, `event`, `created`)
+  KEY `idx_agent_event` (`agent_id`, `event`, `created`),
+  KEY `idx_created` (`created`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `#__mcpask_reports` (
@@ -174,7 +178,7 @@ CREATE TABLE IF NOT EXISTS `#__mcpask_embeds` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `title` varchar(255) NOT NULL DEFAULT '',
   `public_key` varchar(40) NOT NULL,
-  `secret` varchar(64) NOT NULL DEFAULT '',
+  `secret` varchar(255) NOT NULL DEFAULT '',
   `domains` text NOT NULL,
   `published` tinyint NOT NULL DEFAULT 1,
   `params` mediumtext NOT NULL,

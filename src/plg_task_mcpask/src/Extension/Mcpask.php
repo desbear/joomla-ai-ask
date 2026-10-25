@@ -13,9 +13,9 @@ namespace Gss\Plugin\Task\Mcpask\Extension;
 use Gss\Component\Mcpask\Administrator\Ask\Hints;
 use Gss\Component\Mcpask\Administrator\Ask\Indexer;
 use Gss\Component\Mcpask\Administrator\Ask\PeerSync;
+use Gss\Component\Mcpask\Administrator\Ask\Retention;
 use Gss\Component\Mcpask\Administrator\Ask\Settings;
 use Gss\Component\Mcpask\Administrator\Ask\Source\Sources;
-use Gss\Component\Mcpask\Administrator\Ask\UsageLog;
 use Gss\Component\Mcpask\Administrator\Ask\WebSync;
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
@@ -43,6 +43,11 @@ final class Mcpask extends CMSPlugin implements SubscriberInterface
             'langConstPrefix' => 'PLG_TASK_MCPASK_SYNC',
             'method'          => 'sync',
         ],
+        // 0.21.0: daily, what is kept of visitors forgotten as the options say
+        'mcpask.forget' => [
+            'langConstPrefix' => 'PLG_TASK_MCPASK_FORGET',
+            'method'          => 'forget',
+        ],
     ];
 
     /** Seconds one run may work for; the rest waits for the next run. */
@@ -59,6 +64,33 @@ final class Mcpask extends CMSPlugin implements SubscriberInterface
             'onTaskOptionsList' => 'advertiseRoutines',
             'onExecuteTask'     => 'standardRoutineHandler',
         ];
+    }
+
+    /**
+     * What AI Ask keeps of its visitors, forgotten as its options say (0.21.0).
+     */
+    private function forget(ExecuteTaskEvent $event): int
+    {
+        if (!ComponentHelper::isEnabled('com_mcpask')) {
+            return Status::KNOCKOUT;
+        }
+
+        $db     = Factory::getContainer()->get(DatabaseInterface::class);
+        $counts = (new Retention($db, Settings::load(), (string) $this->getApplication()->get('secret')))->run();
+
+        $this->logTask(\sprintf(
+            'Questions deleted %d, made anonymous %d; attacks deleted %d; handoffs deleted %d, made anonymous %d; agent counts %d, agent conversations %d, reports %d.',
+            $counts['questions_deleted'],
+            $counts['questions_cleared'],
+            $counts['evidence_deleted'],
+            $counts['handoffs_deleted'],
+            $counts['handoffs_cleared'],
+            $counts['agent_events'],
+            $counts['agent_sessions'],
+            $counts['reports']
+        ));
+
+        return Status::OK;
     }
 
     private function sync(ExecuteTaskEvent $event): int
@@ -104,7 +136,7 @@ final class Mcpask extends CMSPlugin implements SubscriberInterface
             $this->logTask('Source rules could not be embedded again: ' . $e->getMessage(), 'warning');
         }
 
-        (new UsageLog($db, $settings, (string) $this->getApplication()->get('secret')))->prune();
+        (new Retention($db, $settings, (string) $this->getApplication()->get('secret')))->run();
 
         $this->logTask(\sprintf(
             'Indexed %d, unchanged %d, without text %d, removed %d, not changed since last looked at (passed over) %d.',

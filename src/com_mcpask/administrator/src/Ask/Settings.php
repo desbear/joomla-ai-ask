@@ -51,7 +51,7 @@ final class Settings
 
     public function apiKey(): string
     {
-        return trim((string) $this->params->get('api_key', ''));
+        return Crypto::open((string) $this->params->get('api_key', ''));
     }
 
     /**
@@ -440,16 +440,53 @@ final class Settings
     }
 
     /**
-     * Whether it is recorded who asked: the account when the visitor is signed in, and the address.
+     * Whether it is recorded which account asked, while questions are kept (0.21.0: off unless
+     * chosen; the address is never kept with an ordinary question, only with what was turned away).
      */
     public function logWho(): bool
     {
-        return (bool) $this->params->get('log_who', 1);
+        return (bool) $this->params->get('log_who', 0);
     }
 
+    /** Days the log keeps a question's figures (status, sources, tokens, rating): a year at most */
     public function logDays(): int
     {
-        return $this->int('log_days', 30, 1, 3650);
+        return $this->int('log_days', 90, 1, 365);
+    }
+
+    /**
+     * Days a question's words, its answer, the reason given with a rating and the account that
+     * asked are kept (0.21.0); after that only its figures, until logDays().
+     */
+    public function questionDays(): int
+    {
+        return min($this->logDays(), $this->int('question_days', 14, 1, 365));
+    }
+
+    /**
+     * Days what was turned away or marked as an attack is kept, with the address and the words as
+     * they were: evidence (0.21.0).
+     */
+    public function evidenceDays(): int
+    {
+        return $this->int('evidence_days', 90, 1, 365);
+    }
+
+    /** Days handoffs to people are kept; their question, page and visitor go after handoffContentDays() */
+    public function handoffDays(): int
+    {
+        return $this->int('handoff_days', 90, 1, 365);
+    }
+
+    public function handoffContentDays(): int
+    {
+        return min($this->handoffDays(), $this->int('handoff_content_days', 30, 1, 365));
+    }
+
+    /** Days the counts of agents offered, started and completed are kept */
+    public function agentEventDays(): int
+    {
+        return $this->int('agent_event_days', 180, 1, 730);
     }
 
     /** A shorter export key could be guessed, and is treated as none. */
@@ -460,7 +497,7 @@ final class Settings
      */
     public function exportKey(): string
     {
-        $key = trim((string) $this->params->get('export_key', ''));
+        $key = Crypto::open((string) $this->params->get('export_key', ''));
 
         return \strlen($key) >= self::MIN_EXPORT_KEY ? $key : '';
     }
@@ -470,7 +507,7 @@ final class Settings
      */
     public function exportKeyTooShort(): bool
     {
-        return trim((string) $this->params->get('export_key', '')) !== '' && $this->exportKey() === '';
+        return Crypto::open((string) $this->params->get('export_key', '')) !== '' && $this->exportKey() === '';
     }
 
     /**
@@ -495,7 +532,7 @@ final class Settings
                 'id'   => $id,
                 'name' => trim((string) ($row['name'] ?? '')) ?: (string) parse_url($url, PHP_URL_HOST),
                 'url'  => $url,
-                'key'  => trim((string) ($row['key'] ?? '')),
+                'key'  => Crypto::open((string) ($row['key'] ?? '')),
             ];
         }
 
@@ -566,7 +603,7 @@ final class Settings
 
     public function fallbackKey(): string
     {
-        return trim((string) $this->params->get('fallback_api_key', ''));
+        return Crypto::open((string) $this->params->get('fallback_api_key', ''));
     }
 
     /**

@@ -94,7 +94,7 @@ final class AskData
      */
     public static function retentionDays(): int
     {
-        return (int) ComponentHelper::getParams('com_mcpask')->get('log_days', 30);
+        return min(365, (int) ComponentHelper::getParams('com_mcpask')->get('log_days', 90));
     }
 
     /**
@@ -145,8 +145,11 @@ final class AskData
         $params = ComponentHelper::getParams('com_mcpask');
 
         return [
-            'questions' => (bool) $params->get('log_questions', 1),
-            'who'       => (bool) $params->get('log_who', 1),
+            'questions'     => (bool) $params->get('log_questions', 1),
+            'who'           => (bool) $params->get('log_who', 0),
+            // 0.21.0: words of a question and who asked go after this many days; attacks are kept longer
+            'question_days' => (int) $params->get('question_days', 14),
+            'evidence_days' => (int) $params->get('evidence_days', 90),
         ];
     }
 

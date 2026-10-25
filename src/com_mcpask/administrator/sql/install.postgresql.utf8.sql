@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS "#__mcpask_log" (
   "user_id" integer NOT NULL DEFAULT 0,
   "ip" varchar(45) NOT NULL DEFAULT '',
   "question" text,
+  "question_raw" text,
   "status" varchar(16) NOT NULL DEFAULT '',
   "message" varchar(255) NOT NULL DEFAULT '',
   "sources" smallint NOT NULL DEFAULT 0,
@@ -45,6 +46,7 @@ CREATE TABLE IF NOT EXISTS "#__mcpask_log" (
   "feedback" varchar(255) NOT NULL DEFAULT '',
   "hint_id" integer NOT NULL DEFAULT 0,
   "flags" varchar(255) NOT NULL DEFAULT '',
+  "evidence" smallint DEFAULT 0 NOT NULL,
   "answer" text,
   "answer_raw" text,
   "embed_id" integer NOT NULL DEFAULT 0,
@@ -54,6 +56,7 @@ CREATE INDEX IF NOT EXISTS "#__mcpask_log_idx_rating" ON "#__mcpask_log" ("ratin
 CREATE INDEX IF NOT EXISTS "#__mcpask_log_idx_created" ON "#__mcpask_log" ("created");
 CREATE INDEX IF NOT EXISTS "#__mcpask_log_idx_ip_created" ON "#__mcpask_log" ("ip_hash", "created");
 CREATE INDEX IF NOT EXISTS "#__mcpask_log_idx_embed_created" ON "#__mcpask_log" ("embed_id", "created");
+CREATE INDEX IF NOT EXISTS "#__mcpask_log_idx_evidence_created" ON "#__mcpask_log" ("evidence", "created");
 
 CREATE TABLE IF NOT EXISTS "#__mcpask_state" (
   "name" varchar(64) NOT NULL,
@@ -118,6 +121,7 @@ CREATE TABLE IF NOT EXISTS "#__mcpask_agent_events" (
   PRIMARY KEY ("id")
 );
 CREATE INDEX IF NOT EXISTS "#__mcpask_agent_events_idx_agent_event" ON "#__mcpask_agent_events" ("agent_id", "event", "created");
+CREATE INDEX IF NOT EXISTS "#__mcpask_agent_events_idx_created" ON "#__mcpask_agent_events" ("created");
 
 CREATE TABLE IF NOT EXISTS "#__mcpask_reports" (
   "id" serial NOT NULL,
@@ -164,7 +168,7 @@ CREATE TABLE IF NOT EXISTS "#__mcpask_embeds" (
   "id" serial NOT NULL,
   "title" varchar(255) DEFAULT '' NOT NULL,
   "public_key" varchar(40) NOT NULL,
-  "secret" varchar(64) DEFAULT '' NOT NULL,
+  "secret" varchar(255) DEFAULT '' NOT NULL,
   "domains" text NOT NULL,
   "published" smallint DEFAULT 1 NOT NULL,
   "params" text NOT NULL,

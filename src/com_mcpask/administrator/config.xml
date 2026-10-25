@@ -9,7 +9,7 @@
 		</field>
 		<field name="access" type="accesslevel" default="1"
 			label="COM_MCPASK_CONFIG_ACCESS" description="COM_MCPASK_CONFIG_ACCESS_DESC" />
-		<field name="api_key" type="password" filter="raw" autocomplete="off" maxlength="999"
+		<field name="api_key" type="mcpasksecret" addfieldprefix="Gss\Component\Mcpask\Administrator\Field"
 			label="COM_MCPASK_CONFIG_API_KEY" description="COM_MCPASK_CONFIG_API_KEY_DESC" />
 		<field name="chat_model" type="text" default="gpt-4.1-mini" filter="string"
 			label="COM_MCPASK_CONFIG_CHAT_MODEL" description="COM_MCPASK_CONFIG_CHAT_MODEL_DESC" />
@@ -41,7 +41,7 @@
 		</field>
 		<field name="fallback_api_base" type="url" filter="url" default="https://api.openai.com/v1" showon="fallback_enabled:1"
 			label="COM_MCPASK_CONFIG_FALLBACK_BASE" hint="https://api.openai.com/v1" />
-		<field name="fallback_api_key" type="password" filter="raw" autocomplete="off" maxlength="999" showon="fallback_enabled:1"
+		<field name="fallback_api_key" type="mcpasksecret" addfieldprefix="Gss\Component\Mcpask\Administrator\Field" showon="fallback_enabled:1"
 			label="COM_MCPASK_CONFIG_FALLBACK_KEY" />
 		<field name="fallback_chat_model" type="text" filter="string" default="gpt-4.1-mini" showon="fallback_enabled:1"
 			label="COM_MCPASK_CONFIG_FALLBACK_MODEL" description="COM_MCPASK_CONFIG_FALLBACK_MODEL_DESC" />
@@ -102,7 +102,7 @@
 		<field name="websites" type="subform" multiple="true" layout="joomla.form.field.subform.repeatable-table"
 			formsource="administrator/components/com_mcpask/forms/website.xml" buttons="add,remove,move"
 			label="COM_MCPASK_CONFIG_WEBSITES" description="COM_MCPASK_CONFIG_WEBSITES_DESC" />
-		<field name="export_key" type="mcpaskkey" filter="raw"
+		<field name="export_key" type="mcpaskkey" addfieldprefix="Gss\Component\Mcpask\Administrator\Field"
 			label="COM_MCPASK_CONFIG_EXPORT_KEY" description="COM_MCPASK_CONFIG_EXPORT_KEY_DESC" />
 	</fieldset>
 	<fieldset name="answer" label="COM_MCPASK_CONFIG_ANSWER">
@@ -160,13 +160,23 @@
 			<option value="0">JNO</option>
 			<option value="1">JYES</option>
 		</field>
-		<field name="log_who" type="radio" layout="joomla.form.field.radio.switcher" default="1"
+		<field name="log_who" type="radio" layout="joomla.form.field.radio.switcher" default="0"
 			label="COM_MCPASK_CONFIG_LOG_WHO" description="COM_MCPASK_CONFIG_LOG_WHO_DESC">
 			<option value="0">JNO</option>
 			<option value="1">JYES</option>
 		</field>
-		<field name="log_days" type="number" default="30" min="1" max="3650" filter="integer"
+		<field name="question_days" type="number" default="14" min="1" max="365" filter="integer"
+			label="COM_MCPASK_CONFIG_QUESTION_DAYS" description="COM_MCPASK_CONFIG_QUESTION_DAYS_DESC" />
+		<field name="log_days" type="number" default="90" min="1" max="365" filter="integer"
 			label="COM_MCPASK_CONFIG_LOG_DAYS" description="COM_MCPASK_CONFIG_LOG_DAYS_DESC" />
+		<field name="evidence_days" type="number" default="90" min="1" max="365" filter="integer"
+			label="COM_MCPASK_CONFIG_EVIDENCE_DAYS" description="COM_MCPASK_CONFIG_EVIDENCE_DAYS_DESC" />
+		<field name="handoff_days" type="number" default="90" min="1" max="365" filter="integer"
+			label="COM_MCPASK_CONFIG_HANDOFF_DAYS" description="COM_MCPASK_CONFIG_HANDOFF_DAYS_DESC" />
+		<field name="handoff_content_days" type="number" default="30" min="1" max="365" filter="integer"
+			label="COM_MCPASK_CONFIG_HANDOFF_CONTENT_DAYS" description="COM_MCPASK_CONFIG_HANDOFF_CONTENT_DAYS_DESC" />
+		<field name="agent_event_days" type="number" default="180" min="1" max="730" filter="integer"
+			label="COM_MCPASK_CONFIG_AGENT_EVENT_DAYS" description="COM_MCPASK_CONFIG_AGENT_EVENT_DAYS_DESC" />
 	</fieldset>
 	<fieldset name="permissions" label="JCONFIG_PERMISSIONS_LABEL" description="JCONFIG_PERMISSIONS_DESC">
 		<field name="rules" type="rules" label="JCONFIG_PERMISSIONS_LABEL" filter="rules" validate="rules" component="com_mcpask" section="component" />

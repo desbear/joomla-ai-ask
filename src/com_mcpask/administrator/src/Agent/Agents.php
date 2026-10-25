@@ -313,6 +313,18 @@ final class Agents
     }
 
     /**
+     * Counts of agents' use older than so many days, deleted (0.21.0); how many.
+     */
+    public function forgetEvents(int $days): int
+    {
+        $before = Factory::getDate('-' . max(1, $days) . ' days')->toSql();
+
+        $this->db->setQuery($this->db->getQuery(true)->delete($this->db->quoteName('#__mcpask_agent_events'))->where('created < :before')->bind(':before', $before))->execute();
+
+        return $this->db->getAffectedRows();
+    }
+
+    /**
      * @return  array<int, array<string, int>>  By agent, then event, over the last days
      */
     public function stats(int $days = 30): array

@@ -10,6 +10,7 @@
 
 namespace Gss\Component\Mcpask\Site\Controller;
 
+use Gss\Component\Mcpask\Administrator\Ask\Crypto;
 use Gss\Component\Mcpask\Administrator\Ask\Settings;
 use Gss\Component\Mcpask\Administrator\Ask\Theme;
 use Gss\Component\Mcpask\Administrator\Embed\Embeds;
@@ -205,7 +206,7 @@ class EmbedController extends BaseController
         $params = new \Joomla\Registry\Registry((string) $row);
         $site   = rtrim(trim((string) $params->get('remote_site', '')), '/');
         $key    = trim((string) $params->get('remote_key', ''));
-        $secret = trim((string) $params->get('remote_secret', ''));
+        $secret = Crypto::open((string) $params->get('remote_secret', ''));
         $same   = static fn (string $a, string $b) => strtolower((string) parse_url($a, PHP_URL_SCHEME)) === strtolower((string) parse_url($b, PHP_URL_SCHEME))
             && strtolower((string) parse_url($a, PHP_URL_HOST)) === strtolower((string) parse_url($b, PHP_URL_HOST))
             && (int) parse_url($a, PHP_URL_PORT) === (int) parse_url($b, PHP_URL_PORT);

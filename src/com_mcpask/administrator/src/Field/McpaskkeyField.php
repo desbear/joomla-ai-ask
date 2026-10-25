@@ -10,27 +10,24 @@
 
 namespace Gss\Component\Mcpask\Administrator\Field;
 
-use Gss\Component\Mcpask\Administrator\Ask\Settings;
 use Joomla\CMS\Factory;
-use Joomla\CMS\Form\FormField;
 use Joomla\CMS\Language\Text;
 
 \defined('_JEXEC') or die;
 
 /**
- * This site's export key: shown in full, because it has to be copied to the other sites, with a
- * button that makes a random one and a button that copies it.
+ * This site's export key, with a button that makes a random one and a button that copies it to
+ * give to the other sites. Kept encrypted like any secret (0.20.8): a new key is shown until it is
+ * saved, then only that one is set.
  *
  * @since  0.2.0
  */
-class McpaskkeyField extends FormField
+class McpaskkeyField extends McpasksecretField
 {
     protected $type = 'Mcpaskkey';
 
-    protected function getInput()
+    protected function box(callable $e, string $kept): string
     {
-        $e = static fn ($value) => htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
-
         // The key is made in the browser, from its own source of randomness: 24 bytes, written as 48 characters
         Factory::getApplication()->getDocument()->getWebAssetManager()->addInlineScript(<<<'JS'
             document.addEventListener('click', (event) => {
@@ -43,6 +40,10 @@ class McpaskkeyField extends FormField
               const input = button.closest('.input-group').querySelector('input');
 
               if (button.dataset.mcpaskKey === 'copy') {
+                if (!input.value || input.value === input.dataset.kept) {
+                  return;
+                }
+
                 navigator.clipboard.writeText(input.value).then(() => {
                   const label = button.textContent;
 
@@ -59,15 +60,15 @@ class McpaskkeyField extends FormField
 
               const bytes = window.crypto.getRandomValues(new Uint8Array(24));
 
+              // Shown until saved, to be copied to the other sites
+              input.type = 'text';
               input.value = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
               input.dispatchEvent(new Event('change', { bubbles: true }));
             });
             JS);
 
         return '<div class="input-group">'
-            . '<input type="text" class="form-control font-monospace" name="' . $e($this->name) . '" id="' . $e($this->id) . '"'
-            . ' value="' . $e($this->value) . '" maxlength="999" autocomplete="off" spellcheck="false"'
-            . ' minlength="' . Settings::MIN_EXPORT_KEY . '">'
+            . parent::box($e, $kept)
             . '<button type="button" class="btn btn-primary" data-mcpask-key="generate" data-confirm="' . $e(Text::_('COM_MCPASK_KEY_REPLACE')) . '">'
             . '<span class="icon-refresh" aria-hidden="true"></span> ' . Text::_('COM_MCPASK_KEY_GENERATE') . '</button>'
             . '<button type="button" class="btn btn-secondary" data-mcpask-key="copy" data-done="' . $e(Text::_('COM_MCPASK_KEY_COPIED')) . '">'

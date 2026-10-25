@@ -602,11 +602,16 @@ final class Report
         $this->db->updateObject('#__mcpask_reports', $row, 'id');
     }
 
-    private function forgetExpired(): void
+    /**
+     * Reports past their time, deleted; how many (0.21.0: the scheduled task too).
+     */
+    public function forgetExpired(): int
     {
         $now = Factory::getDate()->toSql();
 
         $this->db->setQuery($this->db->getQuery(true)->delete($this->db->quoteName('#__mcpask_reports'))->where('expires <= :now')->bind(':now', $now))->execute();
+
+        return $this->db->getAffectedRows();
     }
 
     private function seal(array $state, string $key): string

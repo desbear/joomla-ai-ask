@@ -131,12 +131,17 @@ final class Sessions
         )->loadResult();
     }
 
-    private function forgetExpired(): void
+    /**
+     * Agent conversations past their time, deleted; how many (0.21.0: the scheduled task too).
+     */
+    public function forgetExpired(): int
     {
         $db  = $this->db;
         $now = Factory::getDate()->toSql();
 
         $db->setQuery($db->getQuery(true)->delete($db->quoteName('#__mcpask_agent_sessions'))->where('expires <= :now')->bind(':now', $now))->execute();
+
+        return $db->getAffectedRows();
     }
 
     /**

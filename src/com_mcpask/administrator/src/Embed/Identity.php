@@ -12,9 +12,11 @@ namespace Gss\Component\Mcpask\Administrator\Embed;
 
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
+use Joomla\CMS\Log\Log;
 use Joomla\CMS\User\User;
 use Joomla\CMS\User\UserFactoryInterface;
 use Joomla\Database\DatabaseInterface;
+use Joomla\Utilities\IpHelper;
 
 \defined('_JEXEC') or die;
 
@@ -142,7 +144,59 @@ final class Identity
             $id = $this->create($email, (string) ($claims['name'] ?? ''), $embed);
         }
 
-        return $this->active($id);
+        $user = $this->active($id);
+
+        // Never an account that may manage this site (0.20.8): whoever holds the other website's
+        // secret could otherwise act here as an administrator, by naming their e-mail address
+        if ($user && self::manages($user)) {
+            $this->refused($user, $embed);
+
+            return null;
+        }
+
+        return $user;
+    }
+
+    /**
+     * Whether an account may sign in to the back end or manage anything there.
+     */
+    public static function manages(User $user): bool
+    {
+        return $user->authorise('core.login.admin') || $user->authorise('core.admin') || $user->authorise('core.manage');
+    }
+
+    /**
+     * A token for such an account, refused: kept in the question log as turned away, with the
+     * address it came from, and in the site's log file.
+     */
+    private function refused(User $user, object $embed): void
+    {
+        $message = 'Signed token for back-end account #' . (int) $user->id . ' refused (embed key #' . (int) $embed->id . ')';
+
+        // Passed by reference
+        $row = (object) [
+            'created'  => Factory::getDate()->toSql(),
+            'ip'       => mb_substr((string) IpHelper::getIp(), 0, 45),
+            'user_id'  => 0,
+            'question' => null,
+            'status'   => 'blocked',
+            'message'  => $message,
+            'flags'    => 'identity_refused',
+            'embed_id' => (int) $embed->id,
+            'evidence' => 1,
+        ];
+
+        try {
+            $this->db->insertObject('#__mcpask_log', $row);
+        } catch (\Throwable) {
+            // The refusal stands even if it cannot be written down
+        }
+
+        try {
+            Log::add($message . ' from ' . IpHelper::getIp(), Log::WARNING, 'mcpask');
+        } catch (\Throwable) {
+            // No logger
+        }
     }
 
     /**

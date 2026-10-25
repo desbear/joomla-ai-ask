@@ -5,7 +5,7 @@
 	<creationDate>2026-10</creationDate>
 	<copyright>(C) 2026 GSS</copyright>
 	<license>GNU General Public License version 2 or later; see LICENSE</license>
-	<version>0.20.7</version>
+	<version>0.21.0</version>
 	<description>MOD_MCP_ASK_XML_DESCRIPTION</description>
 	<namespace path="src">Gss\Module\McpAsk</namespace>
 	<files>
@@ -46,7 +46,7 @@
 					label="MOD_MCP_ASK_REMOTE_SITE" description="MOD_MCP_ASK_REMOTE_SITE_DESC"/>
 				<field name="remote_key" type="text" maxlength="80" filter="string" hint="pk_…" showon="mode:remote"
 					label="MOD_MCP_ASK_REMOTE_KEY" description="MOD_MCP_ASK_REMOTE_KEY_DESC"/>
-				<field name="remote_secret" type="password" maxlength="200" filter="raw" autocomplete="off" showon="mode:remote"
+				<field name="remote_secret" type="mcpasksecret" addfieldprefix="Gss\Component\Mcpask\Administrator\Field" showon="mode:remote"
 					label="MOD_MCP_ASK_REMOTE_SECRET" description="MOD_MCP_ASK_REMOTE_SECRET_DESC"/>
 				<field name="remote_login" type="text" maxlength="500" filter="string" hint="https://member.example.com/login?service={return}" showon="mode:remote"
 					label="MOD_MCP_ASK_REMOTE_LOGIN" description="MOD_MCP_ASK_REMOTE_LOGIN_DESC"/>

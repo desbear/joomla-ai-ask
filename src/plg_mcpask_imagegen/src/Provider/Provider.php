@@ -88,6 +88,10 @@ final class Provider implements ImageProviderInterface
 
     private function key(): string
     {
-        return trim((string) $this->params->get('key', ''));
+        $key   = (string) $this->params->get('key', '');
+        $class = 'Gss\\Component\\Mcpask\\Administrator\\Ask\\Crypto';
+
+        // Kept encrypted since AI Ask 0.20.8
+        return class_exists($class) ? $class::open($key) : trim($key);
     }
 }

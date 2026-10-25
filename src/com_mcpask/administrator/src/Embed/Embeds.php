@@ -10,6 +10,7 @@
 
 namespace Gss\Component\Mcpask\Administrator\Embed;
 
+use Gss\Component\Mcpask\Administrator\Ask\Crypto;
 use Joomla\CMS\Factory;
 use Joomla\Database\DatabaseInterface;
 use Joomla\Database\ParameterType;
@@ -111,10 +112,12 @@ final class Embeds
             return $id;
         }
 
+        $secret          = bin2hex(random_bytes(24));
         $row->public_key = 'pk_' . bin2hex(random_bytes(12));
-        $row->secret     = bin2hex(random_bytes(24));
+        $row->secret     = Crypto::seal($secret);
         $row->created    = $now;
         $this->db->insertObject('#__mcpask_embeds', $row, 'id');
+        self::showOnce((int) $row->id, $secret);
 
         return (int) $row->id;
     }
@@ -124,8 +127,40 @@ final class Embeds
      */
     public function newSecret(int $id): void
     {
-        $row = (object) ['id' => $id, 'secret' => bin2hex(random_bytes(24)), 'modified' => Factory::getDate()->toSql()];
+        $secret = bin2hex(random_bytes(24));
+        $row    = (object) ['id' => $id, 'secret' => Crypto::seal($secret), 'modified' => Factory::getDate()->toSql()];
         $this->db->updateObject('#__mcpask_embeds', $row, 'id');
+        self::showOnce($id, $secret);
+    }
+
+    /**
+     * A secret just made is shown once, the next time the key is opened, to be given to the other
+     * website's server; it is kept encrypted and not shown again after that (0.20.8).
+     */
+    private static function showOnce(int $id, string $secret): void
+    {
+        try {
+            Factory::getApplication()->setUserState('com_mcpask.embed.secret', ['id' => $id, 'secret' => $secret]);
+        } catch (\Throwable) {
+            // Not in the back end: nothing to show
+        }
+    }
+
+    /**
+     * The secret of this key to show now, if it was just made; forgotten once taken.
+     */
+    public static function newSecretOf(int $id): ?string
+    {
+        $app  = Factory::getApplication();
+        $once = (array) $app->getUserState('com_mcpask.embed.secret', []);
+
+        if ((int) ($once['id'] ?? 0) !== $id || !\is_string($once['secret'] ?? null)) {
+            return null;
+        }
+
+        $app->setUserState('com_mcpask.embed.secret', null);
+
+        return $once['secret'];
     }
 
     public function publish(int $id, bool $published): void
@@ -301,6 +336,8 @@ final class Embeds
     private static function prepare(object $row): object
     {
         $row->params  = new Registry($row->params ?: '{}');
+        // Kept encrypted since 0.20.8
+        $row->secret  = Crypto::open((string) ($row->secret ?? ''));
         $row->origins = array_values(array_filter(preg_split('/\R/', (string) $row->domains) ?: []));
 
         return $row;
