@@ -23,6 +23,9 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
   no longer deleted an hour after it is closed: it is archived with the rest.
 - Files are given out for 30 days as before, but kept until their chat is archived with them.
 - New: `#__askdesk_rooms.archived_at` (update 0.6.2).
+- **The console's sign-in page designed**: one not signed in finds a card with the desk's icon, what the console is
+  for and a Sign in button (light and dark, on a phone too); one signed in without the right to answer is told so,
+  with Sign in with another account and Back to the website.
 
 ## AI Ask Desk 0.6.1
 
