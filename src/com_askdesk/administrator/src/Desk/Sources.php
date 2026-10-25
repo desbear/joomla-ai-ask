@@ -137,7 +137,19 @@ final class Sources
             ];
         }
 
-        return ['id' => self::text($got['id'] ?? $template, 100), 'name' => self::text($got['name'] ?? '', 200), 'fields' => $fields];
+        // What may be done to records picked together, besides changing a field (0.6.2: the desk's cases closed):
+        // {name, label, confirm}, done by the source's act()
+        $actions = [];
+
+        foreach (\array_slice((array) ($got['actions'] ?? []), 0, 10) as $action) {
+            $name = \is_array($action) ? (string) ($action['name'] ?? '') : '';
+
+            if (preg_match('/^[a-z][a-z0-9_]{0,29}$/', $name) && method_exists($source, 'act')) {
+                $actions[] = ['name' => $name, 'label' => self::text($action['label'] ?? $name, 60), 'confirm' => self::text($action['confirm'] ?? '', 200)];
+            }
+        }
+
+        return ['id' => self::text($got['id'] ?? $template, 100), 'name' => self::text($got['name'] ?? '', 200), 'fields' => $fields, 'actions' => $actions];
     }
 
     /**

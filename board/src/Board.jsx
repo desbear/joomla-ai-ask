@@ -69,7 +69,7 @@ const Body = ({ widget, state, api, ctx, query, mine, range, full, onWidget, onO
   const active = full || !ctx.covered;
 
   if (isGrid(widget.kind)) {
-    return <Grid active={active} widget={widget} fields={fields} allFields={template.fields} api={api} ctx={ctx} full={full} query={query} mine={mine} range={range} onWidget={onWidget} onOpenRow={onOpenRow} openId={openId} onAll={onAll} />;
+    return <Grid active={active} widget={widget} fields={fields} allFields={template.fields} actions={template.actions || []} api={api} ctx={ctx} full={full} query={query} mine={mine} range={range} onWidget={onWidget} onOpenRow={onOpenRow} openId={openId} onAll={onAll} />;
   }
 
   if (!data) return <Skeleton kind={widget.kind} />;

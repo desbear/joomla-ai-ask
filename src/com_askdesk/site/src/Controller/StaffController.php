@@ -777,6 +777,25 @@ class StaffController extends BaseController
     }
 
     /**
+     * Something done to a record from the dashboard ({source, template, row, action}, 0.6.2): by a source that
+     * offers it (act(), its fields' actions); the desk's cases closed (結案) together, say.
+     */
+    public function sourceAct(): void
+    {
+        [, , $me, $body] = $this->check();
+
+        $this->fromSource($body, function ($source) use ($me, $body) {
+            $action = \is_string($body['action'] ?? null) ? $body['action'] : '';
+
+            if (!method_exists($source, 'act') || !preg_match('/^[a-z][a-z0-9_]{0,29}$/', $action)) {
+                throw new \RuntimeException('Not done here', 403);
+            }
+
+            return ['row' => \Gss\Component\Askdesk\Administrator\Desk\Sources::row($source->act($me, $this->templateOf($body), \is_scalar($body['row'] ?? null) ? mb_substr((string) $body['row'], 0, 100) : '', $action))];
+        });
+    }
+
+    /**
      * A record deleted from the dashboard ({source, template, row}, 0.6.1): by a source that can (remove()).
      */
     public function sourceDelete(): void

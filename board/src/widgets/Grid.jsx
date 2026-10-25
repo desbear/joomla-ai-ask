@@ -180,7 +180,7 @@ const TextCell = ({ field, value, onCommit, lang, t }) => {
 };
 
 // ---------- The table ----------
-export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, range, onWidget, onOpenRow, openId, onAll }) => {
+export const Grid = ({ widget, fields, allFields, actions = [], api, ctx, full, query, mine, range, onWidget, onOpenRow, openId, onAll }) => {
   // A chat of the desk's own (its cases) opens in the console; a record of a form, in the side card
   const openRow = (row, sorted) => (row.room && ctx.openRoom ? ctx.openRoom(row.room) : onOpenRow(row, sorted));
   const { t, lang, toast } = ctx;
@@ -422,6 +422,31 @@ export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, r
     if (ids.length) setBatch({ stage: 'confirm', remove: true, ids, skipped: pickedRows.length - ids.length, n: Date.now() });
   };
 
+  // What the source offers to do to the records picked (0.6.2: the desk's cases closed), always said first
+  const stageAct = (action) => {
+    const ids = changeable.map((r) => r.id);
+
+    if (ids.length) setBatch({ stage: 'confirm', act: action, ids, skipped: pickedRows.length - ids.length, n: Date.now() });
+  };
+
+  const doAct = async (row, action) => {
+    mark(row.id, 'saving');
+
+    try {
+      const got = await api.act({ source: widget.source, template: widget.template, row: row.id, action: action.name });
+      const values = got && got.row ? got.row.values || {} : {};
+
+      setRows((now) => now.map((r) => (r.id === row.id ? { ...r, values: { ...r.values, ...values } } : r)));
+      mark(row.id, 'saved');
+
+      return true;
+    } catch (error) {
+      mark(row.id, 'failed');
+
+      return error;
+    }
+  };
+
   const drop = async (row) => {
     mark(row.id, 'saving');
 
@@ -454,7 +479,7 @@ export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, r
         const id = queue.shift();
         const row = rowsNow.current.find((r) => r.id === id);
 
-        if (row && (await (task.remove ? drop(row) : save(row, task.field, task.value))) !== true) failed += 1;
+        if (row && (await (task.remove ? drop(row) : (task.act ? doAct(row, task.act) : save(row, task.field, task.value)))) !== true) failed += 1;
         done += 1;
         setBatch((now) => (now ? { ...now, done, failed } : now));
       }
@@ -702,7 +727,7 @@ export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, r
         </div>
       ) : null}
       {full && (picked.size || batch) ? (
-        <div ref={barEl} className={`adb-batch${batch ? ` is-${batch.stage}` : ''}`} role="region" aria-label={t('batchPicked', picked.size)} aria-live="polite">
+        <div ref={barEl} className={`adb-batch${batch ? ` is-${batch.stage}` : ''}${batch && batch.act ? ' is-calm' : ''}`} role="region" aria-label={t('batchPicked', picked.size)} aria-live="polite">
           {!batch ? (
             <>
               <b className="adb-batch__n">{picked.size}</b>
@@ -710,6 +735,7 @@ export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, r
               <span className="adb-batch__sep" />
               {edit && editable.length ? <button type="button" className="adb-batch__act" disabled={!changeable.length} onClick={(e) => setBatchMenu({ anchor: e.currentTarget })}><Icon name="edit" /><span>{t('batchEdit')}</span></button> : null}
               <button type="button" className="adb-batch__act" onClick={exportPicked}><Icon name="download" /><span>{t('batchExport')}</span></button>
+              {actions.map((action) => <button key={action.name} type="button" className="adb-batch__act" disabled={!changeable.length} onClick={() => stageAct(action)}><Icon name="check" /><span>{action.label}</span></button>)}
               {ctx.removable && ctx.removable(widget.source) ? <button type="button" className="adb-batch__act adb-batch__act--danger" disabled={!changeable.length} onClick={stageDelete}><Icon name="trash" /><span>{t('batchDelete')}</span></button> : null}
               <span className="adb-batch__sep" />
               <button type="button" className="adb-batch__x" onClick={() => setPicked(new Set())} aria-label={t('batchClear')} title={t('batchClear')}><Icon name="close" /></button>
@@ -717,8 +743,8 @@ export const Grid = ({ widget, fields, allFields, api, ctx, full, query, mine, r
           ) : batch.stage === 'confirm' ? (
             <>
               <Icon name="alert" />
-              <span className="adb-batch__what">{batch.remove ? t('batchDeleteConfirm', batch.ids.length) : t('batchConfirm', batch.ids.length, batch.field.label, Array.isArray(batch.value) ? batch.value.join('、') : String(batch.value === '' ? t('emptyValue') : batch.value))}{batch.skipped ? <small>{t('batchLocked', batch.skipped)}</small> : null}</span>
-              <button type="button" className="adb-batch__go" onClick={() => runBatch(batch.remove ? { remove: true } : { field: batch.field, value: batch.value }, batch.ids)}>{batch.remove ? t('batchDeleteGo') : t('batchGo')}</button>
+              <span className="adb-batch__what">{batch.act ? (batch.act.confirm || batch.act.label).replace('%s', batch.ids.length) : batch.remove ? t('batchDeleteConfirm', batch.ids.length) : t('batchConfirm', batch.ids.length, batch.field.label, Array.isArray(batch.value) ? batch.value.join('、') : String(batch.value === '' ? t('emptyValue') : batch.value))}{batch.skipped ? <small>{t('batchLocked', batch.skipped)}</small> : null}</span>
+              <button type="button" className="adb-batch__go" onClick={() => runBatch(batch.act ? { act: batch.act } : batch.remove ? { remove: true } : { field: batch.field, value: batch.value }, batch.ids)}>{batch.act ? batch.act.label : batch.remove ? t('batchDeleteGo') : t('batchGo')}</button>
               <button type="button" className="adb-batch__act" onClick={() => setBatch(null)}>{t('batchUndo')}</button>
             </>
           ) : (

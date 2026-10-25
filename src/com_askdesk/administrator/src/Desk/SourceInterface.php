@@ -29,6 +29,10 @@ namespace Gss\Component\Askdesk\Administrator\Desk;
  * A source may also have remove(object $staff, string $template, string $row): void (0.6.1), a record
  * deleted from the dashboard (asked first there, always: it is for good).
  *
+ * And act(object $staff, string $template, string $row, string $action): array (0.6.2), something done to
+ * records picked together (asked first there), offered as fields()'s "actions": [{name, label, confirm}]
+ * (confirm with %s for how many); it answers the record's values that changed.
+ *
  * @since  0.5.0
  */
 interface SourceInterface

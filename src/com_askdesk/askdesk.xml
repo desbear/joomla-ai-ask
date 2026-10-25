@@ -52,6 +52,7 @@
 			<menu link="option=com_askdesk&amp;view=dashboard">COM_ASKDESK_SUBMENU_DASHBOARD</menu>
 			<menu link="option=com_askdesk&amp;view=staff">COM_ASKDESK_SUBMENU_STAFF</menu>
 			<menu link="option=com_askdesk&amp;view=files">COM_ASKDESK_SUBMENU_FILES</menu>
+			<menu link="option=com_askdesk&amp;view=cases">COM_ASKDESK_SUBMENU_CASES</menu>
 			<menu link="option=com_askdesk&amp;view=stickers">COM_ASKDESK_SUBMENU_STICKERS</menu>
 			<menu link="option=com_askdesk&amp;view=phrases">COM_ASKDESK_SUBMENU_PHRASES</menu>
 		</submenu>

@@ -90,7 +90,7 @@ use Joomla\CMS\Uri\Uri;
 				</a>
 			<?php endif; ?>
 			<div class="askdesk-gate__links">
-				<a class="askdesk-gate__link" href="<?php echo $e(Uri::root()); ?>"><?php echo Text::_('COM_ASKDESK_CONSOLE_BACK'); ?></a>
+				<a class="askdesk-gate__link" href="<?php echo $e(Uri::root()); ?>"><?php echo Text::_('COM_ASKDESK_CONSOLE_GATE_BACK'); ?></a>
 			</div>
 		</div>
 	</main>

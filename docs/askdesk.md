@@ -85,6 +85,9 @@ It is a package of its own, `pkg_askdesk`, which needs AI Ask 0.20.0 or later:
 - **Closing (結案)**: an unhandled chat stays until someone closes it, with the button in the chat or at the row's
   end in To answer; a message left is closed when marked dealt with. A chat ended by the one answering, or ended
   with the visitor answered, is closed with it. Each chat keeps who wrote last, and when and by whom it was closed.
+- **Closing many at once (0.6.2)**: in the dashboard's cases widget opened whole, pick cases and close them from
+  the bar; in the back end, **案件整理 / Housekeeping** lists what is left open by how long it has been
+  untouched, to pick and close together. A chat going on is never closed this way.
 - What rings, and the count in the window's title, follow what goes on now whatever the tab.
 - **Whose cases**: with **Staff see others' cases** off (Options → Desk), the people answering see only the chats
   they took and those no one has taken: in the list, its counts and what rings, opening a chat by its address,

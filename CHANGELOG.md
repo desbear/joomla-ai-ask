@@ -26,6 +26,11 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
 - **The console's sign-in page designed**: one not signed in finds a card with the desk's icon, what the console is
   for and a Sign in button (light and dark, on a phone too); one signed in without the right to answer is told so,
   with Sign in with another account and Back to the website.
+- **Cases closed together**: in the dashboard's cases widget opened whole, cases picked are closed (結案) at
+  once from the bar (asked first, in blue); one going on is left as it is and said so. Sources may offer such
+  actions on what is picked (`actions` beside their fields, done by an optional `act()`).
+- **Housekeeping** (back end, AI Ask Desk → 案件整理): messages left and chats that ended unanswered, not
+  closed yet, by how long untouched (7, 30, 90 days, all), oldest first; picked and closed together.
 
 ## AI Ask Desk 0.6.1
 

@@ -108,6 +108,8 @@ export const makeApi = (config) => {
     update: (body) => post(config.urls.sourceUpdate, body),
     // A record deleted, for good (0.6.1; a source that can)
     remove: (body) => post(config.urls.sourceDelete, body),
+    // Something a source offers to do to a record (0.6.2: the desk's cases closed)
+    act: (body) => post(config.urls.sourceAct, body),
 
     // What was fetched for a template is old: fetched again when next asked
     forget(source, template) {

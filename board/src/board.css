@@ -1005,6 +1005,10 @@ span.adb-fgrip { cursor: default; }
 /* To confirm: red, a flash as it turns */
 @keyframes adb-batch-flash { 0%, 50% { background-color: #ef4444; } }
 .adb-batch.is-confirm { background: #b42318; animation: adb-batch-flash 0.6s ease-out; }
+/* Not a loss (a case closed, say): asked in blue */
+@keyframes adb-batch-flash-calm { 0%, 50% { background-color: #3b82f6; } }
+.adb-batch.is-confirm.is-calm { background: #1d4ed8; animation-name: adb-batch-flash-calm; }
+.adb-batch.is-calm .adb-batch__go { color: #1d4ed8; }
 
 /* Being done: a line along its foot, filling */
 .adb-batch.is-run, .adb-batch.is-done { padding-right: 16px; }

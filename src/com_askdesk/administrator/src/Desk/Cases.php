@@ -79,6 +79,10 @@ final class Cases implements SourceInterface
                 $f('settled', 'date'),
                 $f('settledBy', 'select'),
             ],
+            // Cases picked together closed (結案) at once, from the dashboard (0.6.2)
+            'actions' => $template === 'settled' ? [] : [
+                ['name' => 'settle', 'label' => Text::_('COM_ASKDESK_CASES_A_SETTLE'), 'confirm' => Text::_('COM_ASKDESK_CASES_A_SETTLE_CONFIRM')],
+            ],
         ];
     }
 
@@ -136,5 +140,50 @@ final class Cases implements SourceInterface
     public function update(object $staff, string $template, string $row, string $field, mixed $value): array
     {
         throw new \RuntimeException(Text::_('COM_ASKDESK_CASES_READ_ONLY'));
+    }
+
+    /**
+     * A case closed (結案) from the dashboard (0.6.2), as from the console: one this person may see, ended (a
+     * chat still going on is not), or a message left. Answers the case as it is now.
+     *
+     * @return  array<string, mixed>
+     */
+    public function act(object $staff, string $template, string $row, string $action): array
+    {
+        if ($action !== 'settle' || !\in_array($template, Rooms::LISTS, true) || !ctype_digit($row)) {
+            throw new \RuntimeException('Not done here', 403);
+        }
+
+        $db       = Factory::getContainer()->get(DatabaseInterface::class);
+        $settings = Settings::load();
+        $rooms    = new Rooms($db, $settings);
+
+        if ($settings->keptToOwn(Factory::getApplication()->getIdentity())) {
+            $rooms->restrictTo((int) $staff->user_id);
+        }
+
+        $room = $rooms->get((int) $row);
+
+        if (!$room || !$rooms->visible($room)) {
+            throw new \RuntimeException(Text::_('COM_ASKDESK_STAFF_NO_ROOM'), 403);
+        }
+
+        $rooms->settle($room, (int) $staff->user_id);
+
+        // What changed in its row (the rest as it was)
+        $zone = new \DateTimeZone(Factory::getApplication()->get('offset', 'UTC') ?: 'UTC');
+        $now  = $rooms->get((int) $row);
+
+        return [
+            'id'     => (string) (int) $row,
+            'no'     => '#' . (int) $row,
+            'title'  => (string) $room->name,
+            'room'   => (int) $row,
+            'values' => [
+                'state'     => Text::_($now && $now->settled !== null ? 'COM_ASKDESK_CASES_S_SETTLED' : 'COM_ASKDESK_CASES_S_UNHANDLED'),
+                'settled'   => $now && $now->settled !== null ? (new \DateTime($now->settled . ' UTC'))->setTimezone($zone)->format('Y-m-d') : '',
+                'settledBy' => (string) ((new Staff($db, $settings))->names([(int) $staff->user_id])[(int) $staff->user_id] ?? ''),
+            ],
+        ];
     }
 }
