@@ -9224,3 +9224,90 @@ body:has(.askdesk[data-askdesk]) {
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* ---------- Who took part in a chat (0.6.2): faces stacked in its head ---------- */
+
+.askdesk-crew {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-inline-size: 0;
+  color: var(--askdesk-text);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.askdesk-crew__face {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 28px;
+  block-size: 28px;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--askdesk-accent-soft);
+  box-shadow: 0 0 0 2px var(--askdesk-surface, #fff);
+  color: var(--askdesk-accent);
+  font-size: 12px;
+  font-weight: 600;
+
+  & img {
+    inline-size: 100%;
+    block-size: 100%;
+    object-fit: cover;
+  }
+}
+
+.askdesk-crew--many {
+  gap: 0;
+
+  & .askdesk-crew__face + .askdesk-crew__face {
+    margin-inline-start: -9px;
+  }
+}
+
+/* The one it is with now, among several */
+.askdesk-crew__face--now {
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 0 0 2px var(--askdesk-surface, #fff), 0 0 0 4px var(--askdesk-accent);
+}
+
+.askdesk-crew__name {
+  overflow: hidden;
+  max-inline-size: 12em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.askdesk-crew__more {
+  margin-inline-start: 6px;
+  color: var(--askdesk-muted);
+  font-size: 12px;
+}
+
+.askdesk-pill--live {
+  padding-inline: 10px;
+  font-size: 12px;
+  line-height: 22px;
+}
+
+.askdesk-pill__dot {
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: askdesk-live-dot 1.6s ease-in-out infinite;
+}
+
+@keyframes askdesk-live-dot {
+  50% { opacity: 0.3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .askdesk-pill__dot { animation: none; }
+}
+
+@media (max-width: 760px) {
+  .askdesk-crew__name { display: none; }
+}

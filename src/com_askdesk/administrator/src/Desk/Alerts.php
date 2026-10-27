@@ -36,7 +36,8 @@ final class Alerts
      * Told once the request has its answer, so the visitor waits for nothing (the message may be
      * translated for the people answering first).
      *
-     * @param  string  $kind  'left' (a message left) or 'unanswered' (a chat ended unanswered)
+     * @param  string  $kind  'left' (a message left), 'more' (a visitor added to their ticket, 0.6.2) or 'unanswered'
+     *                        (a chat ended unanswered)
      */
     public function later(int $roomId, string $kind): void
     {
@@ -69,6 +70,17 @@ final class Alerts
             $to    = filter_var($mail, FILTER_VALIDATE_EMAIL) ? [$mail] : [];
         }
 
+        // Added to a ticket (0.6.2): the one who has it is told, as they answered it (everyone when no one has it,
+        // or they can no longer be written to); once in ten minutes at most, however much more is written
+        if ($room && $kind === 'more') {
+            if ($room->alerted !== null && strtotime((string) $room->alerted . ' UTC') > time() - 600) {
+                return false;
+            }
+
+            $mine = (int) $room->staff_id ? $this->addressOf((int) $room->staff_id) : '';
+            $to   = $mine !== '' ? [$mine] : $to;
+        }
+
         if (!$room || !$to || $room->settled !== null) {
             return false;
         }
@@ -76,7 +88,11 @@ final class Alerts
         $words = $this->language();
         $site  = (string) Factory::getApplication()->get('sitename');
         $who   = $this->who($room, $words);
-        $head  = $kind === 'left' ? 'COM_ASKDESK_ALERT_LEFT' : 'COM_ASKDESK_ALERT_UNANSWERED';
+        $head  = match ($kind) {
+            'left'  => 'COM_ASKDESK_ALERT_LEFT',
+            'more'  => 'COM_ASKDESK_ALERT_MORE',
+            default => 'COM_ASKDESK_ALERT_UNANSWERED',
+        };
         $body  = [
             sprintf($words->_($head . '_LEAD'), $who),
             '',
@@ -165,6 +181,19 @@ final class Alerts
                 ->join('INNER', $db->quoteName('#__users', 'u'), 'u.id = s.user_id')
                 ->where('s.active = 1')->where('u.block = 0')
         )->loadColumn(), static fn ($a) => filter_var($a, FILTER_VALIDATE_EMAIL) !== false)));
+    }
+
+    /** A person answering's address, when they may still be written to */
+    private function addressOf(int $userId): string
+    {
+        $db   = $this->db;
+        $mail = (string) $db->setQuery(
+            $db->getQuery(true)->select('u.email')->from($db->quoteName('#__users', 'u'))
+                ->join('INNER', $db->quoteName('#__askdesk_staff', 's'), 's.user_id = u.id')
+                ->where('u.id = :id')->where('u.block = 0')->where('s.active = 1')->bind(':id', $userId, ParameterType::INTEGER)
+        )->loadResult();
+
+        return filter_var($mail, FILTER_VALIDATE_EMAIL) ? $mail : '';
     }
 
     /** The visitor, as the people answering know them: name, company, address */

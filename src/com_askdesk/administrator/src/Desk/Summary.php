@@ -120,6 +120,10 @@ final class Summary
         foreach ($fields as $field) {
             $value = \is_array($json) && \is_scalar($json[$field['key']] ?? null) ? trim(strip_tags((string) $json[$field['key']])) : '';
 
+            if ($field['kind'] !== 'select') {
+                $value = Chinese::keep($value, $lang);
+            }
+
             if ($field['kind'] === 'select' && !\in_array($value, $field['options'] ?? [], true)) {
                 $value = '';
             }
@@ -217,6 +221,6 @@ final class Summary
             static fn () => null
         );
 
-        return mb_substr(trim(strip_tags($answer)), 0, 3500);
+        return Chinese::keep(mb_substr(trim(strip_tags($answer)), 0, 3500), $language);
     }
 }

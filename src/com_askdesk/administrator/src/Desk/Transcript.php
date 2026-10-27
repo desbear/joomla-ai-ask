@@ -224,7 +224,8 @@ final class Transcript
     /**
      * The desk's words in the language of the room's page (the site's, when it has none of it).
      */
-    private function language(object $room): Language
+    /** The desk's words in the room's language: the page's, when the site has it (the ticket's notice too, 0.6.2) */
+    public function language(object $room): Language
     {
         $tag = (string) $room->page_language;
 

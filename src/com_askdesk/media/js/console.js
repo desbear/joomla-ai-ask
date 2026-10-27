@@ -2611,7 +2611,7 @@
 
     head.replaceChildren();
     intro.replaceChildren();
-    state.shape = room ? `${room.status}|${room.staff}|${room.rating ? 1 : 0}|${room.confirmed ? 1 : 0}` : '';
+    state.shape = room ? `${room.status}|${room.staff}|${room.rating ? 1 : 0}|${room.confirmed ? 1 : 0}|${room.staffHere ? 1 : 0}|${(room.people || []).map((person) => person.id).join(',')}` : '';
 
     if (!room) {
       return;
@@ -2729,8 +2729,45 @@
       actions.append(done);
     }
 
-    if (room.status === 'active' && room.staff !== config.me && room.staffName) {
-      actions.append(pill(t.answeredBy.replace('%s', room.staffName), 'blue'));
+    // Who took part (0.6.2): their faces stacked, the one it is with ringed (only one: face and name); apart from
+    // them, that one answering now, or, when they are not here, a way to take it over from them
+    const people = room.people || [];
+
+    if (people.length) {
+      const crew = el('span', `askdesk-crew${people.length > 1 ? ' askdesk-crew--many' : ''}`);
+
+      crew.title = people.map((person) => person.name).join('、');
+      crew.append(...people.slice(0, 4).map((person) => {
+        const face = faceOf(person, 'askdesk-crew__face');
+
+        face.classList.toggle('askdesk-crew__face--now', people.length > 1 && person.id === room.staff);
+
+        return face;
+      }));
+
+      if (people.length === 1) {
+        crew.append(el('span', 'askdesk-crew__name', people[0].name));
+      } else if (people.length > 4) {
+        crew.append(el('span', 'askdesk-crew__more', `+${people.length - 4}`));
+      }
+
+      actions.prepend(crew);
+    }
+
+    if (['active', 'message'].includes(room.status) && room.staff && room.staff !== config.me) {
+      if (room.staffHere) {
+        const now = pill(t.answeringNow, 'blue');
+
+        now.classList.add('askdesk-pill--live');
+        now.prepend(el('i', 'askdesk-pill__dot'));
+        now.title = t.answeredBy.replace('%s', room.staffName);
+        actions.insertBefore(now, actions.children[people.length ? 1 : 0] || null);
+      } else {
+        const over = button('askdesk-button askdesk-button--primary', t.take, () => act('take'));
+
+        over.title = t.takeOverHint.replace('%s', room.staffName);
+        actions.insertBefore(over, actions.children[people.length ? 1 : 0] || null);
+      }
     }
 
     // On a narrower screen the side panel opens over the chat
@@ -2818,7 +2855,7 @@
     if (email) {
       const how = el('p', 'askdesk-room__note');
 
-      how.append(icon('send'), el('span', '', t.replyNote));
+      how.append(icon('send'), el('span', '', config.tickets ? t.ticketNote : t.replyNote));
       intro.append(how);
     }
 
@@ -2838,7 +2875,7 @@
     field.placeholder = email ? t.replyPlaceholder : t.placeholder;
     attach.hidden = email;
     stickerButton.hidden = email;
-    sendLabel.textContent = email ? t.replySend : t.send;
+    sendLabel.textContent = email ? (config.tickets ? t.ticketSend : t.replySend) : t.send;
     send.setAttribute('aria-label', sendLabel.textContent);
 
     // Suggestions go into the box only when there is one
@@ -5546,7 +5583,7 @@
     const fresh = !state.detail;
     const stay = atBottom();
 
-    state.detail = fresh ? room : { ...state.detail, status: room.status, staff: room.staff, staffName: room.staffName, rating: room.rating, confirmed: room.confirmed, ...(room.page ? { page: room.page, pages: room.pages || [] } : {}) };
+    state.detail = fresh ? room : { ...state.detail, status: room.status, staff: room.staff, staffName: room.staffName, rating: room.rating, confirmed: room.confirmed, people: room.people, staffHere: room.staffHere, ...(room.page ? { page: room.page, pages: room.pages || [] } : {}) };
 
     // Messages sent from here wait for their copy from the desk
     const incoming = (room.messages || []).filter((item) => item.id > state.after);
@@ -5598,7 +5635,7 @@
       paintRoom();
     } else {
       // The head again only when the chat changed hands or state: an open list of what came before stays open
-      const shape = `${room.status}|${room.staff}|${room.rating ? 1 : 0}|${room.confirmed ? 1 : 0}`;
+      const shape = `${room.status}|${room.staff}|${room.rating ? 1 : 0}|${room.confirmed ? 1 : 0}|${room.staffHere ? 1 : 0}|${(room.people || []).map((person) => person.id).join(',')}`;
 
       if (shape !== state.shape) {
         paintHead();
@@ -6051,8 +6088,8 @@
     }
   });
 
-  // The reply, translated, opens in one's own mail program, addressed and with a subject; it is kept
-  // with the message. Nothing is sent from the site.
+  // The reply, translated, is kept in the ticket and the visitor told by the site that there is one (0.6.2); or,
+  // tickets off, it opens in one's own mail program, addressed and with a subject, and nothing is sent from the site
   async function replyByEmail(text) {
     send.disabled = true;
     say('');
@@ -6062,6 +6099,11 @@
 
       if (data.error) {
         say(data.error);
+      } else if (data.ticket) {
+        // Kept in the ticket; the visitor is told by the site that there is an answer (0.6.2)
+        field.value = '';
+        say(data.warning || t.ticketSent);
+        note.classList.toggle('askdesk-composer__note--ok', !data.warning);
       } else {
         const mail = el('a');
 

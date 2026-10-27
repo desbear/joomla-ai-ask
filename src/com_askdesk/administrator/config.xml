@@ -34,6 +34,11 @@
 			label="COM_ASKDESK_CONFIG_GOOGLE_KEY" description="COM_ASKDESK_CONFIG_GOOGLE_KEY_DESC" />
 		<field name="quick_seconds" type="number" default="3" min="1" max="20" filter="integer" showon="translate:1[AND]quick_translate:google"
 			label="COM_ASKDESK_CONFIG_QUICK_SECONDS" description="COM_ASKDESK_CONFIG_QUICK_SECONDS_DESC" />
+		<field name="traditional" type="radio" layout="joomla.form.field.radio.switcher" default="1"
+			label="COM_ASKDESK_CONFIG_TRADITIONAL" description="COM_ASKDESK_CONFIG_TRADITIONAL_DESC">
+			<option value="0">JNO</option>
+			<option value="1">JYES</option>
+		</field>
 		<field name="glossary" type="textarea" rows="6" filter="string" showon="translate:1"
 			label="COM_ASKDESK_CONFIG_GLOSSARY" description="COM_ASKDESK_CONFIG_GLOSSARY_DESC" hint="AI Ask&#10;雲端主機 = cloud host" />
 		<field name="idle_minutes" type="number" default="15" min="3" max="240" filter="integer"
@@ -87,6 +92,11 @@
 			label="COM_ASKDESK_CONFIG_NOTICE_GUEST" description="COM_ASKDESK_CONFIG_NOTICE_GUEST_DESC" />
 		<field name="transcript" type="radio" layout="joomla.form.field.radio.switcher" default="1"
 			label="COM_ASKDESK_CONFIG_TRANSCRIPT" description="COM_ASKDESK_CONFIG_TRANSCRIPT_DESC">
+			<option value="0">JNO</option>
+			<option value="1">JYES</option>
+		</field>
+		<field name="tickets" type="radio" layout="joomla.form.field.radio.switcher" default="1"
+			label="COM_ASKDESK_CONFIG_TICKETS" description="COM_ASKDESK_CONFIG_TICKETS_DESC">
 			<option value="0">JNO</option>
 			<option value="1">JYES</option>
 		</field>

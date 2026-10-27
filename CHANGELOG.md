@@ -46,6 +46,27 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
   `Rooms::trusted()` for cards to ask.
 - Under one's face in the console, a row for each source one connects to (「○○ 帳號與站台」), opening the
   source's own page (`manage` in its status), which may lead back to the console.
+- **Messages left as tickets** (on by default; option *Messages left as tickets*): a message left when no one is
+  there is answered in the console and kept in its thread, translated; the visitor is e-mailed by the site that
+  there is an answer, with a link and never the answer. The link opens *My tickets*
+  (`index.php?option=com_askdesk&view=tickets`, a menu item may be made for it): a guest gives the address they
+  left it with and a six-digit code sent to it (10 minutes, five tries, used once; three asked for an address in
+  a quarter of an hour, ten from one network address in an hour; an address with no tickets is answered the same
+  and sent nothing), then reads their tickets and writes more to an open one, for as long as the browser's
+  session lasts; a member signed in sees their own. Closed tickets are shown for 30 days more, not written to.
+  What they write more reaches the phones of the people answering at once, and the one who has the ticket by
+  e-mail (everyone, when no one has it), once in ten minutes at most.
+  New: `#__askdesk_rooms.ticket`, `#__askdesk_codes` (the address and the code hashed with the site's secret;
+  kept a day at most) (update 0.6.2.3). Off: answered from one's own mail program, as before.
+- **Who took part, in a chat's head**: the faces of the people who answered in it, stacked (one alone: face and
+  name), the one it is with ringed; apart from them 「正在回應中」 while that one is here, or 「接手」 when they
+  are not (signed out, away, gone quiet), which takes it over from them (the visitor told someone joined).
+- **Chinese kept in Traditional** (new option, on by default): Chinese the AI writes, translations for visitors and
+  for the people answering and summaries alike, is in Traditional characters with the words used in Taiwan; a
+  visitor writing in Simplified is still answered in Traditional, and Simplified the AI writes all the same is
+  turned into Traditional (PHP's intl, else the characters the desk knows) before anyone sees it. Simplified only
+  for a visitor whose page is in Simplified Chinese. A reply to a message left is no longer translated when the
+  visitor surely reads it as written (the AI could turn Traditional into Simplified).
 - **Housekeeping** (back end, AI Ask Desk → 案件整理): messages left and chats that ended unanswered, not
   closed yet, by how long untouched (7, 30, 90 days, all), oldest first; picked and closed together.
 

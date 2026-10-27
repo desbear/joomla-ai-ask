@@ -79,6 +79,8 @@ final class Rooms
             'token'            => hash('sha256', $key),
             'agent_id'         => (int) $data['agent_id'],
             'status'           => \in_array($data['status'] ?? '', ['waiting', 'message'], true) ? $data['status'] : 'waiting',
+            // A message left is a ticket (0.6.2): its visitor sees it on the tickets page, closed too
+            'ticket'           => ($data['status'] ?? '') === 'message' ? 1 : 0,
             'staff_id'         => 0,
             'user_id'          => (int) $data['user_id'],
             'name'             => mb_substr(trim((string) $data['name']), 0, 100),
@@ -121,11 +123,12 @@ final class Rooms
 
         // Kept at once (the visitor waits for nothing); translated afterwards, as a chat's messages,
         // unless it surely is in the language of the people answering already
-        $found = LanguageGuess::detect($text);
+        $found  = LanguageGuess::detect($text);
+        $writes = Chinese::target($found, (string) $room->page_language);
 
-        if ($found !== '' && $found !== 'zh' && !Translator::same($found, (string) $room->visitor_language)) {
-            $room->visitor_language = $found;
-            $this->update($id, ['visitor_language' => mb_substr($found, 0, 10)]);
+        if ($found !== '' && $found !== 'zh' && !Translator::same($writes, (string) $room->visitor_language)) {
+            $room->visitor_language = $writes;
+            $this->update($id, ['visitor_language' => mb_substr($writes, 0, 10)]);
         }
 
         $language = $found !== '' && $found !== 'zh' ? $found : (string) $room->visitor_language;
@@ -203,6 +206,26 @@ final class Rooms
             'face'     => (int) $room->staff_id ? ($profiles[(int) $room->staff_id]['face'] ?? null) : null,
             'messages' => $messages,
         ];
+    }
+
+    /**
+     * A ticket as its page shows it to the visitor (0.6.2): its messages in their language, and who answered.
+     *
+     * @return  array{messages: array<int, array<string, mixed>>, staff: string}
+     */
+    public function forTicket(object $room): array
+    {
+        $db   = $this->db;
+        $rows = $db->setQuery(
+            $db->getQuery(true)->select('*')->from($db->quoteName('#__askdesk_messages'))
+                ->where('room_id = :room')->bind(':room', $room->id, ParameterType::INTEGER)->order('id'),
+            0,
+            200
+        )->loadObjectList();
+
+        [$messages, $staff] = $this->visitorItems($room, $rows);
+
+        return ['messages' => array_values(array_filter($messages, static fn ($item) => $item['author'] !== 'system' || $item['text'] !== '')), 'staff' => (int) $room->staff_id ? ($staff[(int) $room->staff_id] ?? '') : ''];
     }
 
     /**
@@ -313,11 +336,12 @@ final class Rooms
      *
      * @throws  \RuntimeException  With words for the visitor, when it cannot be sent
      */
-    public function fromVisitor(object $room, string $text): int
+    public function fromVisitor(object $room, string $text, bool $ticket = false): int
     {
         $text = self::clean($text);
 
-        if ($text === '' || !\in_array($room->status, ['waiting', 'active'], true)) {
+        // A ticket (a message left) is added to from its page (0.6.2), a chat from AI Ask's window
+        if ($text === '' || !\in_array($room->status, $ticket ? ['message'] : ['waiting', 'active'], true)) {
             throw new \RuntimeException(Text::_('COM_ASKDESK_CHAT_CLOSED'));
         }
 
@@ -326,11 +350,12 @@ final class Rooms
 
         // Kept at once, in the order written; translated afterwards unless it surely needs no translating
         // (the language the person answering reads, told by its own letters)
-        $found = LanguageGuess::detect($text);
+        $found  = LanguageGuess::detect($text);
+        $writes = Chinese::target($found, (string) $room->page_language);
 
-        if ($found !== '' && $found !== 'zh' && !Translator::same($found, (string) $room->visitor_language)) {
-            $room->visitor_language = $found;
-            $this->update((int) $room->id, ['visitor_language' => mb_substr($found, 0, 10)]);
+        if ($found !== '' && $found !== 'zh' && !Translator::same($writes, (string) $room->visitor_language)) {
+            $room->visitor_language = $writes;
+            $this->update((int) $room->id, ['visitor_language' => mb_substr($writes, 0, 10)]);
         }
 
         if (!$this->settings->translates() || LanguageGuess::already($text, (string) $room->staff_language)) {
@@ -819,6 +844,10 @@ final class Rooms
         // Whether the guest is who they say (confirmed by the person answering, 0.6.2): with each look, it may change
         $result['confirmed'] = self::trusted($room);
 
+        // Who took part, with their faces, and whether the one it is with is here now (0.6.2): someone else may
+        // take it over when they are not
+        $result += $this->takingPart($room);
+
         // What the visitor did before, once, with the first messages
         if ($after === 0) {
             $entry = json_decode((string) $room->entry, true);
@@ -860,6 +889,74 @@ final class Rooms
     /**
      * Someone takes a waiting chat (or one left as a message): only one of several people trying at once gets it.
      */
+    /**
+     * The people answering who took part in a chat, first to last (the one it is with among them), and whether
+     * that one is here now.
+     *
+     * @return  array{people: array<int, array{id: int, name: string, face: string}>, staffHere: bool}
+     */
+    private function takingPart(object $room): array
+    {
+        $db  = $this->db;
+        $ids = array_map('intval', $db->setQuery(
+            $db->getQuery(true)->select('staff_id')->from($db->quoteName('#__askdesk_messages'))
+                ->where('room_id = :room')->where('staff_id > 0')->bind(':room', $room->id, ParameterType::INTEGER)
+                ->group('staff_id')->order('MIN(id)')
+        )->loadColumn());
+
+        if ((int) $room->staff_id && !\in_array((int) $room->staff_id, $ids, true)) {
+            $ids[] = (int) $room->staff_id;
+        }
+
+        $staff    = new Staff($db, $this->settings);
+        $profiles = $ids ? $staff->profiles($ids) : [];
+        $here     = (int) $room->staff_id && \in_array((int) $room->staff_id, array_column($staff->present(), 'id'), true);
+
+        return [
+            'people'    => array_values(array_filter(array_map(static fn ($id) => isset($profiles[$id]) ? ['id' => $id, 'name' => (string) $profiles[$id]['name'], 'face' => (string) ($profiles[$id]['face']['src'] ?? '')] : null, $ids))),
+            'staffHere' => $here,
+        ];
+    }
+
+    /**
+     * A chat or ticket someone else has, taken over when they are not here (signed out of the console, away, or
+     * gone quiet) (0.6.2): the visitor is told someone joined, as when one is first taken.
+     */
+    public function takeOver(object $room, int $staffId, string $language): bool
+    {
+        $from = (int) $room->staff_id;
+
+        if (!$from || $from === $staffId || !\in_array($room->status, ['active', 'message'], true)
+            || \in_array($from, array_column((new Staff($this->db, $this->settings))->present(), 'id'), true)) {
+            return false;
+        }
+
+        $db    = $this->db;
+        $now   = Factory::getDate()->toSql();
+        $query = $db->getQuery(true)->update($db->quoteName('#__askdesk_rooms'))
+            ->set('staff_id = :staff')->set('staff_language = :language')->set('modified = :now')
+            ->where('id = :id')->where('staff_id = :from')
+            ->where($db->quoteName('status') . ' IN (' . $db->quote('active') . ', ' . $db->quote('message') . ')')
+            ->bind(':staff', $staffId, ParameterType::INTEGER)->bind(':language', $language)->bind(':now', $now)
+            ->bind(':id', $room->id, ParameterType::INTEGER)->bind(':from', $from, ParameterType::INTEGER);
+
+        $db->setQuery($query)->execute();
+
+        if ($db->getAffectedRows() < 1) {
+            return false;
+        }
+
+        $room = $this->get((int) $room->id);
+
+        if ($room->status === 'active') {
+            $this->add($room, 'system', $staffId, 'joined');
+        }
+
+        $this->handled($room, $staffId);
+
+        return true;
+    }
+
     public function take(object $room, int $staffId, string $language): bool
     {
         $db    = $this->db;
@@ -1003,7 +1100,7 @@ final class Rooms
 
         // Kept at once, in the order written; translated for the visitor afterwards, unless the visitor
         // surely reads it as it is
-        $pending = $this->settings->translates() && !LanguageGuess::already($text, (string) $room->visitor_language);
+        $pending = $this->settings->translates() && !LanguageGuess::already($text, Chinese::target((string) $room->visitor_language, (string) $room->page_language));
         $id      = $this->add($room, 'staff', $staffId, $text, (string) $room->staff_language, '', '', 0, 0, $pending ? 1 : 0);
 
         $this->keepCards($room, $id, $links->cards($text), false);
@@ -1075,8 +1172,10 @@ final class Rooms
             if ($visitor && $translation['language'] !== '') {
                 $done->language = mb_substr($translation['language'], 0, 10);
 
-                if (!Translator::same($translation['language'], (string) $room->visitor_language)) {
-                    $this->update((int) $room->id, ['visitor_language' => mb_substr($translation['language'], 0, 10)], false);
+                $writes = Chinese::target($translation['language'], (string) $room->page_language);
+
+                if (!Translator::same($writes, (string) $room->visitor_language)) {
+                    $this->update((int) $room->id, ['visitor_language' => mb_substr($writes, 0, 10)], false);
                 }
             }
         } catch (\Throwable) {
@@ -1126,6 +1225,33 @@ final class Rooms
      */
     public function replyByEmail(object $room, int $staffId, string $text): array
     {
+        return $this->reply($room, $staffId, $text, true);
+    }
+
+    /**
+     * A reply to a ticket (0.6.2): kept in its thread, translated into the visitor's language, for them to read
+     * on the tickets page; they are told by e-mail only that there is one (Tickets::notifyLater).
+     *
+     * @return  array{id: int, translated: bool}
+     *
+     * @throws  \RuntimeException
+     */
+    public function replyTicket(object $room, int $staffId, string $text): array
+    {
+        $reply = $this->reply($room, $staffId, $text, false);
+
+        (new Tickets($this->db, $this->settings))->notifyLater($this->get((int) $room->id) ?? $room);
+
+        return ['id' => $reply['id'], 'translated' => $reply['translated']];
+    }
+
+    /**
+     * @return  array{id: int, email: string, subject: string, body: string, translated: bool}
+     *
+     * @throws  \RuntimeException
+     */
+    private function reply(object $room, int $staffId, string $text, bool $byEmail): array
+    {
         $text = (new Links($this->db))->shorten(self::clean($text));
 
         if ($text === '' || $room->status !== 'message' || !\in_array((int) $room->staff_id, [0, $staffId], true) || $room->email === '') {
@@ -1143,8 +1269,11 @@ final class Rooms
         $heading     = ['text' => $subject, 'translated' => false];
 
         try {
-            $translation = $this->translate($text, (string) $room->visitor_language, $room, true);
-            $heading     = $this->translate($subject, (string) $room->visitor_language, $room, true);
+            // Not when the visitor surely reads it as it is (Chinese in the same script)
+            $translation = LanguageGuess::already($text, Chinese::target((string) $room->visitor_language, (string) $room->page_language))
+                ? $translation : $this->translate($text, (string) $room->visitor_language, $room, true);
+            // A ticket's reply has no subject: only the e-mail written by one's own mail program
+            $heading     = $byEmail ? $this->translate($subject, (string) $room->visitor_language, $room, true) : $heading;
         } catch (\Throwable) {
             // Written as it was: the person answering sees it is not translated
         }
@@ -1440,7 +1569,8 @@ final class Rooms
 
             $visitor = $row->author === 'visitor';
             $quick ??= new QuickTranslate($this->settings);
-            $draft   = $quick->translate((string) $row->text, $visitor ? (string) $row->language : (string) $room->staff_language, $visitor ? (string) $room->staff_language : (string) $room->visitor_language);
+            $target  = $visitor ? (string) $room->staff_language : Chinese::target((string) $room->visitor_language, (string) $room->page_language);
+            $draft   = Chinese::keep($quick->translate((string) $row->text, $visitor ? (string) $row->language : (string) $room->staff_language, $target), $target);
 
             if ($draft === '') {
                 continue;
@@ -1986,8 +2116,17 @@ final class Rooms
             }
         }
 
+        // Chinese in Traditional where the settings say so, even when the AI writes Simplified all the same
+        $target = Chinese::target($target, (string) $room->page_language);
+
         try {
-            return (new Translator(AskSettings::load()))->translate($text, $target, $this->settings->glossary(), implode("\n", array_reverse($before)), $this->settings->translateModel(), $this->settings->translateEffort());
+            $result = (new Translator(AskSettings::load()))->translate($text, $target, $this->settings->glossary(), implode("\n", array_reverse($before)), $this->settings->translateModel(), $this->settings->translateEffort());
+
+            if ($result['translated']) {
+                $result['text'] = Chinese::keep((string) $result['text'], $target);
+            }
+
+            return $result;
         } catch (\Throwable $e) {
             if ($strict) {
                 throw $e;

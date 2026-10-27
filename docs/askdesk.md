@@ -61,6 +61,9 @@ It is a package of its own, `pkg_askdesk`, which needs AI Ask 0.20.0 or later:
 - **A guest's e-mail is only what they typed** (0.6.2): a panel binds nothing to it (a CRM customer, earlier chats)
   until `Rooms::trusted($room)` says so: a member signed in, or a guest the person answering asked and confirmed
   with 「確認是本人」 beside the e-mail in the chat's header. Before that a panel may only suggest who it could be.
+- **Tickets** (0.6.2): a message left is a ticket, answered in the console; the visitor is e-mailed a link only
+  (never the answer) to *My tickets* (`view=tickets`), where a one-time code sent to their address, or being
+  signed in, shows them their tickets. The site must be able to send e-mail.
 - **Panels from plugins** (0.2.0): a plugin of the `askdesk` group can add its own section at the top, such as
   who the visitor is in a CRM. It answers the `onAskdeskPanels` event with an object implementing
   `Gss\Component\Askdesk\Administrator\Desk\PanelInterface`: `view()` says what to show for a chat (a title,

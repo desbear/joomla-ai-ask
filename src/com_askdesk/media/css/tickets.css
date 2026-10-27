@@ -1,0 +1,336 @@
+/**
+ * @package     AI Ask Desk for Joomla
+ * @subpackage  com_askdesk
+ *
+ * The visitor's tickets (0.6.2): one card, as the console's sign-in page.
+ */
+
+.askdesk-tickets {
+  --tk-text: #232332;
+  --tk-muted: rgba(35, 35, 50, 0.6);
+  --tk-canvas: #f5f7fa;
+  --tk-surface: #fff;
+  --tk-line: rgba(35, 35, 50, 0.1);
+  --tk-accent: #0e86fe;
+  --tk-soft: #ebf5ff;
+  --tk-ok: #0f6e3a;
+  --tk-ok-soft: #e6f5ec;
+  --tk-grey-soft: #f1f3f4;
+  --tk-bad: #a32d2d;
+
+  box-sizing: border-box;
+  display: grid;
+  place-items: start center;
+  min-block-size: 100dvh;
+  margin: 0;
+  padding: 48px 16px;
+  background:
+    radial-gradient(60% 50% at 85% 0%, rgba(51, 207, 255, 0.16), transparent 70%),
+    radial-gradient(50% 40% at 0% 100%, rgba(14, 134, 254, 0.1), transparent 70%),
+    var(--tk-canvas);
+  color: var(--tk-text);
+  font: 15px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+}
+
+.askdesk-tickets *,
+.askdesk-tickets *::before {
+  box-sizing: border-box;
+}
+
+.askdesk-tickets__card {
+  display: grid;
+  gap: 16px;
+  inline-size: min(100%, 560px);
+  padding: 32px 28px 28px;
+  border: 1px solid var(--tk-line);
+  border-radius: 24px;
+  background: var(--tk-surface);
+  box-shadow: 0 24px 60px rgba(14, 60, 120, 0.12);
+}
+
+.askdesk-tickets__head {
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.askdesk-tickets__icon {
+  inline-size: 64px;
+  block-size: 64px;
+  border-radius: 18px;
+  box-shadow: 0 8px 20px rgba(14, 134, 254, 0.25);
+}
+
+.askdesk-tickets__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.askdesk-tickets__lead,
+.askdesk-tickets__note,
+.askdesk-tickets__or,
+.askdesk-tickets__started {
+  margin: 0;
+  color: var(--tk-muted);
+  font-size: 14px;
+  text-align: center;
+}
+
+.askdesk-tickets__or {
+  margin-block-end: -8px;
+  font-size: 13px;
+}
+
+.askdesk-tickets__form,
+.askdesk-tickets__write {
+  display: grid;
+  gap: 10px;
+}
+
+.askdesk-tickets__field {
+  inline-size: 100%;
+  min-block-size: 48px;
+  padding: 10px 14px;
+  border: 1px solid var(--tk-line);
+  border-radius: 14px;
+  background: var(--tk-surface);
+  color: var(--tk-text);
+  font: inherit;
+  resize: vertical;
+}
+
+.askdesk-tickets__field:focus {
+  border-color: var(--tk-accent);
+  outline: 3px solid var(--tk-soft);
+}
+
+.askdesk-tickets__field--code {
+  font-size: 24px;
+  letter-spacing: 0.4em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.askdesk-tickets__button {
+  min-block-size: 48px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(45deg, #33cfff 0%, #0e86fe 100%);
+  box-shadow: 0 6px 14px rgba(14, 134, 254, 0.3);
+  color: #fff;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.askdesk-tickets__button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.askdesk-tickets__links,
+.askdesk-tickets__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  font-size: 14px;
+}
+
+.askdesk-tickets__bar {
+  justify-content: space-between;
+  padding-block-end: 12px;
+  border-block-end: 1px solid var(--tk-line);
+}
+
+.askdesk-tickets__who {
+  overflow: hidden;
+  color: var(--tk-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.askdesk-tickets__link,
+.askdesk-tickets__back {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--tk-accent);
+  font: inherit;
+  font-size: 14px;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.askdesk-tickets__back {
+  justify-self: start;
+}
+
+.askdesk-tickets__link:hover,
+.askdesk-tickets__back:hover {
+  text-decoration: underline;
+}
+
+.askdesk-tickets__list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.askdesk-tickets__item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  inline-size: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--tk-line);
+  border-radius: 16px;
+  background: var(--tk-surface);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.askdesk-tickets__item:hover {
+  border-color: var(--tk-accent);
+  box-shadow: 0 6px 16px rgba(14, 134, 254, 0.12);
+}
+
+.askdesk-tickets__item-title {
+  overflow: hidden;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.askdesk-tickets__item-time {
+  grid-column: 1 / -1;
+  color: var(--tk-muted);
+  font-size: 12px;
+}
+
+.askdesk-tickets__pill {
+  align-self: center;
+  padding: 1px 10px;
+  border-radius: 999px;
+  background: var(--tk-soft);
+  color: var(--tk-accent);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.askdesk-tickets__pill--answered {
+  background: var(--tk-ok-soft);
+  color: var(--tk-ok);
+}
+
+.askdesk-tickets__pill--closed {
+  background: var(--tk-grey-soft);
+  color: var(--tk-muted);
+}
+
+.askdesk-tickets__thread {
+  display: grid;
+  gap: 14px;
+  max-block-size: 60dvh;
+  overflow-y: auto;
+  padding: 4px 2px;
+}
+
+.askdesk-tickets__message {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+}
+
+.askdesk-tickets__message--mine {
+  justify-items: end;
+}
+
+.askdesk-tickets__message--system {
+  justify-items: center;
+  color: var(--tk-muted);
+  font-size: 12px;
+}
+
+.askdesk-tickets__by {
+  color: var(--tk-muted);
+  font-size: 12px;
+}
+
+.askdesk-tickets__bubble {
+  max-inline-size: 85%;
+  padding: 10px 14px;
+  border-radius: 16px 16px 16px 4px;
+  background: var(--tk-grey-soft);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.askdesk-tickets__message--mine .askdesk-tickets__bubble {
+  border-radius: 16px 16px 4px;
+  background: var(--tk-accent);
+  color: #fff;
+}
+
+.askdesk-tickets__message--mine .askdesk-tickets__bubble a {
+  color: #fff;
+}
+
+.askdesk-tickets__problem {
+  margin: 0;
+  color: var(--tk-bad);
+  font-size: 14px;
+  text-align: center;
+}
+
+.askdesk-tickets__problem[hidden] {
+  display: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .askdesk-tickets {
+    --tk-text: #e8ebf2;
+    --tk-muted: rgba(232, 235, 242, 0.62);
+    --tk-canvas: #12141a;
+    --tk-surface: #1b1e26;
+    --tk-line: rgba(255, 255, 255, 0.1);
+    --tk-accent: #5eaeff;
+    --tk-soft: rgba(14, 134, 254, 0.16);
+    --tk-ok: #6ee7a0;
+    --tk-ok-soft: rgba(110, 231, 160, 0.13);
+    --tk-grey-soft: rgba(255, 255, 255, 0.07);
+    --tk-bad: #f87171;
+  }
+
+  .askdesk-tickets__card {
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.4);
+  }
+
+  .askdesk-tickets__message--mine .askdesk-tickets__bubble {
+    background: #0e86fe;
+  }
+}
+
+@media (max-width: 480px) {
+  .askdesk-tickets {
+    padding: 16px 12px;
+  }
+
+  .askdesk-tickets__card {
+    padding: 24px 18px 20px;
+    border-radius: 20px;
+  }
+}

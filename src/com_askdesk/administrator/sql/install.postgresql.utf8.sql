@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS "#__askdesk_rooms" (
   "archived_at" timestamp without time zone DEFAULT NULL,
   "identity_confirmed" timestamp without time zone DEFAULT NULL,
   "identity_by" integer DEFAULT 0 NOT NULL,
+  "ticket" smallint DEFAULT 0 NOT NULL,
   PRIMARY KEY ("id"),
   CONSTRAINT "#__askdesk_rooms_idx_token" UNIQUE ("token")
 );
@@ -198,3 +199,16 @@ CREATE TABLE IF NOT EXISTS "#__askdesk_source_changes" (
   PRIMARY KEY ("id")
 );
 CREATE INDEX "#__askdesk_source_changes_idx_created" ON "#__askdesk_source_changes" ("created");
+
+CREATE TABLE IF NOT EXISTS "#__askdesk_codes" (
+  "id" serial NOT NULL,
+  "email" char(64) NOT NULL,
+  "code" char(64) NOT NULL,
+  "ip" char(64) DEFAULT '' NOT NULL,
+  "tries" smallint DEFAULT 0 NOT NULL,
+  "created" timestamp without time zone NOT NULL,
+  "expires" timestamp without time zone NOT NULL,
+  PRIMARY KEY ("id")
+);
+CREATE INDEX "#__askdesk_codes_idx_email" ON "#__askdesk_codes" ("email");
+CREATE INDEX "#__askdesk_codes_idx_created" ON "#__askdesk_codes" ("created");

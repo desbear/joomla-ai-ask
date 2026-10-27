@@ -68,6 +68,15 @@ final class Settings
     }
 
     /**
+     * Whether Chinese the AI writes is kept in Traditional with Taiwan's words (0.6.2), unless the visitor's page
+     * is in Simplified Chinese.
+     */
+    public function traditional(): bool
+    {
+        return (bool) $this->params->get('traditional', 1);
+    }
+
+    /**
      * @return  string[]  Lines "term" or "term = translation"
      */
     public function glossary(): array
@@ -212,6 +221,16 @@ final class Settings
     public function transcript(): bool
     {
         return (bool) $this->params->get('transcript', 1);
+    }
+
+    /**
+     * Messages left kept as tickets (0.6.2): answered in the console, the visitor told by the site's e-mail that
+     * there is an answer (a link, never the answer) and reading it on the tickets page with a one-time code.
+     * Off: answered from one's own mail program, as before.
+     */
+    public function tickets(): bool
+    {
+        return (bool) $this->params->get('tickets', 1);
     }
 
     /** The Dropfiles category the library is kept in; 0 for one made for it. */

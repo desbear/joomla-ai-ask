@@ -24,9 +24,9 @@ namespace Gss\Component\Askdesk\Administrator\Desk;
 final class LanguageGuess
 {
     /** Characters only Traditional Chinese writes, and their Simplified counterparts. */
-    private const TRADITIONAL = '們這說個來時會對發經國過後學還沒現問開麼題電話樣關應進實動與長東車見門認識讀請謝讓給員錢區單眾類網錄態導機買賣處裡帳號碼標麗鐘將當麼歡態誰從風點萬華氣書記設計畫圖選擇儲備註冊專業務該頁訊統費級訂購嗎鍵議譯體';
+    public const TRADITIONAL = '們這說個來時會對發經國過後學還沒現問開麼題電話樣關應進實動與長東車見門認識讀請謝讓給員錢區單眾類網錄態導機買賣處裡帳號碼標麗鐘將當麼歡態誰從風點萬華氣書記設計畫圖選擇儲備註冊專業務該頁訊統費級訂購嗎鍵議譯體';
 
-    private const SIMPLIFIED = '们这说个来时会对发经国过后学还没现问开么题电话样关应进实动与长东车见门认识读请谢让给员钱区单众类网录态导机买卖处里账号码标丽钟将当么欢态谁从风点万华气书记设计画图选择储备注册专业务该页讯统费级订购吗键议译体';
+    public const SIMPLIFIED = '们这说个来时会对发经国过后学还没现问开么题电话样关应进实动与长东车见门认识读请谢让给员钱区单众类网录态导机买卖处里账号码标丽钟将当么欢态谁从风点万华气书记设计画图选择储备注册专业务该页讯统费级订购吗键议译体';
 
     /** Common English words: a few of them, and Latin letters are English. */
     private const ENGLISH = ['the', 'is', 'are', 'i', 'you', 'to', 'and', 'of', 'a', 'it', 'my', 'can', 'how', 'what', 'do', 'not', 'please', 'thanks', 'thank', 'hello', 'hi', 'for', 'in', 'on', 'with', 'this', 'that', 'have', 'need', 'help', 'why', 'when', 'where', 'yes', 'no', 'ok', 'okay', 'we', 'your', 'be', 'will', 'there', 'login', 'password', 'account'];

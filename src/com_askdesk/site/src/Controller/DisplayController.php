@@ -25,7 +25,8 @@ class DisplayController extends BaseController
 
     public function display($cachable = false, $urlparams = [])
     {
-        $this->input->set('view', 'console');
+        // The console, or the visitor's tickets (0.6.2)
+        $this->input->set('view', $this->input->get('view') === 'tickets' ? 'tickets' : 'console');
 
         return parent::display(false, $urlparams);
     }

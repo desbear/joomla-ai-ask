@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS `#__askdesk_rooms` (
   `archived_at` datetime NULL DEFAULT NULL,
   `identity_confirmed` datetime NULL DEFAULT NULL,
   `identity_by` int unsigned NOT NULL DEFAULT 0,
+  `ticket` tinyint NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_token` (`token`),
   KEY `idx_settled` (`settled`),
@@ -200,5 +201,18 @@ CREATE TABLE IF NOT EXISTS `#__askdesk_source_changes` (
   `deleted` tinyint NOT NULL DEFAULT 0,
   `created` datetime NOT NULL,
   PRIMARY KEY (`id`),
+  KEY `idx_created` (`created`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `#__askdesk_codes` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `email` char(64) NOT NULL,
+  `code` char(64) NOT NULL,
+  `ip` char(64) NOT NULL DEFAULT '',
+  `tries` tinyint unsigned NOT NULL DEFAULT 0,
+  `created` datetime NOT NULL,
+  `expires` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_email` (`email`),
   KEY `idx_created` (`created`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci;

@@ -92,7 +92,8 @@ class StaffController extends BaseController
 
         $room = $this->room($rooms, $body);
 
-        if (!$rooms->take($room, (int) $me->user_id, $me->language)) {
+        // No one's yet; or someone's who is not here, taken over (0.6.2)
+        if (!$rooms->take($room, (int) $me->user_id, $me->language) && !$rooms->takeOver($room, (int) $me->user_id, $me->language)) {
             $this->send(['error' => Text::_('COM_ASKDESK_STAFF_TAKEN')]);
         }
 
@@ -125,14 +126,20 @@ class StaffController extends BaseController
     }
 
     /**
-     * A reply to a message left, translated, for one's own mail program ({room, text}).
+     * A reply to a message left ({room, text}): kept in the ticket and the visitor told, or (tickets off)
+     * translated for one's own mail program.
      */
     public function reply(): void
     {
         [$rooms, , $me, $body] = $this->check();
 
+        $text = \is_string($body['text'] ?? null) ? $body['text'] : '';
+
         try {
-            $reply = $rooms->replyByEmail($this->room($rooms, $body), (int) $me->user_id, \is_string($body['text'] ?? null) ? $body['text'] : '');
+            // Kept as a ticket (0.6.2): the visitor told by the site that there is an answer, nothing for one's mail program
+            $reply = Settings::load()->tickets()
+                ? ['ticket' => true] + $rooms->replyTicket($this->room($rooms, $body), (int) $me->user_id, $text)
+                : $rooms->replyByEmail($this->room($rooms, $body), (int) $me->user_id, $text);
         } catch (\RuntimeException $e) {
             $this->send(['error' => $e->getMessage()]);
         }
