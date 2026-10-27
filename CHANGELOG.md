@@ -523,7 +523,7 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
   status switched from the desk's card; new waiting chats light up red and ring a bell on the count; ended chats fold
   away; drop-down menus, Mac-like scroll bars, and the work on a calm grey-blue with white cards.
 
-## AI Ask for Joomla 0.22.1 (unreleased)
+## AI Ask for Joomla 0.22.1
 
 - **Signing in at an account centre with no account here** (new options, off by default): visitors not signed in
   sign in to AI Ask's window at an account centre over CAS (2 or 3) and come back to the page. The ticket is
