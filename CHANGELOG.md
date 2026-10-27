@@ -523,6 +523,12 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
   status switched from the desk's card; new waiting chats light up red and ring a bell on the count; ended chats fold
   away; drop-down menus, Mac-like scroll bars, and the work on a calm grey-blue with white cards.
 
+## AI Ask for Joomla 0.22.2
+
+- **Other sites: a firewall told apart from a wrong key.** "Did not accept the export key" is said only when AI Ask
+  on the other site answered so; a 403 or 404 from a firewall or server in front of it (a WAF, Admin Tools,
+  mod_security and the like) now says it is not about the key, with the start of what came back.
+
 ## AI Ask for Joomla 0.22.1
 
 - **Signing in at an account centre with no account here** (new options, off by default): visitors not signed in

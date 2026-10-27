@@ -116,10 +116,18 @@ final class PeerClient
 
         if ($status !== 200 || !\is_array($data)) {
             // The two answers an administrator can do something about say what to do, in their language
+            // Only when AI Ask itself said so (its JSON): a 403 or 404 from a firewall or the server in front
+            // of it is not about the key, and says so, with what was received
             if (\in_array($status, [403, 404], true)) {
                 Factory::getApplication()->getLanguage()->load('com_mcpask', JPATH_ADMINISTRATOR);
 
-                throw new ServiceException(Text::sprintf('COM_MCPASK_PEER_ERROR_' . $status, $this->peer['name'], Settings::MIN_EXPORT_KEY));
+                if (\is_array($data) && \is_string($data['error'] ?? null)) {
+                    throw new ServiceException(Text::sprintf('COM_MCPASK_PEER_ERROR_' . $status, $this->peer['name'], Settings::MIN_EXPORT_KEY));
+                }
+
+                $seen = trim((string) preg_replace('/\s+/u', ' ', strip_tags((string) preg_replace('#<(script|style)\b.*?</\1>#is', '', $received))));
+
+                throw new ServiceException(Text::sprintf('COM_MCPASK_PEER_ERROR_BLOCKED', $this->peer['name'], $status, mb_substr($seen, 0, 150) ?: '-'));
             }
 
             $reason = \is_array($data) && \is_string($data['error'] ?? null) ? $data['error'] : ($error ?: 'no usable answer');
