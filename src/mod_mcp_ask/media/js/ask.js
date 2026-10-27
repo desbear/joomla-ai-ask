@@ -626,6 +626,17 @@
     }
   })();
 
+  // Or at an account centre, with no account here (0.22.1): where to sign in, and what the button says
+  const cas = embed || account ? null : (() => {
+    try {
+      const data = JSON.parse(roots.map((root) => root.dataset.cas).find(Boolean) || 'null');
+
+      return data && /^https?:\/\//i.test(data.url) ? { url: String(data.url), label: String(data.label || '').slice(0, 60) } : null;
+    } catch (error) {
+      return null;
+    }
+  })();
+
   // Who the visitor is: a token from the sign-in window, or one the other website's server signed
   const IDENTITY = 'mcp-ask:identity';
   let identity = (() => {
@@ -5011,8 +5022,8 @@
   const paintLogin = () => {
     const name = account ? account.name : (identity ? identity.name || tokenName(identity.token) : '');
 
-    login.hidden = embed ? !embed.login && !hostLogin && !identity : !signin && !account;
-    login.textContent = identity || account ? strings.signOut : strings.signIn;
+    login.hidden = embed ? !embed.login && !hostLogin && !identity : !signin && !account && !cas;
+    login.textContent = identity || account ? strings.signOut : (cas && cas.label) || strings.signIn;
     who.hidden = !(embed || signin || account) || !name;
     who.textContent = name;
     who.title = name;
@@ -5052,6 +5063,9 @@
     identityHeard.push(paintLogin);
   } else if (account) {
     login.addEventListener('click', () => window.location.assign(account.logout));
+  } else if (cas) {
+    // To the account centre's sign-in, back to this page
+    login.addEventListener('click', () => window.location.assign(cas.url));
   } else if (signin) {
     // Through the other website's sign-in, back to this page; the conversation opens again if it was open
     login.addEventListener('click', () => {

@@ -178,6 +178,26 @@
 		<field name="agent_event_days" type="number" default="180" min="1" max="730" filter="integer"
 			label="COM_MCPASK_CONFIG_AGENT_EVENT_DAYS" description="COM_MCPASK_CONFIG_AGENT_EVENT_DAYS_DESC" />
 	</fieldset>
+	<fieldset name="cas" label="COM_MCPASK_CONFIG_CAS" description="COM_MCPASK_CONFIG_CAS_DESC">
+		<field name="cas" type="radio" layout="joomla.form.field.radio.switcher" default="0"
+			label="COM_MCPASK_CONFIG_CAS_ON" description="COM_MCPASK_CONFIG_CAS_ON_DESC">
+			<option value="0">JNO</option>
+			<option value="1">JYES</option>
+		</field>
+		<field name="cas_url" type="url" filter="url" validate="url" scheme="https" showon="cas:1" hint="https://accounts.example.com/cas"
+			label="COM_MCPASK_CONFIG_CAS_URL" description="COM_MCPASK_CONFIG_CAS_URL_DESC" />
+		<field name="cas_version" type="list" default="3" showon="cas:1"
+			label="COM_MCPASK_CONFIG_CAS_VERSION" description="COM_MCPASK_CONFIG_CAS_VERSION_DESC">
+			<option value="3">CAS 3</option>
+			<option value="2">CAS 2</option>
+		</field>
+		<field name="cas_label" type="text" filter="string" showon="cas:1"
+			label="COM_MCPASK_CONFIG_CAS_LABEL" description="COM_MCPASK_CONFIG_CAS_LABEL_DESC" />
+		<field name="cas_email" type="text" filter="string" default="mail,email" showon="cas:1"
+			label="COM_MCPASK_CONFIG_CAS_EMAIL" description="COM_MCPASK_CONFIG_CAS_EMAIL_DESC" />
+		<field name="cas_name" type="text" filter="string" default="name,displayName,cn" showon="cas:1"
+			label="COM_MCPASK_CONFIG_CAS_NAME" description="COM_MCPASK_CONFIG_CAS_NAME_DESC" />
+	</fieldset>
 	<fieldset name="permissions" label="JCONFIG_PERMISSIONS_LABEL" description="JCONFIG_PERMISSIONS_DESC">
 		<field name="rules" type="rules" label="JCONFIG_PERMISSIONS_LABEL" filter="rules" validate="rules" component="com_mcpask" section="component" />
 	</fieldset>

@@ -162,6 +162,22 @@ class Dispatcher extends AbstractModuleDispatcher
         }
     }
 
+    /**
+     * The account centre visitors sign in at with no account here (0.22.1), when one is set.
+     */
+    private function cas(): ?\Gss\Component\Mcpask\Administrator\Embed\Cas
+    {
+        $class = 'Gss\\Component\\Mcpask\\Administrator\\Embed\\Cas';
+
+        if (!class_exists($class)) {
+            return null;
+        }
+
+        $cas = new $class();
+
+        return $cas->enabled() ? $cas : null;
+    }
+
     protected function getLayoutData(): array
     {
         $data   = parent::getLayoutData();
@@ -200,6 +216,19 @@ class Dispatcher extends AbstractModuleDispatcher
             'name'   => (string) $user->name,
             'logout' => Route::_('index.php?option=com_users&task=user.logout&' . Session::getFormToken() . '=1&return=' . base64_encode(Uri::getInstance()->toString()), false),
         ] : null;
+        // Or at an account centre, with no account here (0.22.1): who they are, kept in their session only
+        $cas                 = $data['embed'] || $demo || $signedIn ? null : $this->cas();
+        $visitor             = $cas ? \Gss\Component\Mcpask\Administrator\Embed\Visitor::current() : null;
+        $data['cas']         = null;
+
+        if ($visitor) {
+            $data['signin']  = null;
+            $data['account'] = ['name' => $visitor['name'], 'logout' => $cas->end(Uri::getInstance()->toString(), Session::getFormToken())];
+        } elseif ($cas) {
+            $data['signin']  = null;
+            $data['cas']     = ['url' => $cas->start(Uri::getInstance()->toString()), 'label' => $cas->label()];
+        }
+
         $data['sourcesShown'] = max(0, min(50, (int) $params->get('sources_shown', 3)));
         // AI Ask Desk's viewer of documents, when it is there (0.20.7): a PDF, Word or a spreadsheet sent in a
         // chat with a person read in the browser, fetched when one is first opened
@@ -425,6 +454,8 @@ class Dispatcher extends AbstractModuleDispatcher
 
         if ($pet && $user && !$user->guest) {
             $pet['name'] = mb_substr((string) $user->name, 0, 40);
+        } elseif ($pet && $this->cas() && ($visitor = \Gss\Component\Mcpask\Administrator\Embed\Visitor::current())) {
+            $pet['name'] = mb_substr($visitor['name'], 0, 40);
         }
 
         return $pet;

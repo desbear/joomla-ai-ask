@@ -64,6 +64,7 @@ $class = 'mcp-ask' . ($mode !== 'icon' ? ' mcp-ask--' . $mode : '') . (!empty($p
     <?php if (!empty($pet)) : ?>data-pet="<?php echo $json($pet); ?>"<?php endif; ?>
     <?php if (!empty($signin)) : ?>data-signin="<?php echo $json($signin); ?>"<?php endif; ?>
     <?php if (!empty($account)) : ?>data-account="<?php echo $json($account); ?>"<?php endif; ?>
+    <?php if (!empty($cas)) : ?>data-cas="<?php echo $json($cas); ?>"<?php endif; ?>
     <?php if (!empty($embed)) : ?>data-embed="<?php echo $json($embed); ?>" data-side="<?php echo $e($embed['side'] ?? 'right'); ?>"<?php endif; ?>
     <?php if ($demoSources) : ?>data-demo-sources="<?php echo $json($demoSources); ?>"<?php endif; ?>
     <?php if ($spot) : ?>data-side="<?php echo $spot['side']; ?>" data-y<?php endif; ?>

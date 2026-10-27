@@ -523,6 +523,18 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
   status switched from the desk's card; new waiting chats light up red and ring a bell on the count; ended chats fold
   away; drop-down menus, Mac-like scroll bars, and the work on a calm grey-blue with white cards.
 
+## AI Ask for Joomla 0.22.1 (unreleased)
+
+- **Signing in at an account centre with no account here** (new options, off by default): visitors not signed in
+  sign in to AI Ask's window at an account centre over CAS (2 or 3) and come back to the page. The ticket is
+  checked with the account centre by the server; the e-mail address and name it vouches for (the attributes
+  named in the options) are kept in the visitor's session only, for 8 hours at most. No account is made and
+  nothing of them is written anywhere; signing out, or the session ending, forgets them. Only ever back to a page
+  of this site. The window greets them by name and offers to sign out, as for a member.
+- AI Ask Desk, when it is there: a visitor signed in so goes to a person without giving their name and e-mail,
+  and the chat or message left shows 「帳號中心已驗證」 (the desk cannot undo it; adding them to a CRM is still
+  the staff's decision); their tickets open with no code, and the tickets page signs in there too.
+
 ## AI Ask for Joomla 0.22.0
 
 - **A pet's pictures are a library**: upload as many as you like on the pet's page, name them as you like, and drag

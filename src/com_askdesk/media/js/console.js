@@ -2611,7 +2611,7 @@
 
     head.replaceChildren();
     intro.replaceChildren();
-    state.shape = room ? `${room.status}|${room.staff}|${room.rating ? 1 : 0}|${room.confirmed ? 1 : 0}|${room.staffHere ? 1 : 0}|${(room.people || []).map((person) => person.id).join(',')}` : '';
+    state.shape = room ? `${room.status}|${room.staff}|${room.rating ? 1 : 0}|${room.confirmed ? 1 : 0}|${room.vouched ? 1 : 0}|${room.staffHere ? 1 : 0}|${(room.people || []).map((person) => person.id).join(',')}` : '';
 
     if (!room) {
       return;
@@ -2650,7 +2650,12 @@
           loadAddons(true);
         }, () => say(t.error));
 
-        if (room.confirmed) {
+        if (room.vouched) {
+          const vouched = pill(t.identityVouched, 'ok');
+
+          vouched.title = t.identityVouchedHint;
+          row.append(vouched);
+        } else if (room.confirmed) {
           row.append(pill(t.identityConfirmed, 'ok'), button('askdesk-room__identity-undo', t.identityUndo, () => confirm(false)));
         } else {
           const ask = button('askdesk-room__identity-ask', t.identityConfirm, () => confirm(true));
@@ -5583,7 +5588,7 @@
     const fresh = !state.detail;
     const stay = atBottom();
 
-    state.detail = fresh ? room : { ...state.detail, status: room.status, staff: room.staff, staffName: room.staffName, rating: room.rating, confirmed: room.confirmed, people: room.people, staffHere: room.staffHere, ...(room.page ? { page: room.page, pages: room.pages || [] } : {}) };
+    state.detail = fresh ? room : { ...state.detail, status: room.status, staff: room.staff, staffName: room.staffName, rating: room.rating, confirmed: room.confirmed, vouched: room.vouched, people: room.people, staffHere: room.staffHere, ...(room.page ? { page: room.page, pages: room.pages || [] } : {}) };
 
     // Messages sent from here wait for their copy from the desk
     const incoming = (room.messages || []).filter((item) => item.id > state.after);
@@ -5635,7 +5640,7 @@
       paintRoom();
     } else {
       // The head again only when the chat changed hands or state: an open list of what came before stays open
-      const shape = `${room.status}|${room.staff}|${room.rating ? 1 : 0}|${room.confirmed ? 1 : 0}|${room.staffHere ? 1 : 0}|${(room.people || []).map((person) => person.id).join(',')}`;
+      const shape = `${room.status}|${room.staff}|${room.rating ? 1 : 0}|${room.confirmed ? 1 : 0}|${room.vouched ? 1 : 0}|${room.staffHere ? 1 : 0}|${(room.people || []).map((person) => person.id).join(',')}`;
 
       if (shape !== state.shape) {
         paintHead();

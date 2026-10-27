@@ -82,6 +82,12 @@ final class AskdeskAgent implements AgentInterface
         $key    = (new Handoffs($context->db))->create((int) $context->agent->id, $context->visitor, $entry, $hours, $context->language);
         $user   = Factory::getApplication()->getIdentity();
         $member = $user && !$user->guest;
+        $signed = $member ? null : $this->vouched();
+
+        // Signed in at an account centre with no account here: who they are is known already
+        if ($open && $signed) {
+            return $this->chat($context, $key, $entry, $signed['name'], $signed['email'], '', true);
+        }
 
         // A guest says who they are first: a name to be called by, an e-mail, perhaps a company
         if ($open && !$member && $own->get('guest_details', 1)) {
@@ -155,7 +161,10 @@ final class AskdeskAgent implements AgentInterface
             $this->remember($name, $email, $company);
         }
 
+        $signed = $member ? null : $this->vouched();
+
         $this->rooms($context)->leave([
+            'verified' => $signed && strcasecmp($signed['email'], $email) === 0,
             'agent_id' => (int) $context->agent->id,
             'user_id'  => $member ? (int) $user->id : 0,
             'name'     => $name,
@@ -175,13 +184,14 @@ final class AskdeskAgent implements AgentInterface
     /**
      * The chat begins: a room, and the card the page talks with it through.
      */
-    private function chat(Context $context, string $key, array $entry, string $name, string $email, string $company): Reply
+    private function chat(Context $context, string $key, array $entry, string $name, string $email, string $company, bool $verified = false): Reply
     {
         $own    = $context->own();
         $desk   = DeskSettings::load();
         $user   = Factory::getApplication()->getIdentity();
         $member = $user && !$user->guest;
         $room   = $this->rooms($context)->open([
+            'verified' => $verified,
             'agent_id' => (int) $context->agent->id,
             'user_id'  => $member ? (int) $user->id : 0,
             'name'     => $name,
@@ -213,7 +223,9 @@ final class AskdeskAgent implements AgentInterface
         $own       = $context->own();
         $user      = Factory::getApplication()->getIdentity();
         $member    = $user && !$user->guest;
-        $known     = $member ? ['name' => (string) $user->name, 'email' => (string) $user->email, 'company' => ''] : $this->known();
+        $signed    = $member ? null : $this->vouched();
+        $known     = $member ? ['name' => (string) $user->name, 'email' => (string) $user->email, 'company' => '']
+            : ($signed ? ['name' => $signed['name'], 'email' => $signed['email'], 'company' => $this->known()['company']] : $this->known());
         $mode      = \in_array($own->get('away', 'message'), ['refer', 'both'], true) ? (string) $own->get('away') : 'message';
         $referrals = $mode !== 'message' ? $context->referrals() : [];
         $awayText  = trim((string) $own->get('away_text', '')) ?: Text::_('PLG_MCPASK_ASKDESK_AWAY');
@@ -266,6 +278,19 @@ final class AskdeskAgent implements AgentInterface
         $kept = (array) Factory::getApplication()->getSession()->get('askdesk.guest', []);
 
         return ['name' => (string) ($kept['name'] ?? ''), 'email' => (string) ($kept['email'] ?? ''), 'company' => (string) ($kept['company'] ?? '')];
+    }
+
+    /**
+     * A visitor signed in at an account centre with no account here (AI Ask 0.22.1): their address and name,
+     * from their session.
+     *
+     * @return  array{email: string, name: string, via: string}|null
+     */
+    private function vouched(): ?array
+    {
+        $class = 'Gss\\Component\\Mcpask\\Administrator\\Embed\\Visitor';
+
+        return class_exists($class) ? $class::current() : null;
     }
 
     private function remember(string $name, string $email, string $company): void

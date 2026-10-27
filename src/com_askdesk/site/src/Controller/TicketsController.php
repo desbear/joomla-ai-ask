@@ -36,6 +36,9 @@ class TicketsController extends BaseController
 
     private const SESSION = 'askdesk.tickets';
 
+    /** AI Ask's visitor signed in at an account centre with no account here (0.22.1) */
+    private const VISITOR = 'Gss\Component\Mcpask\Administrator\Embed\Visitor';
+
     /** How long a code given holds, unused */
     private const HOLD_SECONDS = 7200;
 
@@ -113,6 +116,13 @@ class TicketsController extends BaseController
         $this->check();
         $this->app->getSession()->remove(self::SESSION);
 
+        // Signed in at an account centre through AI Ask: out of that too, or the address would stay
+        $visitor = self::VISITOR;
+
+        if (class_exists($visitor)) {
+            $visitor::forget();
+        }
+
         $this->send(['ok' => true]);
     }
 
@@ -184,6 +194,9 @@ class TicketsController extends BaseController
         if ($email !== '') {
             // Kept while used
             $this->app->getSession()->set(self::SESSION, ['email' => $email, 'at' => time()]);
+        } elseif (class_exists($visitor = self::VISITOR) && ($signed = $visitor::current())) {
+            // Signed in at an account centre through AI Ask (no account here): the address it vouches for, with no code
+            $email = $signed['email'];
         }
 
         return [$email, $user && !$user->guest ? $user : null];

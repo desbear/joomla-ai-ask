@@ -48,14 +48,21 @@ class HtmlView extends BaseHtmlView
         if ($this->enabled) {
             $task = static fn (string $name) => Route::_('index.php?option=com_askdesk&task=tickets.' . $name . '&format=raw', false);
 
+            // Visitors sign in at the account centre AI Ask uses, with no account here, when it has one (0.22.1)
+            $class = 'Gss\\Component\\Mcpask\\Administrator\\Embed\\Cas';
+            $cas   = class_exists($class) ? new $class() : null;
+            $cas   = $cas && $cas->enabled() ? $cas : null;
+            $login = $cas ? $cas->start(Uri::getInstance()->toString())
+                : Route::_('index.php?option=com_users&view=login&return=' . base64_encode(Uri::getInstance()->toString()));
+
             $this->config = [
                 'token'   => Session::getFormToken(),
                 'member'  => $user && !$user->guest ? (string) $user->name : '',
-                'login'   => $user && !$user->guest ? '' : Route::_('index.php?option=com_users&view=login&return=' . base64_encode(Uri::getInstance()->toString())),
+                'login'   => $user && !$user->guest ? '' : $login,
                 'icon'    => Uri::root(true) . '/media/com_askdesk/images/icon-192.png',
                 'home'    => Uri::root(),
                 'urls'    => ['code' => $task('code'), 'verify' => $task('verify'), 'list' => $task('list'), 'room' => $task('room'), 'write' => $task('write'), 'out' => $task('out')],
-                'strings' => $this->strings(),
+                'strings' => ($cas && $cas->label() !== '' ? ['signIn' => $cas->label()] : []) + $this->strings(),
             ];
 
             $assets = $document->getWebAssetManager();

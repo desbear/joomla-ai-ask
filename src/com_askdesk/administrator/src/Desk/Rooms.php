@@ -98,6 +98,13 @@ final class Rooms
             'visitor_seen'     => $now,
         ];
 
+        // A guest an account centre vouched for (0.6.2, AI Ask's sign-in with no account here): their e-mail is
+        // theirs from the start, confirmed by no one of the desk (identity_by 0)
+        if (!empty($data['verified']) && $row->email !== '' && !$row->user_id) {
+            $row->identity_confirmed = $now;
+            $row->identity_by        = 0;
+        }
+
         $this->db->insertObject('#__askdesk_rooms', $row, 'id');
         $this->forgetOld();
 
@@ -843,6 +850,7 @@ final class Rooms
 
         // Whether the guest is who they say (confirmed by the person answering, 0.6.2): with each look, it may change
         $result['confirmed'] = self::trusted($room);
+        $result['vouched']   = self::vouched($room);
 
         // Who took part, with their faces, and whether the one it is with is here now (0.6.2): someone else may
         // take it over when they are not
@@ -876,10 +884,16 @@ final class Rooms
         return (int) ($room->user_id ?? 0) > 0 || !empty($room->identity_confirmed);
     }
 
+    /** Whether a guest's e-mail was vouched for by the account centre they signed in at, not by the desk */
+    public static function vouched(object $room): bool
+    {
+        return !(int) ($room->user_id ?? 0) && !empty($room->identity_confirmed) && !(int) ($room->identity_by ?? 0);
+    }
+
     /** A guest's identity confirmed (asked first) by the person answering, or the confirming taken back */
     public function confirmIdentity(object $room, int $staffId, bool $confirmed): void
     {
-        if ((int) $room->user_id > 0) {
+        if ((int) $room->user_id > 0 || self::vouched($room)) {
             return;
         }
 
