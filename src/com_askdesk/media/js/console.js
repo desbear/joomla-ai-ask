@@ -864,6 +864,8 @@
       },
     },
     { label: t.profile, icon: 'user', run: () => openProfile() },
+    // One's account with each source the dashboard reads (where one signs in to it, say)
+    ...(config.sources || []).map((source) => ({ label: t.sourceAccount.replace('%s', source.title), icon: 'link', run: () => { window.location.href = source.manage; } })),
   ]);
   globeButton.append(icon('globe'));
   globe.append(globeButton);
@@ -2609,7 +2611,7 @@
 
     head.replaceChildren();
     intro.replaceChildren();
-    state.shape = room ? `${room.status}|${room.staff}|${room.rating ? 1 : 0}` : '';
+    state.shape = room ? `${room.status}|${room.staff}|${room.rating ? 1 : 0}|${room.confirmed ? 1 : 0}` : '';
 
     if (!room) {
       return;
@@ -2634,9 +2636,31 @@
 
     if (room.email) {
       const mail = el('a', 'askdesk-room__mail', room.email);
+      const row = el('div', 'askdesk-room__identity');
 
       mail.href = `mailto:${room.email}`;
-      who.append(mail);
+      row.append(mail);
+
+      // A guest's e-mail is only what they typed: the person answering asks them, then confirms it here (0.6.2);
+      // until then, what is known of someone with that address is not shown as theirs
+      if (!room.member && config.urls.identity) {
+        const confirm = (yes) => post(config.urls.identity, { room: room.id, confirmed: yes }).then(() => {
+          state.detail = { ...state.detail, confirmed: yes };
+          paintHead();
+          loadAddons(true);
+        }, () => say(t.error));
+
+        if (room.confirmed) {
+          row.append(pill(t.identityConfirmed, 'ok'), button('askdesk-room__identity-undo', t.identityUndo, () => confirm(false)));
+        } else {
+          const ask = button('askdesk-room__identity-ask', t.identityConfirm, () => confirm(true));
+
+          ask.title = t.identityHint;
+          row.append(ask);
+        }
+      }
+
+      who.append(row);
     }
 
     const actions = el('div', 'askdesk-room__actions');
@@ -5522,7 +5546,7 @@
     const fresh = !state.detail;
     const stay = atBottom();
 
-    state.detail = fresh ? room : { ...state.detail, status: room.status, staff: room.staff, staffName: room.staffName, rating: room.rating, ...(room.page ? { page: room.page, pages: room.pages || [] } : {}) };
+    state.detail = fresh ? room : { ...state.detail, status: room.status, staff: room.staff, staffName: room.staffName, rating: room.rating, confirmed: room.confirmed, ...(room.page ? { page: room.page, pages: room.pages || [] } : {}) };
 
     // Messages sent from here wait for their copy from the desk
     const incoming = (room.messages || []).filter((item) => item.id > state.after);
@@ -5574,7 +5598,7 @@
       paintRoom();
     } else {
       // The head again only when the chat changed hands or state: an open list of what came before stays open
-      const shape = `${room.status}|${room.staff}|${room.rating ? 1 : 0}`;
+      const shape = `${room.status}|${room.staff}|${room.rating ? 1 : 0}|${room.confirmed ? 1 : 0}`;
 
       if (shape !== state.shape) {
         paintHead();

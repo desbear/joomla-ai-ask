@@ -10,3 +10,4 @@ DROP TABLE IF EXISTS `#__askdesk_push`;
 DROP TABLE IF EXISTS `#__askdesk_secrets`;
 DROP TABLE IF EXISTS `#__askdesk_boards`;
 DROP TABLE IF EXISTS `#__askdesk_work`;
+DROP TABLE IF EXISTS `#__askdesk_source_changes`;

@@ -110,6 +110,10 @@ export const makeApi = (config) => {
     remove: (body) => post(config.urls.sourceDelete, body),
     // Something a source offers to do to a record (0.6.2: the desk's cases closed)
     act: (body) => post(config.urls.sourceAct, body),
+    // Which records others changed from the dashboard since a point (0.6.2)
+    changes: (body) => (config.urls.sourceChanges ? post(config.urls.sourceChanges, body) : Promise.resolve({ changes: [], last: 0 })),
+    // The rows changed since a moment (a table checking for others' changes): not queued behind the rest
+    since: ({ source, template, query = '', mine = 'all', range = 'all', since }) => post(config.urls.sourceRows, { source, template, page: 1, size: 50, query, since, ...whose(mine), ...rangeDays(range) }),
 
     // What was fetched for a template is old: fetched again when next asked
     forget(source, template) {

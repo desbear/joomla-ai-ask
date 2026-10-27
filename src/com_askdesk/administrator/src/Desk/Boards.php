@@ -159,12 +159,13 @@ final class Boards
             $o = $mine[$t['id']] ?? null;
 
             if ($o) {
-                // Where they put it, how large, its columns, the name they gave it: theirs; the rest the template's
-                $placed = ['x' => $o['x'], 'y' => $o['y'], 'w' => $o['w'], 'h' => $o['h'], 'cols' => $o['cols'], 'freeze' => $o['freeze']];
-                $out[]  = ($o['named'] ? ['title' => $o['title'], 'named' => true] : ['named' => false]) + $placed + ['base' => $t['title']] + $t;
+                // Where they put it, how large, its columns' widths and order, the name they gave it: theirs; the rest
+                // the template's (which columns are shown too: only their order is one's own, 0.6.2)
+                $placed = ['x' => $o['x'], 'y' => $o['y'], 'w' => $o['w'], 'h' => $o['h'], 'cols' => $o['cols'], 'freeze' => $o['freeze'], 'fields' => self::reordered((array) ($t['fields'] ?? []), (array) ($o['fields'] ?? []))];
+                $out[]  = ($o['named'] ? ['title' => $o['title'], 'named' => true] : ['named' => false]) + $placed + ['base' => $t['title'], 'baseFields' => array_values((array) ($t['fields'] ?? []))] + $t;
             } elseif ($keepTemplate) {
                 // Its name as the template has it (what a name of one's own gives way to)
-                $out[] = ['base' => $t['title']] + $t;
+                $out[] = ['base' => $t['title'], 'baseFields' => array_values((array) ($t['fields'] ?? []))] + $t;
             }
         }
 
@@ -176,6 +177,23 @@ final class Boards
         }
 
         return $out;
+    }
+
+    /**
+     * The template's columns in the order this person put them (0.6.2): theirs first as they ordered them, the
+     * template's they have not placed after, in the template's order; none the template does not show.
+     *
+     * @param   string[]  $template
+     * @param   string[]  $own
+     *
+     * @return  string[]
+     */
+    private static function reordered(array $template, array $own): array
+    {
+        $shown = array_values($template);
+        $mine  = array_values(array_intersect(array_unique($own), $shown));
+
+        return array_values(array_merge($mine, array_diff($shown, $mine)));
     }
 
     public static function clean(array $widgets): array

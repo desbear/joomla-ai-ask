@@ -606,7 +606,51 @@ export const Board = ({ api, ctx }) => {
   const sourceTitle = useCallback((name) => (sources.find((s) => s.name === name) || { title: name }).title, [sources]);
   // Whether a source's records can be deleted from here (0.6.1)
   const removable = useCallback((name) => Boolean((sources.find((s) => s.name === name) || {}).removable), [sources]);
-  const context = useMemo(() => ({ ...ctx, toast: say, sourceTitle, removable, covered }), [ctx, say, sourceTitle, removable, covered]);
+
+  // What others change from the dashboard, told to the tables showing it (0.6.2): asked every few seconds while
+  // the page is seen (of the desk's own records, cheap), and passed to the tables of that template, which read
+  // those records again as this person
+  const listeners = useRef(new Map());
+  const changes = useMemo(() => ({
+    subscribe(source, template, fn) {
+      const key = `${source}\n${template}`;
+
+      if (!listeners.current.has(key)) listeners.current.set(key, new Set());
+      listeners.current.get(key).add(fn);
+
+      return () => listeners.current.get(key)?.delete(fn);
+    },
+  }), []);
+
+  useEffect(() => {
+    // -1: where now is, first; then from there
+    let last = -1;
+    let timer = 0;
+    let gone = false;
+
+    const ask = async () => {
+      const watch = [...listeners.current.entries()].filter(([, set]) => set.size).map(([key]) => { const [source, template] = key.split('\n'); return { source, template }; });
+
+      if (!document.hidden && (watch.length || last < 0)) {
+        try {
+          const got = await api.changes({ after: last, watch });
+
+          (got.changes || []).forEach((change) => listeners.current.get(`${change.source}\n${change.template}`)?.forEach((fn) => fn(change)));
+          last = Number(got.last) || last;
+        } catch (error) {
+          // Asked again next time
+        }
+      }
+
+      if (!gone) timer = window.setTimeout(ask, 3000);
+    };
+
+    ask();
+
+    return () => { gone = true; window.clearTimeout(timer); };
+  }, [api]);
+
+  const context = useMemo(() => ({ ...ctx, toast: say, sourceTitle, removable, covered, changes }), [ctx, say, sourceTitle, removable, covered, changes]);
 
   useEffect(() => {
     api.board().then((got) => {

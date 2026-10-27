@@ -33,6 +33,10 @@ namespace Gss\Component\Askdesk\Administrator\Desk;
  * records picked together (asked first there), offered as fields()'s "actions": [{name, label, confirm}]
  * (confirm with %s for how many); it answers the record's values that changed.
  *
+ * rows() may be asked with $query['since'] (UTC, ISO 8601; 0.6.2): only the records changed since then, for a
+ * table looking for others' changes. A source that can answers them alone and says so ({since: true}); one
+ * that cannot answers its first page as usual.
+ *
  * @since  0.5.0
  */
 interface SourceInterface

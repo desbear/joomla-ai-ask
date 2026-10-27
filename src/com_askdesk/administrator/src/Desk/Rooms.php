@@ -816,6 +816,9 @@ final class Rooms
         // Where the visitor is now, and the pages they went through during the chat (they move on)
         $result += ['page' => (string) $room->page, 'pages' => self::pagesOf($room)];
 
+        // Whether the guest is who they say (confirmed by the person answering, 0.6.2): with each look, it may change
+        $result['confirmed'] = self::trusted($room);
+
         // What the visitor did before, once, with the first messages
         if ($after === 0) {
             $entry = json_decode((string) $room->entry, true);
@@ -832,6 +835,26 @@ final class Rooms
         }
 
         return $result;
+    }
+
+    /**
+     * Whether a chat's visitor is who their e-mail says (0.6.2): a member signed in, or a guest the person
+     * answering asked and confirmed. Until then, what is known elsewhere of someone with that e-mail (a CRM's
+     * customer, their records, their other chats) is not shown as theirs: anyone can type an address.
+     */
+    public static function trusted(object $room): bool
+    {
+        return (int) ($room->user_id ?? 0) > 0 || !empty($room->identity_confirmed);
+    }
+
+    /** A guest's identity confirmed (asked first) by the person answering, or the confirming taken back */
+    public function confirmIdentity(object $room, int $staffId, bool $confirmed): void
+    {
+        if ((int) $room->user_id > 0) {
+            return;
+        }
+
+        $this->update((int) $room->id, $confirmed ? ['identity_confirmed' => Factory::getDate()->toSql(), 'identity_by' => $staffId] : ['identity_confirmed' => null, 'identity_by' => 0], false);
     }
 
     /**

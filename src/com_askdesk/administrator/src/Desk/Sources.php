@@ -161,11 +161,15 @@ final class Sources
     {
         // A time range when asked (days, in the site's time): from, to (Y-m-d), either may be empty
         $day   = static fn ($d) => \is_string($d) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $d) && checkdate((int) substr($d, 5, 2), (int) substr($d, 8, 2), (int) substr($d, 0, 4)) ? $d : '';
-        $query = ['page' => max(1, (int) $query['page']), 'size' => min(100, max(1, (int) $query['size'])), 'query' => mb_substr(trim((string) $query['query']), 0, 100), 'mine' => (bool) $query['mine'], 'person' => max(0, (int) ($query['person'] ?? 0)), 'from' => $day($query['from'] ?? ''), 'to' => $day($query['to'] ?? '')];
+        // Only those changed since a moment (UTC, ISO 8601), when a table checks for others' changes (0.6.2): a
+        // source that can says so ({since: true}); one that cannot gives its first page as asked
+        $since = \is_string($query['since'] ?? null) && preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$/', $query['since']) ? gmdate('Y-m-d\TH:i:s\Z', strtotime($query['since'])) : '';
+        $query = ['page' => max(1, (int) $query['page']), 'size' => min(100, max(1, (int) $query['size'])), 'query' => mb_substr(trim((string) $query['query']), 0, 100), 'mine' => (bool) $query['mine'], 'person' => max(0, (int) ($query['person'] ?? 0)), 'from' => $day($query['from'] ?? ''), 'to' => $day($query['to'] ?? ''), 'since' => $since];
+        $now   = gmdate('Y-m-d\TH:i:s\Z');
         $got   = $source->rows($staff, $template, $query);
         $rows  = array_values(array_filter(array_map([self::class, 'row'], \array_slice((array) ($got['rows'] ?? []), 0, 100))));
 
-        return ['rows' => $rows, 'total' => max(\count($rows), (int) ($got['total'] ?? 0)), 'page' => $query['page'], 'size' => $query['size']];
+        return ['rows' => $rows, 'total' => max(\count($rows), (int) ($got['total'] ?? 0)), 'page' => $query['page'], 'size' => $query['size'], 'now' => $now, 'since' => $since !== '' && !empty($got['since'])];
     }
 
     /**

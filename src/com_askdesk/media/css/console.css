@@ -9181,3 +9181,46 @@ body:has(.askdesk[data-askdesk]) {
     background: var(--askdesk-accent-soft);
   }
 }
+
+/* A guest's e-mail and whether the person answering has confirmed it is theirs (0.6.2) */
+.askdesk-room__identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.askdesk .askdesk-room__identity-ask {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  block-size: 22px;
+  padding: 0 9px;
+  border: 1px dashed color-mix(in srgb, var(--askdesk-warn, #b35c00) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--askdesk-warn, #b35c00) 8%, transparent);
+  color: var(--askdesk-warn, #b35c00);
+  font: inherit;
+  font-size: 11.5px;
+  cursor: pointer;
+
+  &::before {
+    content: "?";
+    font-weight: 600;
+  }
+
+  &:hover {
+    border-style: solid;
+  }
+}
+
+.askdesk .askdesk-room__identity-undo {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--askdesk-muted);
+  font: inherit;
+  font-size: 11.5px;
+  text-decoration: underline;
+  cursor: pointer;
+}

@@ -29,6 +29,23 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
 - **Cases closed together**: in the dashboard's cases widget opened whole, cases picked are closed (結案) at
   once from the bar (asked first, in blue); one going on is left as it is and said so. Sources may offer such
   actions on what is picked (`actions` beside their fields, done by an optional `act()`).
+- A dashboard template's widget keeps the order one puts its columns in (it went back to the template's on
+  reload: only where and how large it is were one's own); 「恢復預設欄位順序」 under Columns puts the template's
+  back. Which columns it shows stays the template's.
+- **Tables follow others' changes**: a record someone else changes shows as it is now, the cells that changed
+  flashing amber, a new one coming in at the top. Changed from the dashboard by another person: at once (the desk
+  tells which record, `#__askdesk_source_changes`, kept an hour; each table reads it again as its viewer, so
+  nothing reaches anyone who may not see it). Changed in the source itself: looked for every 30 seconds while the
+  table is seen and someone is at the page, only what changed since (`since` beside a source's rows, by
+  last-modified time, say), longer after a failure. A cell being changed here keeps what is being written.
+- **A guest's e-mail not taken at its word**: a guest names themselves and types an e-mail; nothing is bound to
+  that e-mail (the CRM customer, their earlier chats and records) until the person answering asks them and presses
+  「確認是本人」 beside the e-mail in the chat's header (「取消確認」 takes it back). Till then a card may only
+  suggest who it could be (a CRM's: 「可能是 ○○」, with their company, 確認是本人 / 不是此人). A member signed in
+  is trusted as before. New: `#__askdesk_rooms.identity_confirmed`, `identity_by` (update 0.6.2.2);
+  `Rooms::trusted()` for cards to ask.
+- Under one's face in the console, a row for each source one connects to (「○○ 帳號與站台」), opening the
+  source's own page (`manage` in its status), which may lead back to the console.
 - **Housekeeping** (back end, AI Ask Desk → 案件整理): messages left and chats that ended unanswered, not
   closed yet, by how long untouched (7, 30, 90 days, all), oldest first; picked and closed together.
 

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { SkeletonCover } from './Skeleton.jsx';
+import { useActive } from './active.js';
 import { Icon } from '../icons.jsx';
 import { fmt, tone, today, ymd, moved, slotAt } from '../kinds.js';
 import { SignIn } from '../api.js';
@@ -15,6 +16,16 @@ const WIDTH = { text: 190, number: 112, date: 118, select: 120, multi: 170 };
 const SEL = 40;
 const ACT = 8;
 const PAGE = 100;
+
+// Others' changes (0.6.2): a table seen looks for them this often (longer after a failure, up to five minutes),
+// and not when no one has touched the page for ten minutes
+const CHECK_EVERY = 30000;
+const IDLE_AFTER = 10 * 60 * 1000;
+let lastTouched = Date.now();
+
+if (typeof document !== 'undefined') {
+  ['pointerdown', 'keydown', 'wheel', 'pointermove'].forEach((type) => document.addEventListener(type, () => { lastTouched = Date.now(); }, { passive: true, capture: true }));
+}
 
 const shown = (field, value, lang, t, edit) => {
   if (value === '' || value === undefined || value === null || (Array.isArray(value) && !value.length)) {
@@ -180,7 +191,7 @@ const TextCell = ({ field, value, onCommit, lang, t }) => {
 };
 
 // ---------- The table ----------
-export const Grid = ({ widget, fields, allFields, actions = [], api, ctx, full, query, mine, range, onWidget, onOpenRow, openId, onAll }) => {
+export const Grid = ({ widget, fields, allFields, actions = [], active = true, api, ctx, full, query, mine, range, onWidget, onOpenRow, openId, onAll }) => {
   // A chat of the desk's own (its cases) opens in the console; a record of a form, in the side card
   const openRow = (row, sorted) => (row.room && ctx.openRoom ? ctx.openRoom(row.room) : onOpenRow(row, sorted));
   const { t, lang, toast } = ctx;
@@ -209,6 +220,8 @@ export const Grid = ({ widget, fields, allFields, actions = [], api, ctx, full, 
   const asked = useRef(0);
   const words = [query, search].filter(Boolean).join(' ');
 
+  const checkAt = useRef('');
+
   // From the first page again whenever what is asked for changes
   const load = useCallback(async (page) => {
     const mark = asked.current;
@@ -222,6 +235,10 @@ export const Grid = ({ widget, fields, allFields, actions = [], api, ctx, full, 
       if (mark !== asked.current) return;
 
       pages.current = page;
+
+      // When the source was asked (its clock): others' changes are looked for from then on
+      if (page === 1) checkAt.current = got.now || '';
+
       setRows((now) => (page === 1 ? got.rows : [...now, ...got.rows]));
       setCount(got.total);
     } catch (error) {
@@ -237,6 +254,118 @@ export const Grid = ({ widget, fields, allFields, actions = [], api, ctx, full, 
     setRows([]);
     load(1);
   }, [load]);
+
+  // ---------- Others' changes, as they come (0.6.2) ----------
+  // Records others changed: read again (as this person) and drawn as they are now, the cells that changed flashing;
+  // a new one (when nothing narrows the list by its dates) comes in at the top. Looked for every 30 seconds while
+  // the table is seen (only those changed since: mostly nothing), and at once when the desk says someone changed
+  // one from the dashboard. A cell being changed here keeps what is being written in it
+  const [flash, setFlash] = useState({});
+  const seen = useActive(scroller, active);
+  const checking = useRef(false);
+  const every = useRef(CHECK_EVERY);
+  const soon = useRef(0);
+  const editingNow = useRef(null);
+
+  editingNow.current = editing;
+
+  const merge = (got, addNew) => {
+    const byId = new Map(rowsNow.current.map((r) => [r.id, r]));
+    const marks = {};
+    const added = [];
+    const held = editingNow.current;
+    let kept = false;
+
+    got.forEach((fresh) => {
+      const old = byId.get(fresh.id);
+
+      if (!old) {
+        if (addNew) {
+          added.push(fresh);
+          marks[fresh.id] = { fresh: true };
+        }
+
+        return;
+      }
+
+      const values = { ...fresh.values };
+      const keys = [...new Set([...Object.keys(old.values || {}), ...Object.keys(values)])]
+        .filter((key) => JSON.stringify(old.values[key] ?? null) !== JSON.stringify(values[key] ?? null));
+
+      if (held && held.row.id === fresh.id && keys.includes(held.field.key)) {
+        values[held.field.key] = old.values[held.field.key];
+        keys.splice(keys.indexOf(held.field.key), 1);
+        kept = true;
+      }
+
+      if (keys.length) {
+        marks[fresh.id] = { keys: new Set(keys) };
+        byId.set(fresh.id, { ...old, ...fresh, values });
+      }
+    });
+
+    if (kept) ctx.toast && ctx.toast(t('changedWhileEditing'));
+    if (!Object.keys(marks).length) return;
+
+    setRows((now) => [...added, ...now.map((r) => (marks[r.id] ? byId.get(r.id) || r : r))]);
+
+    if (added.length) setCount((n) => n + added.length);
+
+    setFlash((now) => ({ ...now, ...marks }));
+    window.setTimeout(() => setFlash((now) => { const next = { ...now }; Object.keys(marks).forEach((id) => delete next[id]); return next; }), 2200);
+  };
+
+  const check = useCallback(async () => {
+    if (checking.current || !checkAt.current || document.hidden) return;
+
+    checking.current = true;
+
+    try {
+      // A little before the last look: the source's clock and this desk's may differ
+      const since = new Date(Date.parse(checkAt.current) - 90000).toISOString().replace(/\.\d{3}Z$/, 'Z');
+      const got = await api.since({ source: widget.source, template: widget.template, query: words, mine, range, since });
+
+      if (got.now) checkAt.current = got.now;
+
+      merge(got.rows || [], Boolean(got.since) && range === 'all');
+      every.current = CHECK_EVERY;
+    } catch (error) {
+      every.current = Math.min(5 * 60 * 1000, every.current * 2);
+    } finally {
+      checking.current = false;
+    }
+  }, [api, widget.source, widget.template, words, mine, range]);
+
+  useEffect(() => {
+    let timer = 0;
+    let gone = false;
+
+    const loop = () => {
+      timer = window.setTimeout(async () => {
+        if (seen && Date.now() - lastTouched < IDLE_AFTER) await check();
+        if (!gone) loop();
+      }, every.current);
+    };
+
+    loop();
+
+    return () => { gone = true; window.clearTimeout(timer); };
+  }, [check, seen]);
+
+  // Changed from the dashboard by someone else: looked at at once; deleted, taken away
+  useEffect(() => (ctx.changes ? ctx.changes.subscribe(widget.source, widget.template, (change) => {
+    if (change.deleted) {
+      if (rowsNow.current.some((r) => r.id === change.row)) {
+        setRows((now) => now.filter((r) => r.id !== change.row));
+        setCount((n) => Math.max(0, n - 1));
+      }
+
+      return;
+    }
+
+    window.clearTimeout(soon.current);
+    soon.current = window.setTimeout(check, 400);
+  }) : undefined), [ctx.changes, widget.source, widget.template, check]);
 
   const freeze = Math.min(widget.freeze ?? 1, fields.length);
   const width = (f) => (widget.cols && widget.cols[f.key]) || WIDTH[f.kind] || 140;
@@ -644,12 +773,12 @@ export const Grid = ({ widget, fields, allFields, actions = [], api, ctx, full, 
     const sel = picked.has(row.id);
 
     return (
-    <tr key={row.id} className={`adb-dt__row${picked.has(row.id) ? ' is-sel' : ''}${openId === row.id ? ' is-open' : ''}${locked ? ' is-locked' : ''}${status[row.id] ? ` is-${status[row.id]}` : ''}`} style={{ height: rowH }}
+    <tr key={row.id} className={`adb-dt__row${flash[row.id] ? (flash[row.id].fresh ? ' is-new' : ' is-touched') : ''}${picked.has(row.id) ? ' is-sel' : ''}${openId === row.id ? ' is-open' : ''}${locked ? ' is-locked' : ''}${status[row.id] ? ` is-${status[row.id]}` : ''}`} style={{ height: rowH }}
       title={locked ? t(`locked_${locked}`) : undefined} aria-busy={status[row.id] === 'saving' || undefined}
       onClick={!live ? () => openRow(row, sorted) : undefined}>
       {full ? <td className={`pin sel${freeze ? '' : ' last'}`} style={{ position: 'sticky', left: 0 }} onClick={(e) => e.stopPropagation()}><input type="checkbox" className="adb-cb" checked={picked.has(row.id)} onChange={(e) => setPicked((now) => { const next = new Set(now); e.target.checked ? next.add(row.id) : next.delete(row.id); return next; })} aria-label={row.no} /></td> : null}
       {fields.map((f, i) => (
-        <td key={f.key} className={`${pinClass(i)}${f.kind === 'number' ? ' n' : ''}${live ? ' e' : ''}${i === 0 ? ' first' : ''}${sel && hot === f.key && !locked ? ' is-hot' : ''}`} style={{ ...pinStyle(i), '--x': `${lefts[i]}px` }}
+        <td key={f.key} className={`${pinClass(i)}${f.kind === 'number' ? ' n' : ''}${live ? ' e' : ''}${i === 0 ? ' first' : ''}${sel && hot === f.key && !locked ? ' is-hot' : ''}${flash[row.id] && flash[row.id].keys && flash[row.id].keys.has(f.key) ? ' is-changed' : ''}`} style={{ ...pinStyle(i), '--x': `${lefts[i]}px` }}
           onMouseEnter={sel ? () => setHot(f.key) : undefined} onMouseLeave={sel ? () => setHot(null) : undefined}>
           {i === 0 && locked ? <span className="adb-lock" aria-label={t(`locked_${locked}`)}><Icon name="lock" /></span> : null}
           {live
@@ -775,6 +904,10 @@ export const Grid = ({ widget, fields, allFields, actions = [], api, ctx, full, 
               ...allFields.filter((f) => f.kind === 'select').map((f) => <button type="button" role="menuitemradio" aria-checked={group === f.key} key={f.key} onClick={() => { setGroup(f.key); setShut(new Set()); setMenu(null); }}><span className="adb-tick">{group === f.key ? <Icon name="check" /> : null}</span>{t('groupOf', f.label)}</button>)] : null}
             {menu.kind === 'freeze' ? [0, 1, 2, 3].filter((n) => n <= fields.length).map((n) => <button type="button" role="menuitemradio" aria-checked={freeze === n} key={n} onClick={() => { onWidget({ ...widget, freeze: n }); setMenu(null); }}><span className="adb-tick">{freeze === n ? <Icon name="check" /> : null}</span>{n ? t('freezeN', n, fields.slice(0, n).map((f) => f.label).join('、')) : t('freezeNone')}</button>) : null}
             {menu.kind === 'cols' ? allFields.map((f) => <label className="adb-checkrow" key={f.key}><input type="checkbox" checked={widget.fields.includes(f.key)} onChange={(e) => { const keys = e.target.checked ? [...widget.fields, f.key] : widget.fields.filter((k) => k !== f.key); if (keys.length) onWidget({ ...widget, fields: keys }); }} />{f.label}</label>) : null}
+            {menu.kind === 'cols' && Array.isArray(widget.baseFields) && widget.fields.join() !== widget.baseFields.join() ? (
+              // The columns put in another order (kept, 0.6.2): back to the template's
+              <button type="button" className="adb-edlist__reset" onClick={() => { onWidget({ ...widget, fields: [...widget.baseFields] }); setMenu(null); }}><Icon name="close" />{t('colsReset')}</button>
+            ) : null}
           </div>
         </Popover>
       ) : null}

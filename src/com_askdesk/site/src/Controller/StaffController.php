@@ -596,6 +596,19 @@ class StaffController extends BaseController
     }
 
     /**
+     * A guest's identity confirmed by the person answering, having asked them ({room, confirmed}, 0.6.2): what is
+     * known of someone with their e-mail is shown as theirs from then on (a CRM's customer, their records).
+     */
+    public function identity(): void
+    {
+        [$rooms, , $me, $body] = $this->check();
+
+        $rooms->confirmIdentity($this->room($rooms, $body), (int) $me->user_id, !empty($body['confirmed']));
+
+        $this->send(['ok' => true]);
+    }
+
+    /**
      * Closes (結案) a chat that ended unanswered, or a message left, once dealt with.
      */
     public function settle(): void
@@ -754,6 +767,8 @@ class StaffController extends BaseController
             'person' => Settings::load()->keptToOwn($this->app->getIdentity()) ? 0 : max(0, (int) ($body['person'] ?? 0)),
             'from'  => \is_string($body['from'] ?? null) ? $body['from'] : '',
             'to'    => \is_string($body['to'] ?? null) ? $body['to'] : '',
+            // Only those changed since (a table checking for others' changes, 0.6.2)
+            'since' => \is_string($body['since'] ?? null) ? $body['since'] : '',
         ]));
     }
 
@@ -767,13 +782,37 @@ class StaffController extends BaseController
         $value = $body['value'] ?? '';
         $value = \is_array($value) ? \array_slice(array_values(array_filter($value, 'is_scalar')), 0, 50) : (\is_scalar($value) ? $value : '');
 
-        $this->fromSource($body, fn ($source) => ['row' => \Gss\Component\Askdesk\Administrator\Desk\Sources::row($source->update(
-            $me,
-            $this->templateOf($body),
-            \is_scalar($body['row'] ?? null) ? mb_substr((string) $body['row'], 0, 100) : '',
-            \is_scalar($body['field'] ?? null) ? mb_substr((string) $body['field'], 0, 100) : '',
-            $value
-        ))]);
+        $this->fromSource($body, function ($source) use ($me, $body, $value) {
+            $row = \is_scalar($body['row'] ?? null) ? mb_substr((string) $body['row'], 0, 100) : '';
+            $got = \Gss\Component\Askdesk\Administrator\Desk\Sources::row($source->update($me, $this->templateOf($body), $row, \is_scalar($body['field'] ?? null) ? mb_substr((string) $body['field'], 0, 100) : '', $value));
+
+            $this->told($source, $body, $row, (int) $me->user_id);
+
+            return ['row' => $got];
+        });
+    }
+
+    /**
+     * What others changed from the dashboard after a point ({after, watch: [{source, template}]}, 0.6.2): which
+     * records, so a table showing one reads it again (as this person); and the point to ask from next.
+     */
+    public function sourceChanges(): void
+    {
+        [, , $me, $body] = $this->check();
+
+        $this->send((new \Gss\Component\Askdesk\Administrator\Desk\Changes(Factory::getContainer()->get(DatabaseInterface::class)))->after(
+            (int) ($body['after'] ?? -1),
+            \is_array($body['watch'] ?? null) ? $body['watch'] : [],
+            (int) $me->user_id
+        ));
+    }
+
+    /** A record changed from the dashboard told to the others looking at it (0.6.2) */
+    private function told(object $source, array $body, string $row, int $userId, bool $deleted = false): void
+    {
+        if ($row !== '') {
+            (new \Gss\Component\Askdesk\Administrator\Desk\Changes(Factory::getContainer()->get(DatabaseInterface::class)))->note($source->name(), $this->templateOf($body), $row, $userId, $deleted);
+        }
     }
 
     /**
@@ -791,7 +830,12 @@ class StaffController extends BaseController
                 throw new \RuntimeException('Not done here', 403);
             }
 
-            return ['row' => \Gss\Component\Askdesk\Administrator\Desk\Sources::row($source->act($me, $this->templateOf($body), \is_scalar($body['row'] ?? null) ? mb_substr((string) $body['row'], 0, 100) : '', $action))];
+            $row = \is_scalar($body['row'] ?? null) ? mb_substr((string) $body['row'], 0, 100) : '';
+            $got = \Gss\Component\Askdesk\Administrator\Desk\Sources::row($source->act($me, $this->templateOf($body), $row, $action));
+
+            $this->told($source, $body, $row, (int) $me->user_id);
+
+            return ['row' => $got];
         });
     }
 
@@ -807,7 +851,10 @@ class StaffController extends BaseController
                 throw new \RuntimeException('Not deleted here', 403);
             }
 
-            $source->remove($me, $this->templateOf($body), \is_scalar($body['row'] ?? null) ? mb_substr((string) $body['row'], 0, 100) : '');
+            $row = \is_scalar($body['row'] ?? null) ? mb_substr((string) $body['row'], 0, 100) : '';
+
+            $source->remove($me, $this->templateOf($body), $row);
+            $this->told($source, $body, $row, (int) $me->user_id, true);
 
             return ['ok' => true];
         });
