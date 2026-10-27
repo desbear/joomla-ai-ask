@@ -10,6 +10,7 @@
 
 namespace Gss\Component\Mcpask\Administrator\Controller;
 
+use Gss\Component\Mcpask\Administrator\Access\Areas;
 use Gss\Component\Mcpask\Administrator\Agent\Agents;
 use Gss\Component\Mcpask\Administrator\Ask\Settings;
 use Gss\Component\Mcpask\Administrator\View\Agent\HtmlView as AgentView;
@@ -141,7 +142,7 @@ class AgentsController extends BaseController
     {
         $user = $this->app->getIdentity();
 
-        if (!Session::checkToken() || !($user->authorise('core.admin', 'com_mcpask') || $user->authorise('core.options', 'com_mcpask'))) {
+        if (!Session::checkToken() || !Areas::allows($user, 'agents')) {
             $this->setRedirect(Route::_('index.php?option=com_mcpask&view=agents', false), Text::_('JERROR_ALERTNOAUTHOR'), 'error');
             $this->redirect();
         }

@@ -485,6 +485,55 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
   status switched from the desk's card; new waiting chats light up red and ring a bell on the count; ended chats fold
   away; drop-down menus, Mac-like scroll bars, and the work on a calm grey-blue with white cards.
 
+## AI Ask for Joomla 0.22.0
+
+- **A pet's pictures are a library**: upload as many as you like on the pet's page, name them as you like, and drag
+  them into the moments they are for (or pick them from a list, or upload straight into a moment). A moment may
+  have several, one picked at random each time it plays; one picture may serve several moments. Each picture has
+  its own thumbnail and length (read from the file when it says). Pets made before keep working: each picture is
+  in the library, in the moment it was uploaded for, and the first picture of each moment is still kept where it
+  was, for what reads it there.
+- **The pet lives a little** (each can be switched off in the module):
+  - *Moments of its own*: while it waits at its place, one of its pictures for that, every 20 to 60 seconds.
+  - *Walking*: on wide screens now and then it walks along the bottom of the window (turned round to go left):
+    sometimes all the way to the other side, sometimes to and fro a few times, sometimes a stretch; it rests there
+    and walks back; it stops when the pointer comes to it or it is used, and goes home when picked up or the window
+    is resized. Never on phones, in embeds, or for visitors who ask for less motion.
+  - *Noticing*: on wide screens it turns to the pointer coming near; when words on the page are selected it offers
+    to look them up (and asks, with them, when told to); it is glad at the end of a long page, and welcomes a visitor
+    back after a minute away (these two on phones too).
+- **Turning to walk**: with pictures for *Setting off* (from the front to its side) and *Stopping* (back to the
+  front), it turns on the spot before it walks and turns back when it gets there or is stopped; without them it
+  walks and stops at once, as before.
+- **Walking tried out on the pet's page**: *Play* walks the pet left and back in a strip, idle, setting off,
+  walking, stopping, with the pictures and seconds on the page as they are (saved or not), turned round going left
+  as on the website, and lists when each part starts: to get the seconds right.
+- **A permission for each page of the back end**: in AI Ask's Permissions, *Use: Questions*, *Indexed pages*,
+  *Answer quality*, *Agents*, *Handoffs*, *Appearance*, *Pets* and *Embeds*, so a group may be given some pages and
+  not others (the dashboard stays for all who may manage AI Ask; Super Users have everything). Each covers what its
+  page does; editing, deleting and the options are still asked where they were. On updating, each is given to the
+  groups that could open that page before (managing AI Ask for the first three, its options for the others), so
+  nobody loses a page; the dashboard's and toolbars' links show only the pages one may open. Joomla's own menu
+  still lists them all: a page one may not open says so.
+- **An embed key can follow a module**: *Pet as in the module* picks one of this site's AI Ask modules, and the
+  embedded AI Ask then has that module's pet, moments, walking and noticing, how it clears the conversation and
+  its cleaning pet, and its pets for special days: set once for both. Without it, as before.
+- A module showing another website's AI Ask no longer shows the pet, clearing and special days' settings it never
+  used; the special days' tab says those are the other website's.
+- **Getting sleepy**: with a picture for it, played once before it falls asleep (Asleep follows); without one it
+  falls asleep at once, as before.
+- New moments: Moments of its own, Getting sleepy, Setting off, Walking, Stopping, Pointer near, Words selected, End of the page, Back to the page. Those
+  without a picture play another (Hello, Happy, Waking up) or nothing.
+
+## AI Ask for Joomla 0.21.1
+
+- **Text given for any page of this site**: the indexed pages list (not only Dropfiles files) has *Give text* under
+  each page of this site, for what a page shows but does not have in its HTML, a price list drawn by a script, say:
+  added after what is read from the page, or instead of it, then read again at once. The page is still what
+  answers cite. Pages of other websites have none.
+- **MCP**: the new tool `set_page_text` does the same for an AI assistant (Super Users, write access), and
+  `show_indexed_page` shows the text given for a page.
+
 ## AI Ask for Joomla 0.21.0
 
 - **Less kept, for less long**: what visitors write is kept with e-mail addresses, telephone, ID and card numbers

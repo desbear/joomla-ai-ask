@@ -10,6 +10,7 @@
 
 namespace Gss\Component\Mcpask\Administrator\View\Dashboard;
 
+use Gss\Component\Mcpask\Administrator\Access\Areas;
 use Gss\Component\Mcpask\Administrator\Ask\Indexer;
 use Gss\Component\Mcpask\Administrator\Ask\PeerSync;
 use Gss\Component\Mcpask\Administrator\Ask\State;
@@ -109,15 +110,15 @@ class HtmlView extends BaseHtmlView
         $this->checks    = $this->checks($db, $settings);
 
         ToolbarHelper::title(Text::_('COM_MCPASK'), 'comments');
-        ToolbarHelper::link('index.php?option=com_mcpask&view=pages', Text::_('COM_MCPASK_PAGES'), 'list');
-        ToolbarHelper::link('index.php?option=com_mcpask&view=quality', Text::_('COM_MCPASK_QUALITY'), 'thumbs-up');
+        // The pages this user may open (0.22.0)
+        foreach (['pages' => ['COM_MCPASK_PAGES', 'list'], 'quality' => ['COM_MCPASK_QUALITY', 'thumbs-up'], 'appearance' => ['COM_MCPASK_APPEARANCE', 'palette'],
+            'agents' => ['COM_MCPASK_AGENTS', 'users'], 'embeds' => ['COM_MCPASK_EMBEDS', 'code'], 'pets' => ['COM_MCPASK_PETS', 'image']] as $area => [$label, $icon]) {
+            if (Areas::allows($user, $area)) {
+                ToolbarHelper::link('index.php?option=com_mcpask&view=' . $area, Text::_($label), $icon);
+            }
+        }
 
         if ($user->authorise('core.admin', 'com_mcpask') || $user->authorise('core.options', 'com_mcpask')) {
-            ToolbarHelper::link('index.php?option=com_mcpask&view=appearance', Text::_('COM_MCPASK_APPEARANCE'), 'palette');
-            ToolbarHelper::link('index.php?option=com_mcpask&view=agents', Text::_('COM_MCPASK_AGENTS'), 'users');
-            ToolbarHelper::link('index.php?option=com_mcpask&view=embeds', Text::_('COM_MCPASK_EMBEDS'), 'code');
-            ToolbarHelper::link('index.php?option=com_mcpask&view=pets', Text::_('COM_MCPASK_PETS'), 'image');
-
             if ($user->authorise('core.admin', 'com_mcpask')) {
                 ToolbarHelper::link('index.php?option=com_mcpask&view=reset', Text::_('COM_MCPASK_RESET'), 'trash');
             }

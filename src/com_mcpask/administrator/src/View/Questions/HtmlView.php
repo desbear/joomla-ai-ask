@@ -10,6 +10,7 @@
 
 namespace Gss\Component\Mcpask\Administrator\View\Questions;
 
+use Gss\Component\Mcpask\Administrator\Access\Areas;
 use Gss\Component\Mcpask\Administrator\Ask\Settings;
 use Gss\Component\Mcpask\Administrator\Ask\UsageLog;
 use Joomla\CMS\Factory;
@@ -50,7 +51,7 @@ class HtmlView extends BaseHtmlView
         $app  = Factory::getApplication();
         $user = $app->getIdentity();
 
-        if (!$user->authorise('core.manage', 'com_mcpask')) {
+        if (!Areas::allows($user, 'questions')) {
             throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
         }
 

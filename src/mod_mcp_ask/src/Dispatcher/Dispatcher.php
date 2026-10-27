@@ -212,6 +212,16 @@ class Dispatcher extends AbstractModuleDispatcher
         // On the days of a festive row, its pet and cleaning pet instead of the usual ones
         $festive             = $this->festive($params);
         $data['pet']         = $data['mode'] === 'float' && !$demo ? $this->pet((string) ($festive['pet'] ?? '') ?: (string) $params->get('pet', '')) : null;
+
+        // What it does by itself (0.22.0): moments while waiting, walking across a wide window, and
+        // answering what the visitor does (the pointer near it, words selected, the end of the page)
+        if ($data['pet']) {
+            $data['pet']['life'] = [
+                'moments' => (bool) $params->get('pet_moments', 1),
+                'walk'    => (bool) $params->get('pet_walk', 1),
+                'sense'   => (bool) $params->get('pet_sense', 1),
+            ];
+        }
         // How a new conversation clears the old one, and the pet that does it when one is chosen (0.18.0)
         $data['clear']       = \in_array($params->get('clear_effect', 'saucer'), ['saucer', 'wind', 'hole', 'fade', 'none'], true) ? (string) $params->get('clear_effect', 'saucer') : 'saucer';
         $data['cleaner']     = $data['clear'] === 'saucer' ? $this->cleaner((string) ($festive['cleaner'] ?? '') ?: (string) $params->get('cleaner', '')) : null;
@@ -314,6 +324,8 @@ class Dispatcher extends AbstractModuleDispatcher
             'handoffOffer'   => Text::_('MOD_MCP_ASK_HANDOFF_OFFER'),
             'signIn'         => Text::_('MOD_MCP_ASK_SIGN_IN'),
             'signOut'        => Text::_('MOD_MCP_ASK_SIGN_OUT'),
+            'petSelected'    => Text::_('MOD_MCP_ASK_PET_SELECTED'),
+            'petSelectedAsk' => Text::_('MOD_MCP_ASK_PET_SELECTED_ASK'),
         ];
 
         // Helpers that take over the conversation for one task (the component's agents)

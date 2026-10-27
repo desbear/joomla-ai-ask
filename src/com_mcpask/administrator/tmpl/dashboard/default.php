@@ -10,6 +10,7 @@
 
 \defined('_JEXEC') or die;
 
+use Gss\Component\Mcpask\Administrator\Access\Areas;
 use Joomla\CMS\Factory;
 use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Language\Text;
@@ -46,7 +47,7 @@ $e     = fn ($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 					<dl class="row mb-3">
 						<dt class="col-sm-5"><?php echo Text::_('COM_MCPASK_INDEX_PAGES'); ?></dt>
 						<dd class="col-sm-7"><?php echo (int) $this->stats['documents']; ?> / <?php echo $this->pages; ?>
-							<a class="ms-2 small" href="<?php echo Route::_('index.php?option=com_mcpask&view=pages&kind=own'); ?>"><?php echo Text::_('COM_MCPASK_PAGES_SEE_ALL'); ?></a></dd>
+							<?php if (Areas::allows(Factory::getApplication()->getIdentity(), 'pages')) : ?><a class="ms-2 small" href="<?php echo Route::_('index.php?option=com_mcpask&view=pages&kind=own'); ?>"><?php echo Text::_('COM_MCPASK_PAGES_SEE_ALL'); ?></a><?php endif; ?></dd>
 						<dt class="col-sm-5"><?php echo Text::_('COM_MCPASK_INDEX_PASSAGES'); ?></dt>
 						<dd class="col-sm-7"><?php echo (int) $this->stats['chunks']; ?></dd>
 						<dt class="col-sm-5"><?php echo Text::_('COM_MCPASK_INDEX_PENDING'); ?></dt>
@@ -159,7 +160,9 @@ $e     = fn ($s) => htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8');
 
 			<div class="card mb-3">
 				<h2 class="card-header d-flex justify-content-between align-items-center gap-2"><?php echo Text::sprintf('COM_MCPASK_QUESTIONS', $this->today); ?>
-					<a class="btn btn-sm btn-outline-primary fw-normal" href="<?php echo $e(Route::_('index.php?option=com_mcpask&view=questions', false)); ?>"><?php echo Text::_('COM_MCPASK_QUESTIONS_ALL'); ?></a>
+					<?php if (Areas::allows(Factory::getApplication()->getIdentity(), 'questions')) : ?>
+						<a class="btn btn-sm btn-outline-primary fw-normal" href="<?php echo $e(Route::_('index.php?option=com_mcpask&view=questions', false)); ?>"><?php echo Text::_('COM_MCPASK_QUESTIONS_ALL'); ?></a>
+					<?php endif; ?>
 				</h2>
 				<div class="card-body">
 					<nav class="mb-2 d-flex flex-wrap gap-1" aria-label="<?php echo $e(Text::_('COM_MCPASK_FLAGS_FILTER')); ?>">

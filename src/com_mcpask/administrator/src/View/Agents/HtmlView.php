@@ -10,6 +10,7 @@
 
 namespace Gss\Component\Mcpask\Administrator\View\Agents;
 
+use Gss\Component\Mcpask\Administrator\Access\Areas;
 use Gss\Component\Mcpask\Administrator\Agent\AgentInterface;
 use Gss\Component\Mcpask\Administrator\Agent\Agents;
 use Joomla\CMS\Factory;
@@ -47,7 +48,7 @@ class HtmlView extends BaseHtmlView
     {
         $user = Factory::getApplication()->getIdentity();
 
-        if (!$user->authorise('core.admin', 'com_mcpask') && !$user->authorise('core.options', 'com_mcpask')) {
+        if (!Areas::allows($user, 'agents')) {
             throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
         }
 
@@ -64,7 +65,7 @@ class HtmlView extends BaseHtmlView
         ToolbarHelper::title(Text::_('COM_MCPASK_AGENTS'), 'users');
         ToolbarHelper::link('index.php?option=com_mcpask', Text::_('COM_MCPASK_SUBMENU_DASHBOARD'), 'home');
 
-        if (array_filter($this->agents, static fn ($agent) => $agent->type === 'livechat')) {
+        if (Areas::allows($user, 'handoffs') && array_filter($this->agents, static fn ($agent) => $agent->type === 'livechat')) {
             ToolbarHelper::link('index.php?option=com_mcpask&view=handoffs', Text::_('COM_MCPASK_HANDOFFS'), 'comments-2');
         }
 

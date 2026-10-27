@@ -62,6 +62,8 @@
     fileDownload: 'Download',
     handoff: 'Talk to a person',
     signIn: 'Sign in',
+    petSelected: 'Shall I look up “%s”?',
+    petSelectedAsk: 'Look it up',
     signOut: 'Sign out',
     handoffOffer: 'Not what you needed? A person can help.',
     agentWith: 'Talking with "%s"',
@@ -5477,10 +5479,10 @@
   // in two layers that cross-fade. What plays once is played from a copy kept in memory, so it
   // starts from its first frame every time without being fetched again. Visitors who ask for less
   // motion see the still picture, or the icon when there is none.
-  const ONCE = ['hover', 'happy', 'confused', 'wake'];
+  const ONCE = ['hover', 'happy', 'confused', 'wake', 'moments', 'near', 'selected', 'bottom', 'back', 'turn', 'stop', 'sleepy'];
   // A moment that plays once is not cut short by a lesser one (waking by the greeting the same
   // movement of the pointer brings, say); a greater one takes over
-  const WEIGHT = { hover: 1, happy: 2, confused: 2, wake: 3 };
+  const WEIGHT = { hover: 1, moments: 1, near: 1, happy: 2, confused: 2, selected: 2, bottom: 2, wake: 3, back: 3, turn: 4, stop: 4, sleepy: 3 };
   const pets = [];
 
   const makeStage = (className, kind = 'full') => {
@@ -5538,7 +5540,15 @@
 
     fitPhone();
 
-    const action = (name) => data.actions[name] || data.actions.idle;
+    // A moment with several pictures plays one of them, picked each time it starts (0.22.0)
+    const chosen = {};
+    const choose = (name) => {
+      const item = data.actions[name];
+      const all = item ? [item, ...(item.more || [])] : [];
+
+      chosen[name] = all[Math.floor(Math.random() * all.length)];
+    };
+    const action = (name) => chosen[name] || data.actions[name] || data.actions.idle;
 
     // The picture of a moment, whole or as a thumbnail (the whole one when it has none); what plays
     // once from a fresh copy, so it starts again
@@ -5588,6 +5598,10 @@
         return;
       }
 
+      if (name !== current || once) {
+        choose(name);
+      }
+
       current = name;
       stages.forEach((stage) => paint(stage, picture(name, stage.kind)));
     };
@@ -5623,10 +5637,14 @@
           playing = '';
           current = '';
           show(base);
-        }, (Number(data.actions[name].seconds) || 1.5) * 1000);
+        }, (Number(action(name).seconds) || 1.5) * 1000);
       },
       get resting() {
         return base;
+      },
+      // Playing a moment that plays once
+      get busy() {
+        return Boolean(timer);
       },
       // For faces in the conversation: a moment's thumbnail, or the still one
       picture: (name) => (still ? stillOf('thumb') : picture(name, 'thumb')),
@@ -5672,7 +5690,7 @@
           return;
         }
 
-        [item.src, item.thumb].filter(Boolean).forEach((url) => {
+        [item, ...(item.more || [])].flatMap((play) => [play.src, play.thumb]).filter(Boolean).forEach((url) => {
           fetch(url, { credentials: 'same-origin' })
             .then((response) => (response.ok ? response.blob() : null))
             .then((blob) => {
@@ -5698,6 +5716,10 @@
 
       if (nowDragging !== dragging) {
         dragging = nowDragging;
+        // Picked up where it walked to: from there, not from home (0.22.0)
+        if (dragging) {
+          homeNow();
+        }
         pet.base(dragging ? 'drag' : 'idle');
       }
 
@@ -5741,6 +5763,8 @@
       if (sleepAfter > 0) {
         sleepTimer = window.setTimeout(() => {
           if (pet.resting === 'idle' && !dialog.open && root.dataset.state === 'idle') {
+            // Getting sleepy first, when it has a picture for that; asleep once it has played (0.22.0)
+            pet.once('sleepy');
             pet.base('sleep');
           }
         }, sleepAfter * 1000);
@@ -5749,6 +5773,375 @@
 
     ['pointermove', 'pointerdown', 'keydown', 'scroll', 'touchstart'].forEach((type) => document.addEventListener(type, awake, { passive: true }));
     awake();
+
+    // ---------- By itself (0.22.0) ----------
+    // Now and then while waiting a moment of its own (searching, typing), on a wide screen a walk
+    // along the window and back; and it answers what the visitor does: the pointer near it, words
+    // selected, the end of the page, coming back to the page. Never for visitors who ask for less
+    // motion; on a phone and in another website's frame only what does not move it about.
+    const life = { moments: true, walk: true, sense: true, ...(data.life || {}) };
+    const wide = window.matchMedia('(min-width: 641px) and (hover: hover) and (pointer: fine)');
+    const first = (...names) => names.find((name) => pet.has(name));
+    const free = () => pet.resting === 'idle' && !pet.busy && root.dataset.state === 'idle' && !dialog.open && !document.hidden
+      && !root.classList.contains('mcp-ask--dragging');
+    let stirred = Date.now();
+
+    ['pointermove', 'pointerdown', 'keydown', 'scroll', 'touchstart'].forEach((type) => document.addEventListener(type, () => { stirred = Date.now(); }, { passive: true }));
+
+    // Its pictures face right (or the visitor); turned round to go or look left
+    const face = (left) => root.classList.toggle('mcp-ask--pet-left', left);
+
+    // Walking: how far from home it is along the window (negative: to the left), and the walk going on
+    let away = 0;
+    let walk = null;
+    let homeTimer = 0;
+    // Turning to set off, and what waits for it
+    let starting = 0;
+    let started = null;
+    let fronting = 0;
+    // Each walk stopped ends the stroll it was part of
+    let trip = 0;
+    const canWalk = () => life.walk && !still && !embed && pet.has('walk') && wide.matches;
+
+    const moveTo = (x) => new Promise((resolve) => {
+      const from = away;
+      const distance = Math.abs(x - from);
+
+      if (distance < 4) {
+        resolve(true);
+
+        return;
+      }
+
+      const go = () => {
+        starting = 0;
+        started = null;
+        pet.base('walk');
+        walk = root.animate([{ translate: `${from}px 0` }, { translate: `${x}px 0` }], { duration: (distance / 70) * 1000, easing: 'linear', fill: 'forwards' });
+        walk.onfinish = () => {
+          away = x;
+          root.style.translate = x ? `${x}px 0` : '';
+          walk.cancel();
+          walk = null;
+          settle();
+          resolve(true);
+        };
+        walk.oncancel = () => resolve(false);
+      };
+
+      window.clearTimeout(fronting);
+      face(x < from);
+
+      // Turned first, on the spot, when it has a picture for that; walking follows it
+      if (pet.has('turn')) {
+        pet.once('turn');
+        pet.base('walk');
+        started = resolve;
+        starting = window.setTimeout(go, pet.seconds('turn') * 1000);
+      } else {
+        go();
+      }
+    });
+
+    // Back to waiting, turned to the front again (played the way it was facing)
+    function settle() {
+      pet.base('idle');
+
+      if (pet.has('stop')) {
+        pet.once('stop');
+        window.clearTimeout(fronting);
+        fronting = window.setTimeout(() => face(false), pet.seconds('stop') * 1000);
+      } else {
+        face(false);
+      }
+    }
+
+    // Stopped where it is; at once, without turning to the front, when picked up or the window resized
+    const halt = (quick) => {
+      trip += 1;
+
+      if (starting) {
+        window.clearTimeout(starting);
+        starting = 0;
+        started(false);
+        started = null;
+
+        if (quick) {
+          face(false);
+          pet.base('idle');
+        } else {
+          settle();
+        }
+
+        return;
+      }
+
+      if (!walk) {
+        return;
+      }
+
+      const x = parseFloat(getComputedStyle(root).translate) || 0;
+
+      walk.oncancel = null;
+      walk.cancel();
+      walk = null;
+      away = x;
+      root.style.translate = x ? `${x}px 0` : '';
+
+      if (quick) {
+        face(false);
+        pet.base('idle');
+      } else {
+        settle();
+      }
+    };
+
+    // Home at once (picked up, the window resized)
+    function homeNow() {
+      halt(true);
+      window.clearTimeout(homeTimer);
+      away = 0;
+      root.style.translate = '';
+    }
+
+    const homeLater = () => {
+      window.clearTimeout(homeTimer);
+      homeTimer = window.setTimeout(function back() {
+        if (!away) {
+          return;
+        }
+
+        if (free() && Date.now() - stirred > 3000) {
+          moveTo(0);
+        } else {
+          homeTimer = window.setTimeout(back, 4000);
+        }
+      }, 4000 + Math.random() * 5000);
+    };
+
+    // A stroll, then a rest where it ends before going home: now and then all the way to the other
+    // side of the window, now and then to and fro a few times, else a stretch
+    const stroll = async () => {
+      const box = root.getBoundingClientRect();
+      const left = root.dataset.side === 'left';
+      const room = left ? window.innerWidth - box.right - 24 : box.left - 24;
+      const to = (distance) => Math.round(left ? distance : -distance);
+      const mine = trip;
+      const roll = Math.random();
+
+      if (room < 120) {
+        return;
+      }
+
+      if (roll < 0.35) {
+        if (await moveTo(to(room))) {
+          homeLater();
+        }
+
+        return;
+      }
+
+      if (roll < 0.7) {
+        const legs = 2 + Math.floor(Math.random() * 3);
+
+        for (let leg = 0; leg < legs; leg++) {
+          // Somewhere else along the way, not just a step from where it is
+          let distance = 0;
+
+          do {
+            distance = 60 + Math.random() * (room - 60);
+          } while (Math.abs(to(distance) - away) < 80 && room > 200);
+
+          if (!(await moveTo(to(distance))) || trip !== mine) {
+            return;
+          }
+
+          // A moment's look round, unless something else happens meanwhile
+          await new Promise((resolve) => { window.setTimeout(resolve, 600 + Math.random() * 1400); });
+
+          if (trip !== mine || root.dataset.state !== 'idle' || dialog.open || document.hidden) {
+            return;
+          }
+        }
+
+        homeLater();
+
+        return;
+      }
+
+      if (await moveTo(to(Math.min(room, 120 + Math.random() * Math.min(room, window.innerWidth * 0.45))))) {
+        homeLater();
+      }
+    };
+
+    window.addEventListener('resize', homeNow);
+
+    // The visitor uses it: it stays where it is meanwhile
+    new MutationObserver(() => {
+      if (root.dataset.state !== 'idle') {
+        halt();
+      } else if (away) {
+        homeLater();
+      }
+    }).observe(root, { attributes: true, attributeFilter: ['data-state'] });
+
+    // A moment of its own now and then while nothing happens
+    let tickTimer = 0;
+    const tick = () => {
+      tickTimer = window.setTimeout(tick, 20000 + Math.random() * 40000);
+
+      if (!free()) {
+        return;
+      }
+
+      // Its own moments only at its place
+      const choices = life.moments && !away && pet.has('moments') ? ['moments'] : [];
+
+      if (canWalk() && !away && Date.now() - stirred > 5000) {
+        choices.push('walk', 'walk');
+      }
+
+      const pick = choices[Math.floor(Math.random() * choices.length)];
+
+      if (pick === 'walk') {
+        stroll();
+      } else if (pick) {
+        pet.once(pick);
+      }
+    };
+
+    if (!still && (life.moments || life.walk)) {
+      tickTimer = window.setTimeout(tick, 15000 + Math.random() * 20000);
+    }
+
+    if (life.sense && !still) {
+      // The pointer near it: it turns to it, and says hello now and then (a walk stops there)
+      let greeted = 0;
+      let looked = 0;
+      let faceTimer = 0;
+
+      if (!embed) {
+        document.addEventListener('pointermove', (event) => {
+          if (event.pointerType !== 'mouse' || !wide.matches || Date.now() - looked < 120) {
+            return;
+          }
+
+          looked = Date.now();
+
+          const box = root.getBoundingClientRect();
+          const middle = box.left + box.width / 2;
+
+          if (Math.hypot(event.clientX - middle, event.clientY - (box.top + box.height / 2)) > Math.max(160, box.width * 1.6)) {
+            return;
+          }
+
+          halt();
+
+          if (pet.resting !== 'idle' || root.dataset.state !== 'idle') {
+            return;
+          }
+
+          face(event.clientX < middle);
+          window.clearTimeout(faceTimer);
+          faceTimer = window.setTimeout(() => face(false), 2500);
+
+          if (Date.now() - greeted > 30000 && free()) {
+            greeted = Date.now();
+            pet.once(first('near', 'hover'));
+          }
+        }, { passive: true });
+
+        // Words the visitor selects on the page: it searches, and offers to look them up
+        const offer = el('div', 'mcp-ask-pet__bubble mcp-ask-pet__offer');
+        const offerText = el('span', '');
+        const offerAsk = el('button', 'mcp-ask-pet__offer-ask', strings.petSelectedAsk);
+        const offerClose = el('button', 'mcp-ask-pet__bubble-close');
+        let offered = '';
+        let offerTimer = 0;
+
+        const hideOffer = () => {
+          window.clearTimeout(offerTimer);
+          offer.hidden = true;
+          offered = '';
+        };
+
+        offerAsk.type = 'button';
+        offerClose.type = 'button';
+        offerClose.innerHTML = ICON_CLOSE;
+        offerClose.setAttribute('aria-label', strings.close);
+        offerClose.addEventListener('click', hideOffer);
+        offerAsk.addEventListener('click', () => {
+          const words = offered;
+
+          hideOffer();
+          window.getSelection()?.removeAllRanges();
+
+          if (words && launcher.form && launcher.input) {
+            launcher.input.value = words;
+            launcher.form.requestSubmit();
+          }
+        });
+        offerText.setAttribute('aria-live', 'polite');
+        offer.append(offerText, offerAsk, offerClose);
+        offer.hidden = true;
+        root.append(offer);
+
+        const selected = () => {
+          const selection = window.getSelection();
+          const words = selection && !selection.isCollapsed ? selection.toString().replace(/\s+/g, ' ').trim() : '';
+          const node = selection && selection.anchorNode ? (selection.anchorNode.nodeType === 1 ? selection.anchorNode : selection.anchorNode.parentElement) : null;
+
+          if (words.length < 2 || words.length > 120 || !node || node.closest('.mcp-ask, .mcp-ask-chat, input, textarea, select, [contenteditable=""], [contenteditable="true"]')) {
+            if (!words) {
+              hideOffer();
+            }
+
+            return;
+          }
+
+          // Not over another word of its own, nor while it is in use or asleep
+          if (root.dataset.state !== 'idle' || dialog.open || pet.resting === 'sleep' || [...root.querySelectorAll('.mcp-ask-pet__bubble')].some((bubble) => bubble !== offer && !bubble.hidden)) {
+            return;
+          }
+
+          halt();
+          offered = words;
+          offerText.textContent = strings.petSelected.replace('%s', words.length > 24 ? `${words.slice(0, 23)}…` : words);
+          offer.hidden = false;
+          pet.once(first('selected', 'moments', 'hover'));
+          window.clearTimeout(offerTimer);
+          offerTimer = window.setTimeout(hideOffer, 9000);
+        };
+
+        document.addEventListener('mouseup', () => window.setTimeout(selected, 10));
+        document.addEventListener('keyup', (event) => {
+          if (event.shiftKey) {
+            selected();
+          }
+        });
+
+        // The end of the page reached: glad, once a page
+        let cheered = false;
+
+        window.addEventListener('scroll', () => {
+          if (!cheered && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 40 && document.documentElement.scrollHeight > window.innerHeight * 1.5 && free()) {
+            cheered = true;
+            pet.once(first('bottom', 'happy', 'hover'));
+          }
+        }, { passive: true });
+      }
+
+      // Back to the page after a while: welcomed
+      let left = 0;
+
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          left = Date.now();
+        } else if (left && Date.now() - left > 60000 && pet.resting !== 'sleep') {
+          pet.once(first('back', 'wake', 'hover'));
+        }
+      });
+    }
 
     // A word beside it: at the start of each visit a greeting, by name to a signed-in visitor and
     // a few lines in turn to others; otherwise, on the first visit, its first words. It talks while

@@ -10,6 +10,7 @@
 
 namespace Gss\Component\Mcpask\Administrator\View\Quality;
 
+use Gss\Component\Mcpask\Administrator\Access\Areas;
 use Gss\Component\Mcpask\Administrator\Ask\Hints;
 use Gss\Component\Mcpask\Administrator\Ask\Retriever;
 use Gss\Component\Mcpask\Administrator\Ask\Settings;
@@ -57,6 +58,10 @@ class HtmlView extends BaseHtmlView
         $hints    = new Hints($db, $settings);
         $user     = Factory::getApplication()->getIdentity();
 
+        if (!Areas::allows($user, 'quality')) {
+            throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
+        }
+
         $this->ratings   = $hints->ratings(self::DAYS);
         $this->pending   = $hints->pending(self::DAYS);
         $this->hints     = $this->withPages($db, $settings, $hints->all());
@@ -71,8 +76,11 @@ class HtmlView extends BaseHtmlView
         ToolbarHelper::title(Text::_('COM_MCPASK_QUALITY'), 'thumbs-up');
         ToolbarHelper::link('index.php?option=com_mcpask', Text::_('COM_MCPASK_SUBMENU_DASHBOARD'), 'home');
 
-        if ($user->authorise('core.admin', 'com_mcpask') || $user->authorise('core.options', 'com_mcpask')) {
+        if (Areas::allows($user, 'appearance')) {
             ToolbarHelper::link('index.php?option=com_mcpask&view=appearance', Text::_('COM_MCPASK_APPEARANCE'), 'palette');
+        }
+
+        if ($user->authorise('core.admin', 'com_mcpask') || $user->authorise('core.options', 'com_mcpask')) {
             ToolbarHelper::preferences('com_mcpask');
         }
 

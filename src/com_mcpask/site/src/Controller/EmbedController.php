@@ -97,7 +97,7 @@ class EmbedController extends BaseController
             'showtitle' => 0,
             'menuid'    => 0,
             'style'     => 'none',
-            'params'    => json_encode([
+            'params'    => json_encode($this->look((int) $params->get('look_module', 0)) + [
                 'mode'        => 'float',
                 'title'       => (string) $params->get('title', ''),
                 'placeholder' => (string) $params->get('placeholder', ''),
@@ -283,6 +283,50 @@ class EmbedController extends BaseController
         }
 
         return Route::_('index.php?option=com_users&view=login&return=' . base64_encode($return), false);
+    }
+
+    /**
+     * The pet of one of this site's AI Ask modules, as it is there (0.22.0): its pet, its moments,
+     * how it clears the conversation and its pets for special days, so an embed key looks as that
+     * module does and they are set once. Nothing for none, another module, or one embedding another
+     * website itself.
+     *
+     * @return  array<string, mixed>
+     */
+    private function look(int $id): array
+    {
+        if ($id <= 0) {
+            return [];
+        }
+
+        $db  = Factory::getContainer()->get(DatabaseInterface::class);
+        $row = $db->setQuery(
+            $db->getQuery(true)->select('params')->from($db->quoteName('#__modules'))
+                ->where('id = ' . $id)->where('module = ' . $db->quote('mod_mcp_ask'))->where('client_id = 0')->where('published >= 0')
+        )->loadResult();
+
+        if ($row === null) {
+            return [];
+        }
+
+        $module = new \Joomla\Registry\Registry((string) $row);
+
+        if ($module->get('mode') === 'remote') {
+            return [];
+        }
+
+        $look = [];
+
+        foreach (['pet', 'pet_moments', 'pet_walk', 'pet_sense', 'clear_effect', 'cleaner', 'festive'] as $name) {
+            if ($module->exists($name)) {
+                $look[$name] = $module->get($name);
+            }
+        }
+
+        // The pet chosen there, even none
+        $look['pet'] = (string) $module->get('pet', '');
+
+        return json_decode((string) json_encode($look), true);
     }
 
     private function clean(): void

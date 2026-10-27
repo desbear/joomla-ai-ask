@@ -5,7 +5,7 @@
 	<creationDate>2026-10</creationDate>
 	<copyright>(C) 2026 GSS</copyright>
 	<license>GNU General Public License version 2 or later; see LICENSE</license>
-	<version>0.21.0</version>
+	<version>0.22.0</version>
 	<description>MOD_MCP_ASK_XML_DESCRIPTION</description>
 	<namespace path="src">Gss\Module\McpAsk</namespace>
 	<files>
@@ -74,7 +74,23 @@
 					label="MOD_MCP_ASK_FIELD_PET_LABEL"
 					description="MOD_MCP_ASK_FIELD_PET_DESC"
 					default=""
+					showon="mode!:remote"
 				/>
+				<field name="pet_moments" type="radio" layout="joomla.form.field.radio.switcher" default="1" showon="pet!:[AND]mode!:remote"
+					label="MOD_MCP_ASK_FIELD_PET_MOMENTS" description="MOD_MCP_ASK_FIELD_PET_MOMENTS_DESC">
+					<option value="0">JNO</option>
+					<option value="1">JYES</option>
+				</field>
+				<field name="pet_walk" type="radio" layout="joomla.form.field.radio.switcher" default="1" showon="pet!:[AND]mode!:remote"
+					label="MOD_MCP_ASK_FIELD_PET_WALK" description="MOD_MCP_ASK_FIELD_PET_WALK_DESC">
+					<option value="0">JNO</option>
+					<option value="1">JYES</option>
+				</field>
+				<field name="pet_sense" type="radio" layout="joomla.form.field.radio.switcher" default="1" showon="pet!:[AND]mode!:remote"
+					label="MOD_MCP_ASK_FIELD_PET_SENSE" description="MOD_MCP_ASK_FIELD_PET_SENSE_DESC">
+					<option value="0">JNO</option>
+					<option value="1">JYES</option>
+				</field>
 				<field
 					name="clear_effect"
 					type="list"
@@ -82,6 +98,7 @@
 					description="MOD_MCP_ASK_FIELD_CLEAR_DESC"
 					default="saucer"
 					validate="options"
+					showon="mode!:remote"
 					>
 					<option value="saucer">MOD_MCP_ASK_CLEAR_SAUCER</option>
 					<option value="wind">MOD_MCP_ASK_CLEAR_WIND</option>
@@ -98,7 +115,7 @@
 					label="MOD_MCP_ASK_FIELD_CLEANER_LABEL"
 					description="MOD_MCP_ASK_FIELD_CLEANER_DESC"
 					default=""
-					showon="clear_effect:saucer"
+					showon="clear_effect:saucer[AND]mode!:remote"
 				/>
 				<field
 					name="align"
@@ -167,7 +184,8 @@
 				</field>
 			</fieldset>
 			<fieldset name="festive" label="MOD_MCP_ASK_FESTIVE_TAB">
-				<field name="festive_note" type="note" class="alert alert-info w-100" description="MOD_MCP_ASK_FESTIVE_NOTE"/>
+				<field name="festive_note" type="note" class="alert alert-info w-100" description="MOD_MCP_ASK_FESTIVE_NOTE" showon="mode!:remote"/>
+				<field name="festive_remote_note" type="note" class="alert alert-info w-100" description="MOD_MCP_ASK_FESTIVE_REMOTE_NOTE" showon="mode:remote"/>
 				<field
 					name="festive"
 					type="subform"
@@ -176,6 +194,7 @@
 					buttons="add,remove,move"
 					max="60"
 					label="MOD_MCP_ASK_FESTIVE_LABEL"
+					showon="mode!:remote"
 				>
 					<form>
 						<field name="title" type="text" maxlength="60" filter="string" label="MOD_MCP_ASK_FESTIVE_TITLE" hint="MOD_MCP_ASK_FESTIVE_TITLE_HINT"/>

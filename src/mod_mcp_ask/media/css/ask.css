@@ -3704,6 +3704,24 @@ html.mcp-ask-embedded:not(.mcp-ask-embed-phone) .mcp-ask--pet {
   }
 }
 
+/* Turned round to walk or look left: its pictures face right (0.22.0) */
+.mcp-ask--pet-left .mcp-ask-pet__frame {
+  scale: -1 1;
+}
+
+/* Offering to look up the words selected on the page (0.22.0) */
+.mcp-ask .mcp-ask-pet__offer-ask {
+  flex: none;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--mcp-ask-accent);
+  color: var(--mcp-ask-on-accent);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
 /* The pet in the head of the conversation, instead of the dot */
 .mcp-ask-chat__pet {
   position: relative;

@@ -10,6 +10,7 @@
 
 namespace Gss\Component\Mcpask\Administrator\View\Embeds;
 
+use Gss\Component\Mcpask\Administrator\Access\Areas;
 use Gss\Component\Mcpask\Administrator\Embed\Embeds;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Text;
@@ -36,7 +37,7 @@ class HtmlView extends BaseHtmlView
     {
         $user = Factory::getApplication()->getIdentity();
 
-        if (!$user->authorise('core.admin', 'com_mcpask') && !$user->authorise('core.options', 'com_mcpask')) {
+        if (!Areas::allows($user, 'embeds')) {
             throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
         }
 

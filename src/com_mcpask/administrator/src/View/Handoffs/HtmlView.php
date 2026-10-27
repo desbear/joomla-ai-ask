@@ -10,6 +10,7 @@
 
 namespace Gss\Component\Mcpask\Administrator\View\Handoffs;
 
+use Gss\Component\Mcpask\Administrator\Access\Areas;
 use Gss\Component\Mcpask\Administrator\Agent\Agents;
 use Gss\Component\Mcpask\Administrator\Agent\Handoffs;
 use Joomla\CMS\Factory;
@@ -53,7 +54,7 @@ class HtmlView extends BaseHtmlView
         $app  = Factory::getApplication();
         $user = $app->getIdentity();
 
-        if (!$user->authorise('core.admin', 'com_mcpask') && !$user->authorise('core.options', 'com_mcpask')) {
+        if (!Areas::allows($user, 'handoffs')) {
             throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
         }
 
@@ -79,7 +80,9 @@ class HtmlView extends BaseHtmlView
             Text::_('COM_MCPASK_HANDOFFS_EXPORT'),
             'download'
         );
-        ToolbarHelper::link('index.php?option=com_mcpask&view=agents', Text::_('COM_MCPASK_AGENTS'), 'users');
+        if (Areas::allows($user, 'agents')) {
+            ToolbarHelper::link('index.php?option=com_mcpask&view=agents', Text::_('COM_MCPASK_AGENTS'), 'users');
+        }
 
         parent::display($tpl);
     }

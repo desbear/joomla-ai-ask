@@ -10,6 +10,7 @@
 
 namespace Gss\Component\Mcpask\Administrator\View\Agent;
 
+use Gss\Component\Mcpask\Administrator\Access\Areas;
 use Gss\Component\Mcpask\Administrator\Agent\AgentInterface;
 use Gss\Component\Mcpask\Administrator\Agent\Agents;
 use Gss\Component\Mcpask\Administrator\Agent\ImageMaker;
@@ -40,7 +41,7 @@ class HtmlView extends BaseHtmlView
         $app  = Factory::getApplication();
         $user = $app->getIdentity();
 
-        if (!$user->authorise('core.admin', 'com_mcpask') && !$user->authorise('core.options', 'com_mcpask')) {
+        if (!Areas::allows($user, 'agents')) {
             throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
         }
 

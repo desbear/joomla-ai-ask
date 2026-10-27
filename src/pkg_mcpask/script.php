@@ -77,6 +77,7 @@ return new class () implements InstallerScriptInterface {
     {
         if ($type !== 'uninstall') {
             $this->allowAsking();
+            $this->allowAreas();
             $this->completeSchema((string) $adapter->getManifest()->version);
             $this->sealSecrets();
             $this->markEvidence();
@@ -375,6 +376,71 @@ return new class () implements InstallerScriptInterface {
      * Everyone may ask, as before there was a permission for it, until an administrator says
      * otherwise: Public is allowed "Ask questions" when no group has a rule for it yet.
      */
+    /**
+     * The back end's pages, each a permission of its own since 0.22.0: given, the first time, to the
+     * groups that could open that page before (who could manage AI Ask, or change its options), so
+     * nobody loses a page by the update. Set once; what an administrator sets after is kept.
+     */
+    private function allowAreas(): void
+    {
+        $areas = [
+            'questions'  => 'core.manage',
+            'pages'      => 'core.manage',
+            'quality'    => 'core.manage',
+            'agents'     => 'core.options',
+            'handoffs'   => 'core.options',
+            'appearance' => 'core.options',
+            'pets'       => 'core.options',
+            'embeds'     => 'core.options',
+        ];
+
+        try {
+            $db    = Factory::getContainer()->get(DatabaseInterface::class);
+            $asset = $db->setQuery(
+                $db->getQuery(true)->select('id, rules')->from($db->quoteName('#__assets'))->where($db->quoteName('name') . ' = ' . $db->quote('com_mcpask'))
+            )->loadObject();
+
+            if (!$asset) {
+                return;
+            }
+
+            $rules = json_decode((string) $asset->rules, true) ?: [];
+
+            if (array_key_exists('mcpask.area.questions', $rules)) {
+                return;
+            }
+
+            $groups = $db->setQuery($db->getQuery(true)->select('id, parent_id')->from($db->quoteName('#__usergroups')))->loadObjectList('id');
+
+            foreach ($areas as $area => $before) {
+                $allowed = [];
+
+                foreach ($groups as $id => $group) {
+                    if (\Joomla\CMS\Access\Access::checkGroup((int) $id, $before, 'com_mcpask')) {
+                        $allowed[(int) $id] = true;
+                    }
+                }
+
+                // Only where it starts: the groups below inherit it
+                $rule = [];
+
+                foreach (array_keys($allowed) as $id) {
+                    if (empty($allowed[(int) $groups[$id]->parent_id])) {
+                        $rule[(string) $id] = 1;
+                    }
+                }
+
+                $rules['mcpask.area.' . $area] = (object) $rule;
+            }
+
+            $update = (object) ['id' => (int) $asset->id, 'rules' => json_encode($rules)];
+
+            $db->updateObject('#__assets', $update, 'id');
+        } catch (\Throwable) {
+            // Without the rules only Super Users open those pages, until they are set in the permissions
+        }
+    }
+
     private function allowAsking(): void
     {
         try {

@@ -10,6 +10,7 @@
 
 namespace Gss\Component\Mcpask\Administrator\Controller;
 
+use Gss\Component\Mcpask\Administrator\Access\Areas;
 use Gss\Component\Mcpask\Administrator\Ask\Ignores;
 use Gss\Component\Mcpask\Administrator\Ask\IndexedPages;
 use Gss\Component\Mcpask\Administrator\Ask\Indexer;
@@ -176,7 +177,8 @@ class PagesController extends BaseController
             $this->app->enqueueMessage(Text::sprintf('COM_MCPASK_FILES_READ_FAILED', $e->getMessage()), 'error');
         }
 
-        $this->back('files');
+        // Back where the form was: the files, or the pages (0.21.1)
+        $this->back($this->input->post->getCmd('from', '') === 'pages' ? 'pages' : 'files');
     }
 
     /**
@@ -294,7 +296,7 @@ class PagesController extends BaseController
      */
     public function passages(): void
     {
-        if (!Session::checkToken('get') || !$this->app->getIdentity()->authorise('core.manage', 'com_mcpask')) {
+        if (!Session::checkToken('get') || !Areas::allows($this->app->getIdentity(), 'pages')) {
             throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
         }
 
@@ -314,7 +316,7 @@ class PagesController extends BaseController
     {
         $user = $this->app->getIdentity();
 
-        if (!Session::checkToken() || (!$user->authorise('core.admin', 'com_mcpask') && !$user->authorise('core.options', 'com_mcpask'))) {
+        if (!Session::checkToken() || !Areas::allows($user, 'pages') || (!$user->authorise('core.admin', 'com_mcpask') && !$user->authorise('core.options', 'com_mcpask'))) {
             throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
         }
     }

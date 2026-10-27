@@ -10,6 +10,7 @@
 
 namespace Gss\Component\Mcpask\Administrator\View\Pet;
 
+use Gss\Component\Mcpask\Administrator\Access\Areas;
 use Gss\Component\Mcpask\Administrator\Pet\Pets;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Form\Form;
@@ -46,7 +47,7 @@ class HtmlView extends BaseHtmlView
         $app  = Factory::getApplication();
         $user = $app->getIdentity();
 
-        if (!$user->authorise('core.admin', 'com_mcpask') && !$user->authorise('core.options', 'com_mcpask')) {
+        if (!Areas::allows($user, 'pets')) {
             throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
         }
 

@@ -10,6 +10,7 @@
 
 namespace Gss\Component\Mcpask\Administrator\Controller;
 
+use Gss\Component\Mcpask\Administrator\Access\Areas;
 use Gss\Component\Mcpask\Administrator\Embed\Embeds;
 use Gss\Component\Mcpask\Administrator\View\Embed\HtmlView as EmbedView;
 use Joomla\CMS\Factory;
@@ -132,7 +133,7 @@ class EmbedsController extends BaseController
     {
         $user = $this->app->getIdentity();
 
-        if (!Session::checkToken() || !($user->authorise('core.admin', 'com_mcpask') || $user->authorise('core.options', 'com_mcpask'))) {
+        if (!Session::checkToken() || !Areas::allows($user, 'embeds')) {
             $this->setRedirect(Route::_('index.php?option=com_mcpask&view=embeds', false), Text::_('JERROR_ALERTNOAUTHOR'), 'error');
             $this->redirect();
         }

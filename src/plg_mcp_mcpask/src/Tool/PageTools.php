@@ -15,9 +15,12 @@ use Gss\Component\Mcp\Administrator\Mcp\Tool;
 use Gss\Component\Mcp\Administrator\Mcp\ToolContext;
 use Gss\Component\Mcp\Administrator\Mcp\ToolException;
 use Gss\Component\Mcpask\Administrator\Ask\Ignores;
+use Gss\Component\Mcpask\Administrator\Ask\Indexer;
 use Gss\Component\Mcpask\Administrator\Ask\IndexedPages;
 use Gss\Component\Mcpask\Administrator\Ask\ManualPages;
 use Gss\Component\Mcpask\Administrator\Ask\Settings;
+use Gss\Component\Mcpask\Administrator\Ask\Source\Sources;
+use Gss\Component\Mcpask\Administrator\Ask\SuppliedTexts;
 use Gss\Component\Mcpask\Administrator\Ask\WebSync;
 use Joomla\CMS\Factory;
 use Joomla\Database\DatabaseInterface;
@@ -100,6 +103,32 @@ final class PageTools
                 Tool::SCOPE_READ,
                 'mcpask',
                 true,
+                $onlyAdmins
+            ),
+            new Tool(
+                'set_page_text',
+                'Give text for a page of this site in the index of "AI Ask" (0.21.1): what the page shows visitors but does not '
+                . 'have in its HTML, so the index cannot read it, such as a price list a script draws or a table in an image. '
+                . 'Plain text or Markdown (headings, lists, tables), up to 200,000 characters. "add" puts it after what is read '
+                . 'from the page, "replace" uses it instead; an empty text removes what was given. The page is read again at '
+                . 'once and is still what answers cite. Only pages of this site (from "own"), not peer sites or websites. Check '
+                . 'the page first with show_indexed_page, write only what the page itself shows, and show the administrator the '
+                . 'text and get their agreement first.',
+                [
+                    'properties'           => [
+                        'source'  => $page['properties']['source'],
+                        'item_id' => $page['properties']['item_id'],
+                        'text'    => ['type' => 'string', 'maxLength' => 200000, 'description' => 'Plain text or Markdown; empty removes the text given.'],
+                        'mode'    => ['type' => 'string', 'enum' => ['add', 'replace'], 'description' => 'Default add.'],
+                    ],
+                    'required'             => ['source', 'item_id', 'text'],
+                    'additionalProperties' => false,
+                ],
+                [self::class, 'text'],
+                'Give text for a page',
+                Tool::SCOPE_WRITE,
+                'mcpask',
+                false,
                 $onlyAdmins
             ),
             new Tool(
@@ -214,7 +243,52 @@ final class PageTools
             throw new ToolException(\sprintf('Page %s:%d is not in the index. Find pages with list_indexed_pages.', $args['source'], (int) $args['item_id']));
         }
 
-        return array_merge(self::describe($ctx, $row), ['passages' => $pages->passages($id), 'untrusted_input' => self::UNTRUSTED]);
+        $given = class_exists(SuppliedTexts::class) ? (new SuppliedTexts($db))->get((string) $args['source'], (int) $args['item_id']) : null;
+
+        return array_merge(self::describe($ctx, $row), array_filter([
+            'given_text'      => $given ? ['mode' => $given->mode, 'text' => $given->text] : null,
+            'passages'        => $pages->passages($id),
+            'untrusted_input' => self::UNTRUSTED,
+        ], static fn ($value) => $value !== null));
+    }
+
+    /**
+     * Text given for a page of this site, kept, and the page read again with it (0.21.1).
+     */
+    public static function text(array $args, ToolContext $ctx): array
+    {
+        $settings = Settings::load();
+        $name     = (string) $args['source'];
+        $itemId   = (int) $args['item_id'];
+        $source   = Sources::own($ctx->db, $settings)[$name] ?? null;
+
+        if ($source === null) {
+            throw new ToolException(\sprintf('"%s" is not one of this site\'s sources; text can only be given for pages of this site (from "own" in list_indexed_pages).', $name));
+        }
+
+        $document = $source->load($itemId);
+
+        if (!$document) {
+            throw new ToolException(\sprintf('Page %s:%d cannot be read: it is not public, or not of a kind that is indexed.', $name, $itemId));
+        }
+
+        $text = (string) $args['text'];
+        $mode = \in_array($args['mode'] ?? 'add', SuppliedTexts::MODES, true) ? (string) ($args['mode'] ?? 'add') : 'add';
+
+        (new SuppliedTexts($ctx->db))->save($name, $itemId, $text, $mode, (int) $ctx->user->id);
+
+        $outcome = (new Indexer($ctx->db, $settings))->index($source->load($itemId) ?? $document);
+        $row     = self::pages($ctx)->list(['search' => (string) $itemId, 'kind' => 'own:' . $name, 'status' => '', 'thin' => false], 1)[0][0] ?? null;
+
+        return array_filter([
+            'source'   => $name,
+            'item_id'  => $itemId,
+            'title'    => $document->title,
+            'given'    => trim($text) === '' ? 'removed' : $mode,
+            'indexed'  => $outcome,
+            'passages' => $row ? (int) $row->chunks : null,
+            'note'     => 'Check the result with show_indexed_page.',
+        ], static fn ($value) => $value !== null);
     }
 
     public static function add(array $args, ToolContext $ctx): array

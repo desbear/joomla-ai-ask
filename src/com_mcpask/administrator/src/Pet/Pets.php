@@ -22,8 +22,13 @@ use Joomla\Registry\Registry;
 
 /**
  * Pets for the floating button (docs/pet-spec.md): animated pictures (APNG, animated AVIF, WebP or
- * GIF) of the site's own, one for each of the button's moments, and a still one for visitors who
- * ask for less motion. A pet is chosen by the module, or by an embed key, once one is made.
+ * GIF) of the site's own, and a still one for visitors who ask for less motion. A pet is chosen by
+ * the module, or by an embed key, once one is made.
+ *
+ * Since 0.22.0 a pet's pictures are a library of its own, each named as the administrator likes,
+ * put into the button's moments ("blocks") by dragging: a moment may have several, one of them
+ * picked each time it plays, and one picture may serve several moments. Pets made before keep
+ * working: each of their pictures is in the library, in the moment it was uploaded for.
  *
  * Pictures are only files of the site, in images/.
  *
@@ -44,6 +49,27 @@ final class Pets
         'wake'     => 1,
         // Bowing to say thank you, when a visitor rates a chat with a person (AI Ask Desk, 0.20.0)
         'thanks'   => 2.5,
+        // By itself (0.22.0): now and then while waiting at its place, and walking across the window
+        'moments'  => 4,
+        'walk'     => 0,
+        // Turning from the front to set off, and back to the front when it stops (0.22.0)
+        'turn'     => 0.5,
+        'stop'     => 0.5,
+        // Getting sleepy, before it sleeps (0.22.0)
+        'sleepy'   => 2,
+        // What the visitor does (0.22.0): the pointer near it, words selected, the end of the page
+        // reached, back to the page after a while
+        'near'     => 1.5,
+        'selected' => 3,
+        'bottom'   => 2,
+        'back'     => 1.5,
+    ];
+
+    /** The moments in the editor, in groups (0.22.0) */
+    public const GROUPS = [
+        'rest'   => ['idle', 'moments', 'turn', 'walk', 'stop', 'sleepy', 'sleep', 'wake'],
+        'sense'  => ['hover', 'near', 'drag', 'selected', 'bottom', 'back'],
+        'answer' => ['thinking', 'talking', 'happy', 'confused', 'thanks'],
     ];
 
     /**
@@ -164,6 +190,16 @@ final class Pets
         // Only paths of the site's own pictures are kept
         foreach (self::pictures() as $field) {
             $params[$field] = self::clean((string) ($params[$field] ?? ''));
+        }
+
+        // And those of its library (0.22.0)
+        if (isset($params['library']) && \is_array($params['library'])) {
+            foreach ($params['library'] as &$item) {
+                $item['image'] = self::clean((string) ($item['image'] ?? ''));
+                $item['thumb'] = self::clean((string) ($item['thumb'] ?? ''));
+            }
+
+            unset($item);
         }
 
         $row = (object) [
@@ -323,10 +359,48 @@ final class Pets
      */
     public static function store(int $id, string $field, string $temp, string $name): string
     {
-        $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-        $still     = self::isStill($field);
+        if (!isset(self::pictures()[$field])) {
+            throw new \RuntimeException(Text::sprintf('COM_MCPASK_PET_ERROR_TYPE', $name));
+        }
 
-        if (!isset(self::pictures()[$field]) || !\in_array($extension, $still ? self::STILL_EXTENSIONS : self::EXTENSIONS, true)) {
+        return self::keep($id, $field, self::isStill($field), $temp, $name);
+    }
+
+    /**
+     * Keep an uploaded picture of a pet's library (0.22.0): the picture itself, or its thumbnail.
+     *
+     * @param   string  $key  The picture's key in the library
+     *
+     * @return  string  Its path from the site's root
+     *
+     * @throws  \RuntimeException  What is wrong with it, for the administrator
+     */
+    public static function storeItem(int $id, string $key, bool $thumb, string $temp, string $name): string
+    {
+        if (!preg_match('/^[a-z0-9_]{1,32}$/', $key)) {
+            throw new \RuntimeException(Text::sprintf('COM_MCPASK_PET_ERROR_TYPE', $name));
+        }
+
+        return self::keep($id, ($thumb ? 'itemthumb-' : 'item-') . $key, $thumb, $temp, $name);
+    }
+
+    /**
+     * Take away a picture of a pet's own folder that nothing uses any more (0.22.0).
+     *
+     * @param   string[]  $used  The paths still used
+     */
+    public static function discard(int $id, string $path, array $used): void
+    {
+        if ($path !== '' && str_starts_with($path, self::folder($id) . '/') && !\in_array($path, $used, true) && is_file(JPATH_ROOT . '/' . $path)) {
+            unlink(JPATH_ROOT . '/' . $path);
+        }
+    }
+
+    private static function keep(int $id, string $field, bool $still, string $temp, string $name): string
+    {
+        $extension = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+
+        if (!\in_array($extension, $still ? self::STILL_EXTENSIONS : self::EXTENSIONS, true)) {
             throw new \RuntimeException(Text::sprintf('COM_MCPASK_PET_ERROR_TYPE', $name));
         }
 
@@ -452,15 +526,27 @@ final class Pets
             return null;
         }
 
-        $actions = [];
+        $actions          = [];
+        [$items, $blocks] = self::library($params);
 
+        // Each moment its pictures, one picked each time it plays: the first, and the others with it
         foreach (self::ACTIONS as $name => $length) {
-            $path = self::clean((string) $params->get($name . '_image', ''));
+            $plays = [];
 
-            if ($path !== '') {
-                $seconds        = $length > 0 ? max(0.3, min(10.0, (float) $params->get($name . '_seconds', $length) ?: $length)) : 0;
-                $thumb          = self::clean((string) $params->get($name . '_thumb', ''));
-                $actions[$name] = ['src' => self::url($path), 'thumb' => $thumb !== '' ? self::url($thumb) : '', 'seconds' => round($seconds, 2)];
+            foreach ($blocks[$name] ?? [] as $key) {
+                $path = self::clean((string) ($items[$key]['image'] ?? ''));
+
+                if ($path === '') {
+                    continue;
+                }
+
+                $seconds = $length > 0 ? max(0.3, min(10.0, (float) ($items[$key]['seconds'] ?? 0) ?: $length)) : 0;
+                $thumb   = self::clean((string) ($items[$key]['thumb'] ?? ''));
+                $plays[] = ['src' => self::url($path), 'thumb' => $thumb !== '' ? self::url($thumb) : '', 'seconds' => round($seconds, 2)];
+            }
+
+            if ($plays) {
+                $actions[$name] = $plays[0] + (\count($plays) > 1 ? ['more' => \array_slice($plays, 1, 11)] : []);
             }
         }
 
@@ -483,6 +569,58 @@ final class Pets
             'still'   => $still !== '' ? self::url($still) : '',
             'actions' => $actions,
         ];
+    }
+
+    /**
+     * A pet's library (0.22.0): its pictures by key, each with its name, picture, thumbnail and how
+     * long it plays once (0: as long as the moment it plays in); and the keys of the pictures of
+     * each moment. A pet made before has a picture for each moment it had one for, in that moment.
+     *
+     * @return  array{0: array<string, array{name: string, image: string, thumb: string, seconds: float}>, 1: array<string, string[]>}
+     */
+    public static function library(Registry $params): array
+    {
+        $items  = [];
+        $blocks = [];
+
+        if ($params->exists('library')) {
+            foreach ((array) json_decode((string) json_encode($params->get('library', [])), true) as $item) {
+                $key = (string) ($item['key'] ?? '');
+
+                if (\is_array($item) && preg_match('/^[a-z0-9_]{1,32}$/', $key)) {
+                    $items[$key] = [
+                        'name'    => mb_substr(trim((string) ($item['name'] ?? '')), 0, 60),
+                        'image'   => (string) ($item['image'] ?? ''),
+                        'thumb'   => (string) ($item['thumb'] ?? ''),
+                        'seconds' => (float) ($item['seconds'] ?? 0),
+                    ];
+                }
+            }
+
+            foreach ((array) json_decode((string) json_encode($params->get('blocks', [])), true) as $name => $keys) {
+                if (isset(self::ACTIONS[$name])) {
+                    $blocks[$name] = array_values(array_unique(array_filter(array_map('strval', (array) $keys), static fn ($key) => isset($items[$key]))));
+                }
+            }
+
+            return [$items, $blocks];
+        }
+
+        foreach (self::ACTIONS as $name => $length) {
+            $image = (string) $params->get($name . '_image', '');
+
+            if ($image !== '') {
+                $items[$name]  = [
+                    'name'    => Text::_('COM_MCPASK_PET_ACTION_' . strtoupper($name)),
+                    'image'   => $image,
+                    'thumb'   => (string) $params->get($name . '_thumb', ''),
+                    'seconds' => $length > 0 ? (float) $params->get($name . '_seconds', 0) : 0,
+                ];
+                $blocks[$name] = [$name];
+            }
+        }
+
+        return [$items, $blocks];
     }
 
     /**
@@ -518,6 +656,21 @@ final class Pets
 
             if ($path !== '') {
                 $sizes[$field] = (int) filesize(JPATH_ROOT . '/' . $path);
+            }
+        }
+
+        // The library's (0.22.0), without counting twice what is also kept for a moment
+        if ($params->exists('library')) {
+            $sizes = array_intersect_key($sizes, ['static' => 1, 'thumb' => 1]);
+
+            foreach (self::library($params)[0] as $key => $item) {
+                foreach (['image' => 'item:', 'thumb' => 'itemthumb:'] as $part => $prefix) {
+                    $path = self::clean($item[$part]);
+
+                    if ($path !== '') {
+                        $sizes[$prefix . $key] = (int) filesize(JPATH_ROOT . '/' . $path);
+                    }
+                }
             }
         }
 

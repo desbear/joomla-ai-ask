@@ -10,6 +10,7 @@
 
 namespace Gss\Component\Mcpask\Administrator\View\Pages;
 
+use Gss\Component\Mcpask\Administrator\Access\Areas;
 use Gss\Component\Mcpask\Administrator\Ask\Ignores;
 use Gss\Component\Mcpask\Administrator\Ask\IndexedPages;
 use Gss\Component\Mcpask\Administrator\Ask\ManualPages;
@@ -80,7 +81,7 @@ class HtmlView extends BaseHtmlView
         $app  = Factory::getApplication();
         $user = $app->getIdentity();
 
-        if (!$user->authorise('core.manage', 'com_mcpask')) {
+        if (!Areas::allows($user, 'pages')) {
             throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
         }
 

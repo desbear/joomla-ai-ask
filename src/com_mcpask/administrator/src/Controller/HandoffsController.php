@@ -10,6 +10,7 @@
 
 namespace Gss\Component\Mcpask\Administrator\Controller;
 
+use Gss\Component\Mcpask\Administrator\Access\Areas;
 use Gss\Component\Mcpask\Administrator\Agent\Handoffs;
 use Gss\Component\Mcpask\Administrator\View\Handoffs\HtmlView;
 use Joomla\CMS\Factory;
@@ -31,7 +32,7 @@ class HandoffsController extends BaseController
     {
         $user = $this->app->getIdentity();
 
-        if (!Session::checkToken('get') || (!$user->authorise('core.admin', 'com_mcpask') && !$user->authorise('core.options', 'com_mcpask'))) {
+        if (!Session::checkToken('get') || !Areas::allows($user, 'handoffs')) {
             throw new \RuntimeException(Text::_('JERROR_ALERTNOAUTHOR'), 403);
         }
 

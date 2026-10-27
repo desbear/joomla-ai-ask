@@ -10,6 +10,7 @@
 
 namespace Gss\Component\Mcpask\Administrator\Controller;
 
+use Gss\Component\Mcpask\Administrator\Access\Areas;
 use Gss\Component\Mcpask\Administrator\Pet\Pets;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Form\Form;
@@ -106,6 +107,11 @@ class PetsController extends BaseController
             }
         }
 
+        // The button's pets: their library, and the moments its pictures were put in (0.22.0)
+        if ($params['kind'] === 'agent') {
+            $params = $this->arrange($id, $params, $before);
+        }
+
         $pets->save(['id' => $id, 'title' => $data['title'] ?? '', 'params' => $params]);
 
         if ($params['kind'] === 'cleaner' ? !$pets->cleaner((string) $id) : !$pets->display((string) $id)) {
@@ -177,11 +183,165 @@ class PetsController extends BaseController
         $this->app->close();
     }
 
+    /**
+     * A pet's library as the form left it: names and lengths, pictures replaced, taken away and
+     * added (to the library, or straight into a moment), and the pictures of each moment. Each
+     * moment's first picture is kept where pets kept it before, for what reads it there.
+     */
+    private function arrange(int $id, array $params, ?object $before): array
+    {
+        $input            = $this->app->getInput();
+        [$items, $blocks] = Pets::library($before ? $before->params : new \Joomla\Registry\Registry());
+        $posted           = (array) $input->post->get('items', [], 'array');
+        $files            = $input->files;
+        $gone             = [];
+
+        foreach ($items as $key => &$item) {
+            $form = (array) ($posted[$key] ?? []);
+
+            if (!empty($form['remove'])) {
+                $gone[] = $item;
+                unset($items[$key]);
+
+                continue;
+            }
+
+            if (\array_key_exists('name', $form)) {
+                $item['name']    = mb_substr(trim((string) $form['name']), 0, 60);
+                $item['seconds'] = trim((string) ($form['seconds'] ?? '')) === '' ? 0 : round(max(0.3, min(10.0, (float) $form['seconds'])), 2);
+            }
+
+            if (!empty($form['thumb_remove'])) {
+                $gone[]        = ['image' => '', 'thumb' => $item['thumb']];
+                $item['thumb'] = '';
+            }
+        }
+
+        unset($item);
+
+        // A file of the form: what it is, null when none was chosen
+        $upload = function (array $file): ?array {
+            if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE || ($file['name'] ?? '') === '') {
+                return null;
+            }
+
+            if (($file['error'] ?? 0) !== UPLOAD_ERR_OK) {
+                throw new \RuntimeException(Text::sprintf('COM_MCPASK_PET_ERROR_SIZE', (string) ($file['name'] ?? '')));
+            }
+
+            return $file;
+        };
+
+        // Pictures replaced, and thumbnails given
+        foreach (['item_image' => false, 'item_thumb' => true] as $field => $thumb) {
+            foreach ((array) $files->get($field, [], 'raw') as $key => $file) {
+                try {
+                    if (!isset($items[$key]) || !\is_array($file) || !($file = $upload($file))) {
+                        continue;
+                    }
+
+                    $path   = Pets::storeItem($id, (string) $key, $thumb, (string) $file['tmp_name'], (string) $file['name']);
+                    $gone[] = ['image' => '', 'thumb' => $items[$key][$thumb ? 'thumb' : 'image']];
+
+                    $items[$key][$thumb ? 'thumb' : 'image'] = $path;
+
+                    if (!$thumb && ($seconds = Pets::duration(JPATH_ROOT . '/' . $path)) !== null) {
+                        $items[$key]['seconds'] = round(max(0.3, min(10.0, $seconds)), 2);
+                    }
+                } catch (\RuntimeException $e) {
+                    $this->app->enqueueMessage($e->getMessage(), 'warning');
+                }
+            }
+        }
+
+        // The pictures of each moment, as they were dragged (unless the form did not say)
+        if ($input->post->getInt('blocks_posted')) {
+            $blocks = [];
+
+            foreach ((array) $input->post->get('blocks', [], 'array') as $name => $keys) {
+                if (isset(Pets::ACTIONS[$name])) {
+                    $blocks[$name] = array_values(array_unique(array_filter(explode(',', (string) $keys), static fn ($key) => isset($items[$key]))));
+                }
+            }
+        }
+
+        // New pictures: into the library, or into the moment they were uploaded at
+        $new = ['' => (array) $files->get('new', [], 'raw')];
+
+        foreach ((array) $files->get('new_block', [], 'raw') as $name => $list) {
+            if (isset(Pets::ACTIONS[$name])) {
+                $new[$name] = (array) $list;
+            }
+        }
+
+        foreach ($new as $name => $list) {
+            foreach (isset($list['name']) ? [$list] : $list as $file) {
+                try {
+                    if (!\is_array($file) || !($file = $upload($file))) {
+                        continue;
+                    }
+
+                    $key  = bin2hex(random_bytes(4));
+                    $path = Pets::storeItem($id, $key, false, (string) $file['tmp_name'], (string) $file['name']);
+
+                    $items[$key] = [
+                        'name'    => mb_substr(pathinfo((string) $file['name'], PATHINFO_FILENAME), 0, 60),
+                        'image'   => $path,
+                        'thumb'   => '',
+                        'seconds' => (float) (Pets::duration(JPATH_ROOT . '/' . $path) ?? 0),
+                    ];
+
+                    // The first picture of a pet is what it does when nothing happens
+                    $to = $name !== '' ? $name : (empty($blocks['idle']) ? 'idle' : '');
+
+                    if ($to !== '') {
+                        $blocks[$to][] = $key;
+                    }
+                } catch (\RuntimeException $e) {
+                    $this->app->enqueueMessage($e->getMessage(), 'warning');
+                }
+            }
+        }
+
+        // What nothing uses any more goes
+        $used = [(string) ($params['static'] ?? ''), (string) ($params['thumb'] ?? '')];
+
+        foreach ($items as $item) {
+            array_push($used, $item['image'], $item['thumb']);
+        }
+
+        foreach ($gone as $item) {
+            Pets::discard($id, (string) $item['image'], $used);
+            Pets::discard($id, (string) $item['thumb'], $used);
+        }
+
+        $params['library'] = [];
+
+        foreach ($items as $key => $item) {
+            $params['library'][] = ['key' => (string) $key] + $item;
+        }
+
+        $params['blocks'] = $blocks;
+
+        foreach (Pets::ACTIONS as $name => $length) {
+            $first = $items[$blocks[$name][0] ?? ''] ?? null;
+
+            $params[$name . '_image'] = $first['image'] ?? '';
+            $params[$name . '_thumb'] = $first['thumb'] ?? '';
+
+            if ($length > 0) {
+                $params[$name . '_seconds'] = $first && $first['seconds'] > 0 ? $first['seconds'] : $length;
+            }
+        }
+
+        return $params;
+    }
+
     private function guard(): void
     {
         $user = $this->app->getIdentity();
 
-        if (!Session::checkToken() || !($user->authorise('core.admin', 'com_mcpask') || $user->authorise('core.options', 'com_mcpask'))) {
+        if (!Session::checkToken() || !Areas::allows($user, 'pets')) {
             $this->setRedirect(Route::_('index.php?option=com_mcpask&view=pets', false), Text::_('JERROR_ALERTNOAUTHOR'), 'error');
             $this->redirect();
         }

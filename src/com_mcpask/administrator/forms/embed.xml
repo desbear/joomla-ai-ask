@@ -16,7 +16,10 @@
 				<option value="right">COM_MCPASK_EMBED_SIDE_RIGHT</option>
 				<option value="left">COM_MCPASK_EMBED_SIDE_LEFT</option>
 			</field>
-			<field name="pet" type="mcpaskpet" addfieldprefix="Gss\Component\Mcpask\Administrator\Field" default="" label="COM_MCPASK_EMBED_PET" description="COM_MCPASK_EMBED_PET_DESC" />
+			<field name="look_module" type="sql" default="" filter="cmd" key_field="value" value_field="text" header="COM_MCPASK_EMBED_LOOK_MODULE_NONE"
+				query="SELECT id AS value, CONCAT(title, ' (#', id, ')') AS text FROM #__modules WHERE module = 'mod_mcp_ask' AND client_id = 0 AND published IN (0, 1) ORDER BY title"
+				label="COM_MCPASK_EMBED_LOOK_MODULE" description="COM_MCPASK_EMBED_LOOK_MODULE_DESC" />
+			<field name="pet" type="mcpaskpet" addfieldprefix="Gss\Component\Mcpask\Administrator\Field" default="" label="COM_MCPASK_EMBED_PET" description="COM_MCPASK_EMBED_PET_DESC" showon="look_module:" />
 			<field name="title" type="text" maxlength="100" filter="string" label="COM_MCPASK_EMBED_BOX_TITLE" description="COM_MCPASK_EMBED_BOX_TITLE_DESC" />
 			<field name="placeholder" type="text" maxlength="200" filter="string" label="COM_MCPASK_EMBED_PLACEHOLDER" description="COM_MCPASK_EMBED_BOX_TITLE_DESC" />
 			<field name="sources_shown" type="number" default="3" min="0" max="50" filter="integer" label="COM_MCPASK_EMBED_SOURCES_SHOWN" description="COM_MCPASK_EMBED_SOURCES_SHOWN_DESC" />

@@ -183,6 +183,31 @@ Factory::getApplication()->getDocument()->getWebAssetManager()->addInlineStyle('
 									<ol class="mcpask-passages mt-2"><li class="text-muted"><?php echo Text::_('COM_MCPASK_PAGES_LOADING'); ?></li></ol>
 								</details>
 							<?php endif; ?>
+							<?php // Text given for a page of this site (0.21.1): what the page shows but does not have in its HTML, a price list a script draws, say ?>
+							<?php if ($this->canEdit && $row->kind === 'own') : ?>
+								<?php $given = $this->suppliedText((string) $row->source, (int) $row->item_id); ?>
+								<details<?php echo $given ? ' open' : ''; ?>>
+									<summary class="small"><?php echo Text::_('COM_MCPASK_PAGES_TEXT'); ?><?php if ($given) : ?> <span class="badge bg-info"><?php echo Text::_('COM_MCPASK_FILES_HAS_TEXT'); ?></span><?php endif; ?></summary>
+									<form action="<?php echo $action; ?>" method="post" class="mt-2">
+										<textarea class="form-control font-monospace mb-2" name="text" rows="6" placeholder="<?php echo $e(Text::_('COM_MCPASK_FILES_TEXT_PLACEHOLDER')); ?>"><?php echo $e($given->text ?? ''); ?></textarea>
+										<div class="d-flex flex-wrap gap-3 align-items-center">
+											<?php foreach (['add', 'replace'] as $mode) : ?>
+												<div class="form-check">
+													<input class="form-check-input" type="radio" name="mode" value="<?php echo $mode; ?>" id="mcpask-page-mode-<?php echo (int) $row->id . '-' . $mode; ?>"<?php echo ($given->mode ?? 'add') === $mode ? ' checked' : ''; ?>>
+													<label class="form-check-label small" for="mcpask-page-mode-<?php echo (int) $row->id . '-' . $mode; ?>"><?php echo Text::_('COM_MCPASK_PAGES_MODE_' . strtoupper($mode)); ?></label>
+												</div>
+											<?php endforeach; ?>
+											<input type="hidden" name="task" value="pages.text">
+											<input type="hidden" name="source" value="<?php echo $e($row->source); ?>">
+											<input type="hidden" name="item" value="<?php echo (int) $row->item_id; ?>">
+											<input type="hidden" name="from" value="pages">
+											<?php echo $keep() . $token; ?>
+											<button type="submit" class="btn btn-sm btn-primary"><?php echo Text::_('COM_MCPASK_FILES_TEXT_SAVE'); ?></button>
+										</div>
+										<div class="form-text"><?php echo Text::_('COM_MCPASK_PAGES_TEXT_DESC'); ?></div>
+									</form>
+								</details>
+							<?php endif; ?>
 						</td>
 						<td><?php echo $sourceLabel($row); ?><?php if ($row->kind === 'own') : ?><div class="small text-muted">#<?php echo (int) $row->item_id; ?></div><?php endif; ?></td>
 						<td class="text-end"><?php echo (int) $row->chunks; ?></td>

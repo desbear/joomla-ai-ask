@@ -8,5 +8,13 @@
 		<action name="core.delete" title="JACTION_DELETE" description="COM_MCPASK_ACTION_DELETE_DESC" />
 		<action name="mcpask.ask" title="COM_MCPASK_ACTION_ASK" description="COM_MCPASK_ACTION_ASK_DESC" />
 		<action name="mcpask.unlimited" title="COM_MCPASK_ACTION_UNLIMITED" description="COM_MCPASK_ACTION_UNLIMITED_DESC" />
+		<action name="mcpask.area.questions" title="COM_MCPASK_ACTION_AREA_QUESTIONS" description="COM_MCPASK_ACTION_AREA_QUESTIONS_DESC" />
+		<action name="mcpask.area.pages" title="COM_MCPASK_ACTION_AREA_PAGES" description="COM_MCPASK_ACTION_AREA_PAGES_DESC" />
+		<action name="mcpask.area.quality" title="COM_MCPASK_ACTION_AREA_QUALITY" description="COM_MCPASK_ACTION_AREA_QUALITY_DESC" />
+		<action name="mcpask.area.agents" title="COM_MCPASK_ACTION_AREA_AGENTS" description="COM_MCPASK_ACTION_AREA_AGENTS_DESC" />
+		<action name="mcpask.area.handoffs" title="COM_MCPASK_ACTION_AREA_HANDOFFS" description="COM_MCPASK_ACTION_AREA_HANDOFFS_DESC" />
+		<action name="mcpask.area.appearance" title="COM_MCPASK_ACTION_AREA_APPEARANCE" description="COM_MCPASK_ACTION_AREA_APPEARANCE_DESC" />
+		<action name="mcpask.area.pets" title="COM_MCPASK_ACTION_AREA_PETS" description="COM_MCPASK_ACTION_AREA_PETS_DESC" />
+		<action name="mcpask.area.embeds" title="COM_MCPASK_ACTION_AREA_EMBEDS" description="COM_MCPASK_ACTION_AREA_EMBEDS_DESC" />
 	</section>
 </access>

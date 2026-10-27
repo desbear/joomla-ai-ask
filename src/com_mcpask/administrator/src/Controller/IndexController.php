@@ -10,6 +10,7 @@
 
 namespace Gss\Component\Mcpask\Administrator\Controller;
 
+use Gss\Component\Mcpask\Administrator\Access\Areas;
 use Gss\Component\Mcpask\Administrator\Ask\Answerer;
 use Gss\Component\Mcpask\Administrator\Ask\Hints;
 use Gss\Component\Mcpask\Administrator\Ask\Indexer;
@@ -53,7 +54,7 @@ class IndexController extends BaseController
      */
     public function sync(): void
     {
-        $this->guard();
+        $this->guard('', 'pages');
 
         $settings = Settings::load();
 
@@ -103,7 +104,7 @@ class IndexController extends BaseController
      */
     public function peers(): void
     {
-        $this->guard();
+        $this->guard('', 'pages');
 
         try {
             $db = Factory::getContainer()->get(DatabaseInterface::class);
@@ -120,7 +121,7 @@ class IndexController extends BaseController
      */
     public function websites(): void
     {
-        $this->guard();
+        $this->guard('', 'pages');
 
         try {
             $db    = Factory::getContainer()->get(DatabaseInterface::class);
@@ -148,7 +149,7 @@ class IndexController extends BaseController
      */
     public function websitesStatus(): void
     {
-        $this->guard();
+        $this->guard('', 'pages');
 
         $db = Factory::getContainer()->get(DatabaseInterface::class);
 
@@ -160,7 +161,7 @@ class IndexController extends BaseController
      */
     public function websitesStop(): void
     {
-        $this->guard();
+        $this->guard('', 'pages');
 
         (new State(Factory::getContainer()->get(DatabaseInterface::class)))->set(WebSync::WANTED, []);
 
@@ -197,7 +198,7 @@ class IndexController extends BaseController
 
     public function ruleSave(): void
     {
-        $this->guard('core.edit');
+        $this->guard('core.edit', 'quality');
 
         $input = $this->app->getInput()->post;
 
@@ -225,7 +226,7 @@ class IndexController extends BaseController
      */
     public function dismiss(): void
     {
-        $this->guard('core.edit');
+        $this->guard('core.edit', 'quality');
 
         $settings = Settings::load();
         $ids      = array_map('intval', explode(',', $this->app->getInput()->post->getString('ids', '')));
@@ -236,7 +237,7 @@ class IndexController extends BaseController
 
     public function ruleDelete(): void
     {
-        $this->guard('core.delete');
+        $this->guard('core.delete', 'quality');
 
         (new Hints(Factory::getContainer()->get(DatabaseInterface::class), Settings::load()))->delete($this->app->getInput()->post->getInt('id', 0));
 
@@ -249,7 +250,7 @@ class IndexController extends BaseController
      */
     public function ruleTry(): void
     {
-        $this->guard('core.edit');
+        $this->guard('core.edit', 'quality');
 
         $settings = Settings::load();
         $question = mb_substr(trim($this->app->getInput()->post->getString('question', '')), 0, 500);
@@ -399,7 +400,7 @@ class IndexController extends BaseController
      */
     public function themeGenerate(): void
     {
-        $this->guard('core.options');
+        $this->guard('', 'appearance');
 
         $current = json_decode($this->app->getInput()->post->getRaw('current', '{}'), true);
 
@@ -415,7 +416,7 @@ class IndexController extends BaseController
      */
     public function themeSave(): void
     {
-        $this->guard('core.options');
+        $this->guard('', 'appearance');
 
         $colours = json_decode($this->app->getInput()->post->getRaw('colours', '{}'), true);
         $colours = \is_array($colours) && $colours ? Theme::clean($colours) : [];
@@ -440,14 +441,18 @@ class IndexController extends BaseController
         $this->send(['colours' => $colours]);
     }
 
-    private function guard(string $action = ''): void
+    /**
+     * @param   string  $action  What else is needed: an action, or "core.options"
+     * @param   string  $area    The page of the back end the task belongs to (0.22.0)
+     */
+    private function guard(string $action = '', string $area = ''): void
     {
         if (!Session::checkToken('post')) {
             $this->send(new \RuntimeException(Text::_('JINVALID_TOKEN')));
         }
 
         $user    = $this->app->getIdentity();
-        $allowed = $user->authorise('core.manage', 'com_mcpask') && match ($action) {
+        $allowed = $user->authorise('core.manage', 'com_mcpask') && ($area === '' || Areas::allows($user, $area)) && match ($action) {
             ''             => true,
             'core.options' => $user->authorise('core.admin', 'com_mcpask') || $user->authorise('core.options', 'com_mcpask'),
             default        => $user->authorise($action, 'com_mcpask'),
