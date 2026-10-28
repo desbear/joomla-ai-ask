@@ -113,7 +113,7 @@ const Sheet = ({ widget, template, row, list, onMove, onClose, onSaved, api, ctx
     if (e.button !== 0) return;
     e.preventDefault();
 
-    const room = aside.current.parentElement.getBoundingClientRect().width;
+    const room = (box ? box.width : aside.current.parentElement.getBoundingClientRect().width);
     const startX = e.clientX;
     const startW = aside.current.getBoundingClientRect().width;
     let now = startW;
@@ -135,31 +135,62 @@ const Sheet = ({ widget, template, row, list, onMove, onClose, onSaved, api, ctx
     try { window.localStorage.removeItem(SHEET_KEY); } catch { /* nothing kept */ }
   };
   // With the source's page in it, it stands over the whole board, its top too; and can be lifted off into a
-  // window of its own, moved by its top and sized by its corner (0.6.5)
+  // window of its own, moved by its top and sized by its corner, anywhere on the page (0.6.5). Drawn in a layer
+  // of its own at the page's top (the board's colours with it), so that nothing around the board cuts it off; laid
+  // over the board where the board is, followed as it moves or changes size. One place for both, so the page in
+  // it is not loaded again on lifting it off or putting it back
+  const over = framed && root;
+  const [layer] = useState(() => (over ? Object.assign(document.createElement('div'), { className: 'adb adb-layer' }) : null));
+  const [box, setBox] = useState(null);
   const [float, setFloat] = useState(null);
+
+  useLayoutEffect(() => {
+    if (!layer) return undefined;
+
+    const place = () => {
+      const r = root.getBoundingClientRect();
+
+      setBox({ top: r.top, left: r.left, width: r.width, height: r.height, right: window.innerWidth - r.right });
+    };
+    const seen = new ResizeObserver(place);
+
+    document.body.appendChild(layer);
+    place();
+    seen.observe(root);
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+
+    return () => {
+      seen.disconnect();
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+      layer.remove();
+    };
+  }, [layer, root]);
+
   const lift = () => {
     const r = aside.current.getBoundingClientRect();
-    const o = root.getBoundingClientRect();
-    const w = Math.min(r.width, o.width - 48);
-    const h = Math.min(r.height - 48, o.height - 48);
+    const w = Math.min(r.width, window.innerWidth - 32);
+    const h = Math.min(r.height - 48, window.innerHeight - 48);
 
-    setFloat({ x: Math.max(16, o.width - w - 32), y: 24, w, h });
+    setFloat({ x: Math.max(16, r.left - 24), y: Math.max(16, r.top + 24), w, h });
   };
   const drag = (e, how) => {
     if (e.button !== 0 || (how === 'move' && e.target.closest('button'))) return;
     e.preventDefault();
 
-    const o = root.getBoundingClientRect();
     const from = { ...float };
     const px = e.clientX;
     const py = e.clientY;
     const move = (ev) => {
       const dx = ev.clientX - px;
       const dy = ev.clientY - py;
+      const W = window.innerWidth;
+      const H = window.innerHeight;
 
       setFloat(how === 'move'
-        ? { ...from, x: Math.min(o.width - 80, Math.max(80 - from.w, from.x + dx)), y: Math.min(o.height - 40, Math.max(0, from.y + dy)) }
-        : { ...from, w: Math.max(360, Math.min(o.width - from.x, from.w + dx)), h: Math.max(240, Math.min(o.height - from.y, from.h + dy)) });
+        ? { ...from, x: Math.min(W - 80, Math.max(80 - from.w, from.x + dx)), y: Math.min(H - 40, Math.max(0, from.y + dy)) }
+        : { ...from, w: Math.max(360, Math.min(W - from.x, from.w + dx)), h: Math.max(240, Math.min(H - from.y, from.h + dy)) });
     };
     const up = () => {
       window.removeEventListener('pointermove', move);
@@ -171,7 +202,7 @@ const Sheet = ({ widget, template, row, list, onMove, onClose, onSaved, api, ctx
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
   };
-  const over = framed && root;
+  const docked = box ? { top: box.top, height: box.height, right: box.right, width: Math.min(box.width, width || Math.max(520, Math.round(box.width * 0.45))) } : { visibility: 'hidden' };
   const at = list.findIndex((r) => r.id === row.id);
   const status = template.fields.find((f) => f.kind === 'select' && /狀態|status/i.test(f.label));
   const title = row.title || (template.fields.find((f) => f.kind === 'text') ? row.values[template.fields.find((f) => f.kind === 'text').key] : '');
@@ -192,7 +223,7 @@ const Sheet = ({ widget, template, row, list, onMove, onClose, onSaved, api, ctx
   useEffect(() => { close.current && close.current.focus(); }, []);
 
   const card = (
-    <aside className={`adb-sheet${framed ? ' is-framed' : ''}${over ? ' is-over' : ''}${float ? ' is-float' : ''}`} ref={aside} style={float ? { left: float.x, top: float.y, width: float.w, height: float.h } : width ? { width: `min(${width}px, 100%)` } : undefined} aria-label={`${template.name} ${row.no}`}>
+    <aside className={`adb-sheet${framed ? ' is-framed' : ''}${over ? ' is-over' : ''}${float ? ' is-float' : ''}`} ref={aside} style={float ? { left: float.x, top: float.y, width: float.w, height: float.h } : over ? docked : width ? { width: `min(${width}px, 100%)` } : undefined} aria-label={`${template.name} ${row.no}`}>
       {float ? null : <span className="adb-sheet__grip" role="separator" aria-orientation="vertical" aria-label={t('sheetResize')} title={t('sheetResize')} onPointerDown={widen} onDoubleClick={narrow} />}
       {float ? <span className="adb-sheet__corner" aria-hidden="true" onPointerDown={(e) => drag(e, 'size')} /> : null}
       <div className="adb-sheet__top" onPointerDown={float ? (e) => drag(e, 'move') : undefined}>
@@ -235,7 +266,7 @@ const Sheet = ({ widget, template, row, list, onMove, onClose, onSaved, api, ctx
     </aside>
   );
 
-  return over ? createPortal(card, root) : card;
+  return layer ? createPortal(card, layer) : card;
 };
 
 // ---------- A widget grown into a full page, its settings at the side ----------

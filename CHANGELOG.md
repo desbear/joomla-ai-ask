@@ -2,6 +2,13 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.6.6
+
+- **The side card with a record's own page** is drawn in a layer at the page's top (with the board's colours), so
+  nothing around the dashboard cuts it off: lifted off into a window, it moves anywhere on the page, over the column
+  of chats too, kept within the browser's window. Put at the side, it lies over the dashboard where the dashboard is,
+  following it as the page is scrolled or resized. Lifting it off or putting it back does not load its page again.
+
 ## AI Ask Desk 0.6.5
 
 - **A record's own page, in the dashboard** (a source that offers it, `SourceInterface`'s `embed()`): a record opened

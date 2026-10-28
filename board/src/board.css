@@ -398,7 +398,11 @@ span.adb-fgrip { cursor: default; }
 /* 0.6.5: wider by default with the source's own page in it; its left edge dragged to widen it */
 .adb-sheet.is-framed { width: min(max(520px, 45%), 100%); }
 /* Over the whole board, its top too; or lifted off into a window, moved by its top, sized by its corner */
-.adb-sheet.is-over { z-index: 90; }
+/* The layer it is drawn in, at the page's top: the board's colours and type, nothing of its own in the way */
+.adb.adb-layer { position: fixed; inset: 0; z-index: 1050; display: block; width: auto; height: auto; min-height: 0; overflow: visible; background: none; pointer-events: none; }
+.adb-layer > * { pointer-events: auto; }
+.adb-sheet.is-over { position: fixed; bottom: auto; z-index: 1; }
+.adb-sheet.is-over:not(.is-float) { border-radius: 0; }
 .adb-sheet.is-float { right: auto; bottom: auto; overflow: hidden; border: 1px solid var(--adb-line-strong); border-radius: 12px; box-shadow: 0 24px 60px -18px rgba(15, 18, 30, .45); animation: adb-fill-box .2s ease-out; }
 .adb-sheet.is-float .adb-sheet__top { cursor: move; touch-action: none; }
 .adb-sheet__corner { position: absolute; right: 0; bottom: 0; z-index: 3; width: 18px; height: 18px; cursor: nwse-resize; touch-action: none; background: linear-gradient(135deg, transparent 55%, var(--adb-line-strong) 55%, var(--adb-line-strong) 62%, transparent 62%, transparent 72%, var(--adb-line-strong) 72%, var(--adb-line-strong) 79%, transparent 79%); }
