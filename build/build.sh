@@ -83,4 +83,4 @@ if [ -n "$(find preview/src preview/package.json preview/build.mjs -newer "$view
 fi
 
 build pkg_askdesk src/pkg_askdesk/pkg_askdesk.xml src/pkg_askdesk/script.php src/pkg_askdesk/language \
-  com_askdesk plg_mcpask_askdesk plg_task_askdesk
+  com_askdesk plg_mcpask_askdesk plg_task_askdesk plg_askdesk_faq

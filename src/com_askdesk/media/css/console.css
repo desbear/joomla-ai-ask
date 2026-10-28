@@ -1907,9 +1907,6 @@ html.askdesk-app body {
   }
 }
 
-.askdesk-composer[data-mode="email"] .askdesk-composer__field {
-  min-block-size: 88px;
-}
 
 /* At rest a quiet Enter sign; pointed at, the round blue button comes up under it, the sign turns
    into an arrow and the word slides out */
@@ -5385,6 +5382,11 @@ button.askdesk-me {
 /* ---------- Phrases: a row of them inside the box, above the words; more in a list from its end ---------- */
 .askdesk-composer__box {
   flex-wrap: wrap;
+
+  /* What is written starts right after the buttons before it (0.6.4: the +), not a gap away */
+  > .askdesk-composer__field {
+    padding-inline: 4px 10px;
+  }
 }
 
 .askdesk-phrases {
@@ -8117,6 +8119,22 @@ select.askdesk-addon__form-input {
 .askdesk-work-menu__list {
   display: grid;
   gap: 4px;
+  max-block-size: min(60vh, 440px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Where the forms under it go (0.6.4): a forms system, a CRM, the knowledge base */
+.askdesk-work-menu__group {
+  margin: 6px 4px 0;
+  color: var(--askdesk-faint);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+
+  &:first-child {
+    margin-block-start: 0;
+  }
 }
 
 .askdesk-work-menu__ask {
@@ -9310,4 +9328,85 @@ body:has(.askdesk[data-askdesk]) {
 
 @media (max-width: 760px) {
   .askdesk-crew__name { display: none; }
+}
+
+/* Several to pick in a work card (0.6.4): a chip each, filled when picked */
+.askdesk-work__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.askdesk-work__chip {
+  padding: 4px 10px;
+  border: 0.5px solid var(--askdesk-line-strong);
+  border-radius: 999px;
+  background: var(--askdesk-surface);
+  color: var(--askdesk-muted);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+  &[aria-pressed="true"] {
+    border-color: color-mix(in srgb, var(--askdesk-accent) 45%, transparent);
+    background: color-mix(in srgb, var(--askdesk-accent) 12%, var(--askdesk-surface));
+    color: var(--askdesk-accent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--askdesk-accent);
+    outline-offset: 1px;
+  }
+
+  &:disabled {
+    cursor: default;
+    opacity: 0.6;
+  }
+}
+
+/* Made from the chat, said above the suggested replies (0.6.4: in the knowledge base) */
+.askdesk-suggest__made {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 0.5px solid color-mix(in srgb, var(--askdesk-ok) 35%, transparent);
+  border-radius: var(--askdesk-radius-sm);
+  background: color-mix(in srgb, var(--askdesk-ok-soft) 55%, var(--askdesk-surface));
+
+  /* The record drawn flat in it: one card, not a box in a box */
+  > .askdesk-addon__record {
+    box-sizing: border-box;
+    inline-size: 100%;
+    padding: 0;
+    background: none;
+  }
+}
+
+/* What was made from the chat, by the suggested replies' heading (0.6.4): seen with the part folded too */
+.askdesk-panel__title > .askdesk-panel__made {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 3px;
+  padding: 0 8px 0 6px;
+  border-radius: 999px;
+  background: var(--askdesk-ok-soft);
+  color: var(--askdesk-ok);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+
+  > .askdesk-icon {
+    color: inherit;
+    inline-size: 12px;
+    block-size: 12px;
+
+    svg {
+      inline-size: 12px;
+      block-size: 12px;
+    }
+  }
 }

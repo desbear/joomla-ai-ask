@@ -70,6 +70,8 @@ final class Summary
         foreach ($fields as $field) {
             $spec[] = '- "' . $field['key'] . '": ' . $field['label'] . match ($field['kind']) {
                 'select' => ' (exactly one of: ' . implode(' | ', array_map(static fn ($o) => '"' . $o . '"', $field['options'] ?? [])) . ')',
+                // Several to pick (0.6.4): those of these the chat is about, none when none is
+                'tags'   => ' (those of these the chat is about, separated by " | ", or "" when none: ' . implode(' | ', array_map(static fn ($o) => '"' . $o . '"', $field['options'] ?? [])) . ')',
                 'date'   => ' (a date, YYYY-MM-DD; today is ' . $today . '; a day of the week said means the next one from today, never one gone)',
                 'number' => ' (a number)',
                 'textarea' => ' (a few lines)',
@@ -119,6 +121,14 @@ final class Summary
 
         foreach ($fields as $field) {
             $value = \is_array($json) && \is_scalar($json[$field['key']] ?? null) ? trim(strip_tags((string) $json[$field['key']])) : '';
+
+            if ($field['kind'] === 'tags') {
+                // Given as a list instead, now and then
+                $value = \is_array($json) && \is_array($json[$field['key']] ?? null) ? implode('|', array_filter($json[$field['key']], 'is_scalar')) : $value;
+                $out[$field['key']] = implode("\n", array_values(array_intersect($field['options'] ?? [], array_map('trim', preg_split('/\s*[|\n]\s*/u', $value)))));
+
+                continue;
+            }
 
             if ($field['kind'] !== 'select') {
                 $value = Chinese::keep($value, $lang);

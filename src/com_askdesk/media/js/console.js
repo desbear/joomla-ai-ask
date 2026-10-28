@@ -145,6 +145,10 @@
     expand: 'M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6',
     // A clipboard with lines: a form to fill
     form: 'M9 3h6a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM8 4.5H6.5A1.5 1.5 0 0 0 5 6v13.5A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H16M8.5 11h7M8.5 15h4.5',
+    // A note with a folded corner: a note kept on a customer
+    note: 'M5 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v9l-6 7H7a2 2 0 0 1-2-2zM19 14h-4a2 2 0 0 0-2 2v5M9 8h6M9 12h4',
+    // An open book: an article of the knowledge base
+    book: 'M3 5.5A1.5 1.5 0 0 1 4.5 4H9a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5h-5A1.5 1.5 0 0 1 3 16zM21 5.5A1.5 1.5 0 0 0 19.5 4H15a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5h5a1.5 1.5 0 0 0 1.5-1.5z',
   };
 
   const icon = (name) => {
@@ -2013,11 +2017,12 @@
   stickerMenu.hidden = true;
   stickerMenu.setAttribute('role', 'dialog');
   stickerMenu.setAttribute('aria-label', t.stickers);
-  // A form to fill in the chat (0.6.1): picked from a short list; the card only the people answering see
+  // A form to fill in the chat (0.6.1): picked from a short list, by where it goes (0.6.4: the "+" of the
+  // box); the card only the people answering see
   const workButton = button('askdesk-attach askdesk-work-button', '', () => toggleWorkMenu(box));
   const workMenu = el('div', 'askdesk-work-menu');
 
-  workButton.append(icon('form'));
+  workButton.append(icon('plus'));
   workButton.title = t.workButton;
   workButton.setAttribute('aria-label', t.workButton);
   workButton.setAttribute('aria-expanded', 'false');
@@ -2506,7 +2511,7 @@
   workFloat.title = t.workButton;
   workFloat.setAttribute('aria-label', t.workButton);
   workFloat.setAttribute('aria-expanded', 'false');
-  workFloat.append(icon('form'), el('span', '', t.workButton));
+  workFloat.append(icon('plus'), el('span', '', t.workButton));
   workDock.append(workFloat);
   column.append(log, composer, workDock);
   body.append(column, aside);
@@ -3493,7 +3498,10 @@
   // The desk's own cards, those not hidden as set (0.6.1)
   const hiddenSide = new Set(config.sideHidden || []);
 
-  panels.append(...[['suggest', panel(t.suggestions, 'bulb', suggestList)], ['history', panel(t.history, 'history', historyList)], ['library', libraryPanel]].filter(([name]) => !hiddenSide.has(name)).map(([, part]) => part));
+  // The suggested replies' part, its heading saying what was made from the chat (0.6.4)
+  const suggestPanel = panel(t.suggestions, 'bulb', suggestList);
+
+  panels.append(...[['suggest', suggestPanel], ['history', panel(t.history, 'history', historyList)], ['library', libraryPanel]].filter(([name]) => !hiddenSide.has(name)).map(([, part]) => part));
   asideScroll.append(search, results, featured, panels);
 
   // The search, as the side scrolls down, shrinks away toward the top end, and a round search button
@@ -4564,6 +4572,9 @@
         workModal.show(item);
       }
     });
+
+    // What was made, said beside the suggested replies
+    paintSuggestions();
   };
 
   // A card as it is now: in its place in the chat, and opened large when it is
@@ -4644,6 +4655,13 @@
     return self;
   })();
 
+  // A card's icon: its form's, as listed
+  const workIcon = (item) => {
+    const form = works.forms.find((one) => one.panel === item.panel && one.id === item.form);
+
+    return form && ICONS[form.icon] ? form.icon : 'form';
+  };
+
   // A card: who started it and when; its form to fill, or what it made once sent
   const paintWork = (item, big = false) => {
     const node = el('article', `askdesk-msg askdesk-msg--work${big ? ' is-big' : ''}`);
@@ -4654,7 +4672,7 @@
 
     node.dataset.work = key;
     node.dataset.modified = item.modified;
-    head.append(icon('form'), el('strong', 'askdesk-work__title', form.title), el('span', 'askdesk-work__only', t.workOnly));
+    head.append(icon(workIcon(item)), el('strong', 'askdesk-work__title', form.title), el('span', 'askdesk-work__only', t.workOnly));
 
     // Opened large (to fill at ease, with a box to tell the AI), or closed back into the chat
     if (item.state !== 'sent' || big) {
@@ -4712,6 +4730,36 @@
       if (f.readonly) {
         row.append(el('span', 'askdesk-addon__form-label', f.label), el('span', 'askdesk-work__fixed', f.value || '—'));
         card.append(row);
+
+        return;
+      }
+
+      // Several to pick (0.6.4): each a chip, pressed when picked; the value one a line
+      if (f.kind === 'tags') {
+        const chips = el('div', 'askdesk-work__chips');
+        const picked = new Set(String(values[f.key] || '').split('\n').filter(Boolean));
+        const group = el('div', 'askdesk-addon__form-row');
+
+        chips.setAttribute('role', 'group');
+        chips.setAttribute('aria-label', f.label);
+        f.options.forEach((o) => {
+          const chip = button('askdesk-work__chip', o, () => {
+            if (picked.has(o)) {
+              picked.delete(o);
+            } else {
+              picked.add(o);
+            }
+
+            chip.setAttribute('aria-pressed', String(picked.has(o)));
+            values[f.key] = f.options.filter((one) => picked.has(one)).join('\n');
+            keep();
+          });
+
+          chip.setAttribute('aria-pressed', String(picked.has(o)));
+          chips.append(chip);
+        });
+        group.append(el('span', 'askdesk-addon__form-label', f.label + (f.required ? ' *' : '')), chips);
+        card.append(group);
 
         return;
       }
@@ -4830,6 +4878,7 @@
 
         // Sent: the large card closes on the one in the chat; the cards beside the chat with what it made
         if (data.work.state === 'sent') {
+          paintSuggestions();
           workModal.close();
           next.scrollIntoView({ block: 'nearest', behavior: reduced.matches ? 'auto' : 'smooth' });
           loadAddons(true);
@@ -4859,7 +4908,7 @@
 
     closeWorkMenu();
     card.append(el('div', 'askdesk-work__head'), el('p', 'askdesk-panel__hint', t.panelNoteWriting), skeleton(3));
-    card.firstChild.append(icon('form'), el('strong', 'askdesk-work__title', form.title), el('span', 'askdesk-work__only', t.workOnly));
+    card.firstChild.append(icon(ICONS[form.icon] ? form.icon : 'form'), el('strong', 'askdesk-work__title', form.title), el('span', 'askdesk-work__only', t.workOnly));
     waiting.append(card);
     list.append(waiting);
     toBottom(true);
@@ -4936,9 +4985,17 @@
     }
 
     const options = el('div', 'askdesk-work-menu__list');
+    // By where they go (0.6.4), in the order the first of each comes; a heading for each when there are several
+    const groups = [...new Set(works.forms.map((form) => form.group))];
 
-    works.forms.forEach((form, index) => {
-      options.append(workOption(form, () => (form.suggest && form.before ? paintWorkMenu(form) : startWork(form)), index === 0 && form.first));
+    groups.forEach((group) => {
+      if (groups.length > 1 || group) {
+        options.append(el('p', 'askdesk-work-menu__group', group || t.workOther));
+      }
+
+      works.forms.filter((form) => form.group === group).forEach((form) => {
+        options.append(workOption(form, () => (form.suggest && form.before ? paintWorkMenu(form) : startWork(form)), form === works.forms[0] && form.first));
+      });
     });
     workMenu.replaceChildren(head, options);
     options.querySelector('button')?.focus();
@@ -4954,7 +5011,7 @@
       words.append(el('small', '', form.description));
     }
 
-    option.append(icon('form'), words);
+    option.append(icon(ICONS[form.icon] ? form.icon : 'form'), words);
 
     if (first) {
       option.append(icon('enter'));
@@ -5073,7 +5130,39 @@
     return card;
   };
 
+  // What was made from the chat that says so beside the suggested replies (0.6.4: an article of the
+  // knowledge base, say), above them, to open in the side card
+  const madeMarks = () => [...(works.room === state.open && works.items ? works.items.values() : [])]
+    .filter((item) => item.state === 'sent' && item.card && item.card.made && item.card.made.mark)
+    .map((item) => {
+      const card = el('div', 'askdesk-suggest__made');
+
+      card.append(pill(item.card.made.mark, 'ok'), paintRecord(item.card.made, true, item.panel));
+
+      return card;
+    });
+
   const paintSuggestions = (arrived = false) => {
+    const marks = madeMarks();
+    const head = suggestPanel.querySelector('.askdesk-panel__title');
+    // By its word ("in the knowledge base"), how many: seen with the part folded too
+    const made = new Map();
+
+    paintSuggested(arrived);
+    suggestList.prepend(...marks);
+    head.querySelectorAll('.askdesk-panel__made').forEach((tag) => tag.remove());
+    [...(works.room === state.open && works.items ? works.items.values() : [])]
+      .filter((item) => item.state === 'sent' && item.card && item.card.made && item.card.made.mark)
+      .forEach((item) => made.set(item.card.made.mark, (made.get(item.card.made.mark) || 0) + 1));
+    made.forEach((count, mark) => {
+      const tag = el('span', 'askdesk-panel__made');
+
+      tag.append(icon('check'), el('span', '', count > 1 ? `${mark} ${count}` : mark));
+      head.append(tag);
+    });
+  };
+
+  const paintSuggested = (arrived) => {
     suggestList.replaceChildren();
 
     if (side.loading) {

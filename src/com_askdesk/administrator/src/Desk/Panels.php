@@ -95,6 +95,9 @@ final class Panels
      *
      * @return  array<string, mixed>|null  Null when there is no such panel
      */
+    /** The kinds of a form's fields (tags, 0.6.4: several of its options picked, its value one a line) */
+    public const KINDS = ['text', 'textarea', 'select', 'tags', 'date', 'number'];
+
     /** What the person answering may do in a panel (fill, submit, make: its form and buttons, 0.6.1; show: a record in the side card) */
     public const ACTIONS = ['search', 'choose', 'refresh', 'draft', 'send', 'fill', 'submit', 'make', 'show'];
 
@@ -164,6 +167,8 @@ final class Panels
             'ref'   => $text($item['ref'] ?? '', 100),
             // The chat it came from (0.6.1): another, to go to; this one, said so
             'room'  => max(0, (int) ($item['room'] ?? 0)),
+            // What was made said beside the suggested replies too (0.6.4: "in the knowledge base", say)
+            'mark'  => $text($item['mark'] ?? '', 40),
         ] : null;
         $link  = \is_array($view['link'] ?? null) && $https($view['link']['url'] ?? null) !== '' ? ['title' => $text($view['link']['title'] ?? '', 80), 'url' => $https($view['link']['url'])] : null;
 
@@ -213,8 +218,8 @@ final class Panels
                 'fields'  => array_slice(array_values(array_filter(array_map(static fn ($field) => \is_array($field) && preg_match('/^[A-Za-z0-9_-]{1,64}$/', (string) ($field['key'] ?? '')) ? [
                     'key'      => (string) $field['key'],
                     'label'    => $text($field['label'] ?? '', 60),
-                    'kind'     => \in_array($field['kind'] ?? '', ['text', 'textarea', 'select', 'date', 'number'], true) ? $field['kind'] : 'text',
-                    'options'  => array_slice(array_values(array_filter(array_map(static fn ($o) => $text($o, 100), $list($field['options'] ?? [])), 'strlen')), 0, 100),
+                    'kind'     => \in_array($field['kind'] ?? '', self::KINDS, true) ? $field['kind'] : 'text',
+                    'options'  => array_slice(array_values(array_filter(array_map(static fn ($o) => $text($o, 100), $list($field['options'] ?? [])), 'strlen')), 0, 200),
                     'value'    => $text($field['value'] ?? '', 4000),
                     'required' => !empty($field['required']),
                     // Shown, not changed (what is filled by itself: the customer, say)

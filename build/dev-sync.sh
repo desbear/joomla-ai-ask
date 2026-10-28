@@ -41,4 +41,5 @@ if [ -d "$SITE/administrator/components/com_askdesk" ]; then
     cp src/com_askdesk/site/language/$tag/* "$SITE/language/$tag/"
   done
   sync_plugin mcpask askdesk plg_mcpask_askdesk
+  if [ -d "$SITE/plugins/askdesk/faq" ]; then sync_plugin askdesk faq plg_askdesk_faq; fi
 fi

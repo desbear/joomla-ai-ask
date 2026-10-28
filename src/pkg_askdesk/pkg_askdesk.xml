@@ -6,7 +6,7 @@
 	<creationDate>2026-10</creationDate>
 	<copyright>(C) 2026 GSS</copyright>
 	<license>GNU General Public License version 2 or later; see LICENSE</license>
-	<version>0.6.3</version>
+	<version>0.6.4</version>
 	<description>PKG_ASKDESK_XML_DESCRIPTION</description>
 	<packager>GSS</packager>
 	<scriptfile>script.php</scriptfile>
@@ -15,6 +15,7 @@
 		<file type="component" id="com_askdesk">com_askdesk.zip</file>
 		<file type="plugin" id="askdesk" group="mcpask">plg_mcpask_askdesk.zip</file>
 		<file type="plugin" id="askdesk" group="task">plg_task_askdesk.zip</file>
+		<file type="plugin" id="faq" group="askdesk">plg_askdesk_faq.zip</file>
 	</files>
 	<languages folder="language">
 		<language tag="en-GB">en-GB/pkg_askdesk.sys.ini</language>

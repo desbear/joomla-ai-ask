@@ -82,7 +82,7 @@ On MySQL and MariaDB a search has two passes: the database shortlists passages b
 
 ## In this repository
 
-- `src/`: the extensions. AI Ask: `com_mcpask`, `mod_mcp_ask`, `mod_mcp_ask_log`, `plg_content_mcpask`, `plg_easyblog_mcpask`, `plg_task_mcpask`, `plg_mcp_mcpask`, and the agents and sources `plg_mcpask_rsform`, `plg_mcpask_livechat`, `plg_mcpask_dropfiles`, `plg_mcpask_imagegen`; packed by `pkg_mcpask`. AI Ask Desk: `com_askdesk` and `plg_mcpask_askdesk`, packed by `pkg_askdesk`.
+- `src/`: the extensions. AI Ask: `com_mcpask`, `mod_mcp_ask`, `mod_mcp_ask_log`, `plg_content_mcpask`, `plg_easyblog_mcpask`, `plg_task_mcpask`, `plg_mcp_mcpask`, and the agents and sources `plg_mcpask_rsform`, `plg_mcpask_livechat`, `plg_mcpask_dropfiles`, `plg_mcpask_imagegen`; packed by `pkg_mcpask`. AI Ask Desk: `com_askdesk`, `plg_mcpask_askdesk`, `plg_task_askdesk` and `plg_askdesk_faq`, packed by `pkg_askdesk`.
 - `board/`: AI Ask Desk's dashboard, a React app built into `src/com_askdesk/media/js/board.js` and `css/board.css`.
 - `docs/`: [agents](docs/agents.md), [embeds](docs/embeds.md), [pets](docs/pets.md), [AI Ask Desk](docs/askdesk.md).
 - `demo/`, `tests/`, `build/`.

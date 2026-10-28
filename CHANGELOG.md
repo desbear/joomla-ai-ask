@@ -2,6 +2,40 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.6.4
+
+- **A chat turned into a FAQ** (*AI Ask Desk - FAQ*, a new plugin of the package, off until switched on): in the
+  console's + menu, "Turn into a FAQ" opens a card in the chat, seen only by the people answering, with the question
+  and its answer drafted by AI from the chat (in general words, nothing of the customer's own: no name, e-mail,
+  phone, company, order or account number) and the tags it is about ticked. It is kept, once confirmed, as an
+  article of the site through com_content's own model, so its events run as for an article saved in its form: AI
+  Alias makes its alias, the search index and AI Ask's index take it in. AI Image works in the article's form, opened
+  from the card.
+- Set in the plugin: the category, the language (which AI writes in; All: the language of the person answering),
+  the tags always ticked, the tags AI picks from (the products', say; with neither set, all the site's), whether it is
+  kept unpublished (the default) or published, and the heading it is listed under. On the card each can be changed:
+  another category one may add articles to, the tags ticked or not, published only by those who may.
+- What was kept is said by the suggested replies' heading ("In the knowledge base", with how many when more than
+  one), seen with that part folded too, and above the suggested replies, the article opened whole in the side card
+  from there. In the + menu, "Turn into a FAQ" says how many were kept from the chat already, and the last one's
+  title, so one is not kept twice by mistake (a chat may still make two).
+- An alias the title would make that the category already has (the same question kept before) is given a number
+  (`-2`, `-3`…) rather than refused. An article kept while another extension fails after it (a search index out of
+  reach, say) is said kept, not kept again on sending it twice.
+- **The box's + menu**: the form button of the box (0.6.1) is a "+" whose list is parted by where each goes (a forms
+  system, a CRM, the site's knowledge base), each with its own icon. A plugin's form names its heading with
+  `group` and its icon with `icon` (`WorkInterface::forms()`); a field of a card may be several options ticked
+  (`tags`, its value one a line; `Panels::KINDS`), drafted by `Summary::fill()` among the options given; what a card
+  made may carry `mark`, said above the suggested replies.
+- **The console's box**: what is written starts right after the + (and the file and sticker buttons), one line high
+  until more is written, a reply to a ticket too (two lines before).
+- **Fixed** (the FAQ): an article whose title makes an alias the category already has was given a numbered one at
+  once, so AI Alias did not make its own; it is now numbered only when com_content refuses it.
+- **Fixed** (the FAQ): an article kept from the console (the site's side) was given no workflow stage, com_content
+  looking for the article's form among the site's, so the articles' list in the administrator, which shows only
+  those with one, left it out. Its form is now found, and a stage given (its category's workflow's first) when
+  saving still did not.
+
 ## AI Ask Desk 0.6.3
 
 - **The e-mails designed** (*Components - AI Ask Desk - E-mails*): each e-mail the desk sends (the ticket code, a

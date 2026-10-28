@@ -41,7 +41,7 @@ final class Works
     /**
      * The forms to pick from for this chat, all panels' (the first the usual one).
      *
-     * @return  array<int, array{panel: string, id: string, title: string, description: string, first: bool, suggest: string, before: string}>
+     * @return  array<int, array{panel: string, id: string, title: string, description: string, first: bool, group: string, icon: string, suggest: string, before: string}>
      */
     public static function forms(object $room, object $staff): array
     {
@@ -62,6 +62,9 @@ final class Works
                         'title'       => self::text($form['title'] ?? '', 80),
                         'description' => self::text($form['description'] ?? '', 200),
                         'first'       => !empty($form['first']),
+                        // Where it goes, the heading it is listed under (0.6.4: "CRM", say), and its icon
+                        'group'       => self::text($form['group'] ?? '', 60),
+                        'icon'        => preg_match('/^[a-z]{1,20}$/', (string) ($form['icon'] ?? '')) ? (string) $form['icon'] : '',
                         'suggest'     => self::text($form['suggest'] ?? '', 200),
                         // The form the suggestion is to fill first (a customer record before a to-do, say)
                         'before'      => preg_match('/^[A-Za-z0-9_-]{1,40}$/', (string) ($form['before'] ?? '')) ? (string) $form['before'] : '',
