@@ -22,6 +22,10 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
   editor; BSD, OFL and MIT licences) are part of the desk, in `media/com_askdesk/vendor/grapesjs`: nothing is loaded
   from another site, the blocks' placeholder pictures included. Its own words are in English or, for Chinese,
   Traditional Chinese with Taiwan's words.
+- **Dashboard**: a widget opened or closed fades and zooms a little from its card instead of being uncovered from
+  the card's box, which left the whole view, cut to the card, behind it for a moment. What its card already showed
+  (its records, a table's first page) is drawn at once when it opens, while it is fetched afresh, rather than a
+  skeleton first.
 - New: `#__askdesk_mails` (update 0.6.3).
 
 ## AI Ask Desk 0.6.2

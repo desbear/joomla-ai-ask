@@ -51,6 +51,11 @@ export const makeApi = (config) => {
 
   const fields = new Map();
   const sums = new Map();
+  // What has already come, to be drawn at once (a widget opened shows what its card showed, not a skeleton first)
+  const came = new Map();
+  const latestRows = new Map();
+  // (Only the latest asked: one forgotten and asked again is not overwritten by the older answer)
+  const keep = (key, asked, latest) => asked.then((got) => { if (latest() === asked) came.set(key, got); }, () => null);
 
   return {
     board: () => post(config.urls.board, {}),
@@ -67,13 +72,30 @@ export const makeApi = (config) => {
 
         asked.catch(() => fields.delete(key));
         fields.set(key, asked);
+        keep(`f:${key}`, asked, () => fields.get(key));
       }
 
       return fields.get(key);
     },
 
+    fieldsNow: (source, template) => came.get(`f:${source}:${template}`) || null,
+
     // A page of records
-    rows: ({ source, template, page = 1, size = 100, query = '', mine = 'all', range = 'all' }) => queued(() => post(config.urls.sourceRows, { source, template, page, size, query, ...whose(mine), ...rangeDays(range) })),
+    rows({ source, template, page = 1, size = 100, query = '', mine = 'all', range = 'all' }) {
+      const asked = queued(() => post(config.urls.sourceRows, { source, template, page, size, query, ...whose(mine), ...rangeDays(range) }));
+
+      // The first page kept: a table opened (or shown again) starts from it while it is asked for afresh
+      if (page === 1) {
+        const key = `r:${JSON.stringify([source, template, size, query, mine, range])}`;
+
+        latestRows.set(key, asked);
+        keep(key, asked, () => latestRows.get(key));
+      }
+
+      return asked;
+    },
+
+    rowsNow: ({ source, template, size = 100, query = '', mine = 'all', range = 'all' }) => came.get(`r:${JSON.stringify([source, template, size, query, mine, range])}`) || null,
 
     // Records for sums: the first pages, shared by all widgets of the template; partial when there are more
     all({ source, template, query = '', mine = 'all', range = 'all' }) {
@@ -100,10 +122,13 @@ export const makeApi = (config) => {
 
         asked.catch(() => sums.delete(key));
         sums.set(key, asked);
+        keep(`a:${key}`, asked, () => sums.get(key));
       }
 
       return sums.get(key);
     },
+
+    allNow: ({ source, template, query = '', mine = 'all', range = 'all' }) => came.get(`a:${JSON.stringify([source, template, query, mine, range])}`) || null,
 
     update: (body) => post(config.urls.sourceUpdate, body),
     // A record deleted, for good (0.6.1; a source that can)

@@ -19,8 +19,10 @@ const newId = () => `w${Date.now().toString(36)}${(seq += 1)}`;
 
 // ---------- A widget's fields and records ----------
 const useWidget = (widget, api, query, mine, range) => {
-  const [all, setAll] = useState(null);
-  const [data, setData] = useState(null);
+  // What has already come drawn at once (a widget opened shows what its card showed, not a skeleton first)
+  const asked = { source: widget.source, template: widget.template, query, mine, range };
+  const [all, setAll] = useState(() => api.fieldsNow(widget.source, widget.template));
+  const [data, setData] = useState(() => (isGrid(widget.kind) ? null : api.allNow(asked)));
   const [failed, setFailed] = useState(null);
   const [tick, setTick] = useState(0);
 
@@ -38,7 +40,7 @@ const useWidget = (widget, api, query, mine, range) => {
 
     let live = true;
 
-    setData(null);
+    setData(api.allNow(asked));
     api.all({ source: widget.source, template: widget.template, query, mine, range }).then((got) => { if (live) setData(got); }, (error) => { if (live) setFailed(error); });
 
     return () => { live = false; };
@@ -236,7 +238,16 @@ const Full = ({ widget, api, ctx, query, mine, range, onWidget, onClose, onCover
   const rec = recommend(chosen);
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // Grown from where the widget is; grown, the board behind is frozen
+  // Towards the widget it came from: faded and zoomed a little from there, never cut down to its box (the view
+  // laid out whole, seen through the widget's box, was left behind as a ghost of other content)
+  const origin = () => {
+    const r = from.getBoundingClientRect();
+    const o = wrap.getBoundingClientRect();
+
+    return `${r.left + r.width / 2 - o.left}px ${r.top + r.height / 2 - o.top}px`;
+  };
+
+  // Shown; shown, the board behind is frozen
   useEffect(() => {
     if (!from || !wrap || reduced || !box.current) {
       onCovered(true);
@@ -244,9 +255,9 @@ const Full = ({ widget, api, ctx, query, mine, range, onWidget, onClose, onCover
       return undefined;
     }
 
-    const r = from.getBoundingClientRect();
-    const o = wrap.getBoundingClientRect();
-    const grow = box.current.animate([{ clipPath: `inset(${r.top - o.top}px ${o.right - r.right}px ${o.bottom - r.bottom}px ${r.left - o.left}px round 6px)` }, { clipPath: 'inset(0 0 0 0 round 0)' }], { duration: 360, easing: 'cubic-bezier(.2,.8,.2,1)' });
+    box.current.style.transformOrigin = origin();
+
+    const grow = box.current.animate([{ opacity: 0, transform: 'scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' });
 
     grow.onfinish = () => onCovered(true);
 
@@ -254,15 +265,14 @@ const Full = ({ widget, api, ctx, query, mine, range, onWidget, onClose, onCover
   }, []);
 
   const shut = () => {
-    // The board drawn again first, to be seen as this shrinks back into its widget
+    // The board drawn again first, to be seen as this fades away into its widget
     onCovered(false);
 
     if (!from || !wrap || reduced || !box.current) return onClose();
 
-    const r = from.getBoundingClientRect();
-    const o = wrap.getBoundingClientRect();
-
-    box.current.animate([{ clipPath: 'inset(0 0 0 0 round 0)' }, { clipPath: `inset(${r.top - o.top}px ${o.right - r.right}px ${o.bottom - r.bottom}px ${r.left - o.left}px round 6px)` }], { duration: 280, easing: 'cubic-bezier(.4,0,.2,1)' }).onfinish = onClose;
+    box.current.style.transformOrigin = origin();
+    box.current.style.pointerEvents = 'none';
+    box.current.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.96)' }], { duration: 160, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' }).onfinish = onClose;
 
     return undefined;
   };

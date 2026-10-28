@@ -196,8 +196,10 @@ export const Grid = ({ widget, fields, allFields, actions = [], active = true, a
   const openRow = (row, sorted) => (row.room && ctx.openRoom ? ctx.openRoom(row.room) : onOpenRow(row, sorted));
   const { t, lang, toast } = ctx;
   const edit = widget.kind === 'editgrid';
-  const [rows, setRows] = useState([]);
-  const [count, setCount] = useState(0);
+  // The first page as last seen, drawn at once while it is asked for afresh (no skeleton between card and opened)
+  const lastPage = (said) => api.rowsNow({ source: widget.source, template: widget.template, size: PAGE, query: said, mine, range });
+  const [rows, setRows] = useState(() => (lastPage(query) || {}).rows || []);
+  const [count, setCount] = useState(() => (lastPage(query) || {}).total || 0);
   // Loading from the start, so nothing (not "none") shows before the first page is asked for
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(null);
@@ -251,7 +253,7 @@ export const Grid = ({ widget, fields, allFields, actions = [], active = true, a
   useEffect(() => {
     asked.current += 1;
     pages.current = 0;
-    setRows([]);
+    setRows((lastPage(words) || {}).rows || []);
     load(1);
   }, [load]);
 
