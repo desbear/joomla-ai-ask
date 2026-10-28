@@ -220,6 +220,9 @@ final class Panels
                     'label'    => $text($field['label'] ?? '', 60),
                     'kind'     => \in_array($field['kind'] ?? '', self::KINDS, true) ? $field['kind'] : 'text',
                     'options'  => array_slice(array_values(array_filter(array_map(static fn ($o) => $text($o, 100), $list($field['options'] ?? [])), 'strlen')), 0, 200),
+                    // tags: others to find and add (the site's tags, say), beyond those offered; each a word, or
+                    // {value, depth} where they are a tree
+                    'more'     => array_slice(array_values(array_filter(array_map(static fn ($o) => \is_array($o) ? ['value' => $text($o['value'] ?? '', 100), 'depth' => min(9, max(0, (int) ($o['depth'] ?? 0)))] : ['value' => $text($o, 100), 'depth' => 0], $list($field['more'] ?? [])), static fn ($o) => $o['value'] !== '')), 0, 2000),
                     'value'    => $text($field['value'] ?? '', 4000),
                     'required' => !empty($field['required']),
                     // Shown, not changed (what is filled by itself: the customer, say)

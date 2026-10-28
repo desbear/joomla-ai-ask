@@ -39,7 +39,7 @@ final class Works
     }
 
     /**
-     * The forms to pick from for this chat, all panels' (the first the usual one).
+     * The forms to pick from for this chat, all panels', in their order (one of them perhaps the usual one).
      *
      * @return  array<int, array{panel: string, id: string, title: string, description: string, first: bool, group: string, icon: string, suggest: string, before: string}>
      */
@@ -75,7 +75,7 @@ final class Works
             }
         }
 
-        usort($forms, static fn ($a, $b) => $b['first'] <=> $a['first']);
+        // In the panels' order (their plugins' in the administrator, 0.6.4), the usual one marked where it is
 
         return $forms;
     }

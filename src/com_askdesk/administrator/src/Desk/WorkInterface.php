@@ -21,7 +21,8 @@ namespace Gss\Component\Askdesk\Administrator\Desk;
  * A card is a form as a panel's ({title, hint, sent, blocked, submit, fill, fields: {key, label, kind,
  * options, value, required, readonly}, made: {title, meta, ref, url, mark}}): made, the record it made, opened
  * whole in the side card by the panel's "show" ({ref}); mark (0.6.4), a word said of it beside the suggested
- * replies too ("in the knowledge base"). A field of the kind "tags" is several of its options, one a line.
+ * replies too ("in the knowledge base"). A field of the kind "tags" is several of its options, one a line; more, others to search
+ * for and add.
  *
  * @since  0.6.1
  */

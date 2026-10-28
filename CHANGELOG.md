@@ -14,7 +14,9 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
 - Set in the plugin: the category, the language (which AI writes in; All: the language of the person answering),
   the tags always ticked, the tags AI picks from (the products', say; with neither set, all the site's), whether it is
   kept unpublished (the default) or published, and the heading it is listed under. On the card each can be changed:
-  another category one may add articles to, the tags ticked or not, published only by those who may.
+  another category one may add articles to, the tags ticked or not, published only by those who may. Any other of
+  the site's tags is added with the card's "Add a tag": a picker over them all as their tree, nested as in the
+  administrator, those ticked marked, searched (a match shown with the tags above it), opened full size on asking.
 - What was kept is said by the suggested replies' heading ("In the knowledge base", with how many when more than
   one), seen with that part folded too, and above the suggested replies, the article opened whole in the side card
   from there. In the + menu, "Turn into a FAQ" says how many were kept from the chat already, and the last one's
@@ -23,10 +25,13 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
   (`-2`, `-3`…) rather than refused. An article kept while another extension fails after it (a search index out of
   reach, say) is said kept, not kept again on sending it twice.
 - **The box's + menu**: the form button of the box (0.6.1) is a "+" whose list is parted by where each goes (a forms
-  system, a CRM, the site's knowledge base), each with its own icon. A plugin's form names its heading with
+  system, a CRM, the site's knowledge base), each with its own icon. The parts follow their plugins' order in the administrator
+  (*System - Manage - Plugins*, type askdesk); the usual form is marked where it is, rather than moved to the top
+  with its part. A plugin's form names its heading with
   `group` and its icon with `icon` (`WorkInterface::forms()`); a field of a card may be several options ticked
-  (`tags`, its value one a line; `Panels::KINDS`), drafted by `Summary::fill()` among the options given; what a card
-  made may carry `mark`, said above the suggested replies.
+  (`tags`, its value one a line, `more` others to add, words or `{value, depth}` as a tree; `Panels::KINDS`), drafted by `Summary::fill()` among the options given; what a card
+  made may carry `mark`, said above the suggested replies. Its heading stays while the list under it scrolls, as far as its last
+  form (two parts scrolling, one in the other, had it spring back before the end).
 - **The console's box**: what is written starts right after the + (and the file and sticker buttons), one line high
   until more is written, a reply to a ticket too (two lines before).
 - **Fixed** (the FAQ): an article whose title makes an alias the category already has was given a numbered one at

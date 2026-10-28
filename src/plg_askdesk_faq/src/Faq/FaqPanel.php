@@ -160,7 +160,11 @@ final class FaqPanel implements PanelInterface, WorkInterface
             'fields' => array_values(array_filter([
                 $field('title', 'text', true),
                 $field('answer', 'textarea', true),
-                $this->options($staff)['tags'] ? $field('tags', 'tags') : null,
+                // Those set offered, those picked with them; any other of the site's found by searching them
+                $this->options($staff)['tags'] ? [
+                    'options' => array_values(array_unique([...$this->offered($staff), ...array_filter(explode("\n", $values['tags'] ?? ''))])),
+                    'more'    => $this->tree(),
+                ] + $field('tags', 'tags') : null,
                 $field('category', 'select', true),
                 \count($this->options($staff)['language']) > 1 ? $field('language', 'select') : null,
                 // Published only by those who may
@@ -221,7 +225,7 @@ final class FaqPanel implements PanelInterface, WorkInterface
      */
     private function draft(object $room, object $staff, array $values, string $note): array
     {
-        $tags   = array_keys($this->options($staff)['tags']);
+        $tags   = $this->offered($staff);
         $fields = [
             ['key' => 'title', 'label' => 'The question, as anyone would ask it: one line, in general words', 'kind' => 'text'],
             ['key' => 'answer', 'label' => 'The answer the people answering gave, complete and clear, in short paragraphs (a list "- " where it is steps); only what was answered, never a word on what the chat leaves out', 'kind' => 'textarea'],
@@ -508,7 +512,7 @@ final class FaqPanel implements PanelInterface, WorkInterface
 
     /**
      * The choices of the card, label => value: the categories one may add to (by their path), the site's
-     * languages, the tags to pick from (those set to suggest and to be always on; else all), how it is kept.
+     * languages, the site's tags (those offered on the card: offered()), how it is kept.
      *
      * @return  array<string, array<string, int|string>>
      */
@@ -527,16 +531,10 @@ final class FaqPanel implements PanelInterface, WorkInterface
             $languages[(string) $language->title] = (string) $language->lang_code;
         }
 
-        $ids   = array_values(array_unique(array_filter(array_map('intval', [...(array) $this->params->get('tags_suggest', []), ...(array) $this->params->get('tags_always', [])]))));
         $query = $db->getQuery(true)->select('id, title')->from($db->quoteName('#__tags'))->where('published = 1')->where('level > 0')->order('lft');
+        $tags  = [];
 
-        if ($ids) {
-            $query->whereIn('id', $ids);
-        }
-
-        $tags = [];
-
-        foreach ($db->setQuery($query, 0, 200)->loadObjectList() as $tag) {
+        foreach ($db->setQuery($query, 0, 2000)->loadObjectList() as $tag) {
             $tags[(string) $tag->title] ??= (int) $tag->id;
         }
 
@@ -552,6 +550,37 @@ final class FaqPanel implements PanelInterface, WorkInterface
             'tags'     => $tags,
             'state'    => $state,
         ];
+    }
+
+    /**
+     * The site's tags as their tree, for finding one to add: each its title and its depth, in the site's order.
+     *
+     * @return  array<int, array{value: string, depth: int}>
+     */
+    private function tree(): array
+    {
+        $db   = Factory::getContainer()->get(DatabaseInterface::class);
+        $rows = $db->setQuery(
+            $db->getQuery(true)->select('title, level')->from($db->quoteName('#__tags'))->where('published = 1')->where('level > 0')->order('lft'),
+            0,
+            2000
+        )->loadObjectList();
+
+        return array_map(static fn ($row) => ['value' => (string) $row->title, 'depth' => max(0, (int) $row->level - 1)], $rows);
+    }
+
+    /**
+     * The tags offered on the card, and for AI to pick from: those set to suggest and to be always on, in the
+     * site's order; with neither set, the site's first 200.
+     *
+     * @return  string[]
+     */
+    private function offered(object $staff): array
+    {
+        $all = $this->options($staff)['tags'];
+        $ids = array_map('intval', [...(array) $this->params->get('tags_suggest', []), ...(array) $this->params->get('tags_always', [])]);
+
+        return $ids ? array_keys(array_intersect($all, $ids)) : \array_slice(array_keys($all), 0, 200);
     }
 
     /**

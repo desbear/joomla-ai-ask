@@ -4740,9 +4740,11 @@
         const picked = new Set(String(values[f.key] || '').split('\n').filter(Boolean));
         const group = el('div', 'askdesk-addon__form-row');
 
-        chips.setAttribute('role', 'group');
-        chips.setAttribute('aria-label', f.label);
-        f.options.forEach((o) => {
+        const choose = () => {
+          values[f.key] = f.options.filter((one) => picked.has(one)).join('\n');
+          keep();
+        };
+        const chipOf = (o) => {
           const chip = button('askdesk-work__chip', o, () => {
             if (picked.has(o)) {
               picked.delete(o);
@@ -4751,13 +4753,177 @@
             }
 
             chip.setAttribute('aria-pressed', String(picked.has(o)));
-            values[f.key] = f.options.filter((one) => picked.has(one)).join('\n');
-            keep();
+            choose();
           });
 
           chip.setAttribute('aria-pressed', String(picked.has(o)));
-          chips.append(chip);
-        });
+
+          return chip;
+        };
+
+        chips.setAttribute('role', 'group');
+        chips.setAttribute('aria-label', f.label);
+        f.options.forEach((o) => chips.append(chipOf(o)));
+
+        // Others to add (0.6.4: the site's tags, a tree, beyond those offered): a + chip opening a picker over
+        // them, searched, to be opened full size; those ticked put among the chips
+        if (f.more && f.more.length) {
+          const add = button('askdesk-work__chip askdesk-work__chip--add', '', () => (pick.hidden ? openPick() : closePick()));
+          const pick = el('div', 'askdesk-tagpick');
+          const top = el('div', 'askdesk-tagpick__top');
+          const input = el('input');
+          const size = button('askdesk-tagpick__size', '', () => (scrim.hidden ? enlarge() : shrink()));
+          const tree = el('div', 'askdesk-tagpick__list');
+          const scrim = el('div', 'askdesk-tagpick-scrim');
+          const spot = el('span');
+          // Each with the titles above it, for telling apart those of the same name when found by searching
+          const stack = [];
+          const all = f.more.map((o) => {
+            stack.length = o.depth;
+            const entry = { value: o.value, depth: o.depth, path: stack.slice().join(' / ') };
+
+            stack[o.depth] = o.value;
+
+            return entry;
+          });
+          const chipFor = new Map();
+          const toggle = (o) => {
+            if (!f.options.includes(o)) {
+              f.options.push(o);
+              picked.add(o);
+              chipFor.set(o, chipOf(o));
+              add.before(chipFor.get(o));
+            } else if (picked.has(o)) {
+              picked.delete(o);
+            } else {
+              picked.add(o);
+            }
+
+            chips.querySelectorAll('.askdesk-work__chip:not(.askdesk-work__chip--add)').forEach((chip) => chip.setAttribute('aria-pressed', String(picked.has(chip.textContent))));
+            choose();
+            paint();
+          };
+          const paint = () => {
+            const words = input.value.trim().toLowerCase();
+            const shown = words ? all.filter((o) => o.value.toLowerCase().includes(words)) : all;
+            const at = tree.scrollTop;
+
+            tree.replaceChildren(...(shown.length ? shown.map((o) => {
+              const row = button(`askdesk-tagpick__row${o.depth === 0 && !words ? ' is-top' : ''}`, '', () => toggle(o.value));
+
+              row.style.paddingInlineStart = `${10 + (words ? 0 : o.depth * 16)}px`;
+              row.setAttribute('aria-pressed', String(picked.has(o.value)));
+              row.append(el('span', 'askdesk-tagpick__mark'), el('span', 'askdesk-tagpick__name', o.value));
+
+              if (words && o.path) {
+                row.append(el('small', '', o.path));
+              }
+
+              return row;
+            }) : [el('p', 'askdesk-panel__hint', t.workTagNone)]));
+            tree.scrollTop = at;
+          };
+          const openPick = () => {
+            add.after(pick);
+            pick.hidden = false;
+            add.setAttribute('aria-expanded', 'true');
+            input.value = '';
+            paint();
+            tree.scrollTop = 0;
+            input.focus();
+          };
+          const closePick = () => {
+            shrink();
+            pick.hidden = true;
+            add.setAttribute('aria-expanded', 'false');
+          };
+          // Full size over the console, the rest blurred behind; back in its place on closing
+          const enlarge = () => {
+            pick.before(spot);
+            scrim.append(pick);
+            root.append(scrim);
+            scrim.hidden = false;
+            pick.classList.add('is-big');
+            size.title = t.workClose;
+            size.replaceChildren(icon('close'));
+            input.focus();
+          };
+          const shrink = () => {
+            if (scrim.hidden) {
+              return;
+            }
+
+            spot.replaceWith(pick);
+            scrim.hidden = true;
+            scrim.remove();
+            pick.classList.remove('is-big');
+            size.title = t.workExpand;
+            size.replaceChildren(icon('expand'));
+            input.focus();
+          };
+
+          add.append(icon('plus'), el('span', '', t.workTagAdd));
+          add.setAttribute('aria-expanded', 'false');
+          pick.hidden = true;
+          scrim.hidden = true;
+          scrim.addEventListener('pointerdown', (event) => {
+            if (event.target === scrim) {
+              shrink();
+            }
+          });
+          input.type = 'search';
+          input.placeholder = t.workTagFind;
+          input.setAttribute('aria-label', t.workTagFind);
+          input.addEventListener('input', () => {
+            tree.scrollTop = 0;
+            paint();
+          });
+          size.title = t.workExpand;
+          size.setAttribute('aria-label', t.workExpand);
+          size.append(icon('expand'));
+          pick.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+              event.stopPropagation();
+
+              if (!scrim.hidden) {
+                shrink();
+              } else {
+                closePick();
+                add.focus();
+              }
+            }
+
+            if (event.key === 'Enter' && event.target === input && !event.isComposing) {
+              event.preventDefault();
+              tree.querySelector('.askdesk-tagpick__row')?.click();
+            }
+          });
+          // A click elsewhere closes it; gone with its card, so is this
+          const outside = (event) => {
+            if (!add.isConnected && !pick.isConnected) {
+              document.removeEventListener('pointerdown', outside);
+
+              return;
+            }
+
+            if (!pick.hidden && scrim.hidden && !pick.contains(event.target) && !add.contains(event.target)) {
+              closePick();
+            }
+          };
+
+          document.addEventListener('pointerdown', outside);
+          top.append(icon('search'), input, size);
+          pick.append(top, tree);
+          chips.append(add);
+          f.options.forEach((o) => {
+            const chip = [...chips.children].find((one) => one.textContent === o);
+
+            if (chip) {
+              chipFor.set(o, chip);
+            }
+          });
+        }
+
         group.append(el('span', 'askdesk-addon__form-label', f.label + (f.required ? ' *' : '')), chips);
         card.append(group);
 
@@ -4994,11 +5160,11 @@
       }
 
       works.forms.filter((form) => form.group === group).forEach((form) => {
-        options.append(workOption(form, () => (form.suggest && form.before ? paintWorkMenu(form) : startWork(form)), form === works.forms[0] && form.first));
+        options.append(workOption(form, () => (form.suggest && form.before ? paintWorkMenu(form) : startWork(form)), form === works.forms.find((one) => one.first)));
       });
     });
     workMenu.replaceChildren(head, options);
-    options.querySelector('button')?.focus();
+    (options.querySelector('.is-first') || options.querySelector('button'))?.focus();
   };
 
   const workOption = (form, pick, first) => {

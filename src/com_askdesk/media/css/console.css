@@ -8084,10 +8084,12 @@ select.askdesk-addon__form-input {
   z-index: 30;
   display: grid;
   gap: 8px;
+  /* Its heading kept, the list under it the one part that scrolls (0.6.4) */
+  grid-template-rows: auto minmax(0, 1fr);
   inline-size: min(400px, 100%);
-  max-block-size: 360px;
+  max-block-size: min(60vh, 460px);
   padding: 12px;
-  overflow-y: auto;
+  overflow: hidden;
   border-radius: var(--askdesk-radius);
   background: var(--askdesk-surface);
   box-shadow:
@@ -8118,8 +8120,11 @@ select.askdesk-addon__form-input {
 
 .askdesk-work-menu__list {
   display: grid;
+  align-content: start;
   gap: 4px;
-  max-block-size: min(60vh, 440px);
+  min-block-size: 0;
+  margin-inline: -4px;
+  padding-inline: 4px;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -9362,6 +9367,176 @@ body:has(.askdesk[data-askdesk]) {
   &:disabled {
     cursor: default;
     opacity: 0.6;
+  }
+}
+
+/* Another to add: a dashed chip, opening a picker over the rest (0.6.4: the site's tags, a tree) */
+.askdesk-work__chips {
+  position: relative;
+}
+
+.askdesk-work__chip--add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-style: dashed;
+
+  .askdesk-icon,
+  svg {
+    inline-size: 14px;
+    block-size: 14px;
+  }
+}
+
+/* Under the chips, room above and below it; full size on asking */
+.askdesk-tagpick {
+  position: absolute;
+  inset-block-start: calc(100% + 6px);
+  inset-inline-start: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  inline-size: min(440px, 100%);
+  block-size: min(50vh, 420px);
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--askdesk-surface);
+  box-shadow:
+    0 0 0 0.5px var(--askdesk-line-strong),
+    0 16px 36px -8px rgba(35, 35, 50, 0.25);
+
+  &[hidden] {
+    display: none;
+  }
+
+  &.is-big {
+    position: static;
+    inline-size: min(760px, 100%);
+    block-size: min(86vh, 100%);
+  }
+}
+
+.askdesk-tagpick__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 14px;
+  border-block-end: 0.5px solid var(--askdesk-line);
+  color: var(--askdesk-faint);
+
+  > input {
+    flex: 1;
+    min-inline-size: 0;
+    padding: 6px 0;
+    border: 0;
+    background: none;
+    color: var(--askdesk-text);
+    font: inherit;
+    font-size: 13.5px;
+    outline: 0;
+  }
+}
+
+.askdesk-tagpick__size {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 30px;
+  block-size: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--askdesk-muted);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--askdesk-canvas);
+    color: var(--askdesk-accent);
+  }
+}
+
+.askdesk-tagpick__list {
+  display: grid;
+  align-content: start;
+  gap: 1px;
+  padding: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+
+  .askdesk-panel__hint {
+    padding: 8px 10px;
+  }
+}
+
+.askdesk-tagpick__row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: start;
+  cursor: pointer;
+
+  &.is-top {
+    margin-block-start: 6px;
+    font-weight: 500;
+  }
+
+  &:first-child {
+    margin-block-start: 0;
+  }
+
+  small {
+    margin-inline-start: auto;
+    color: var(--askdesk-faint);
+    font-size: 11.5px;
+  }
+
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    background: var(--askdesk-canvas);
+  }
+
+  &[aria-pressed="true"] {
+    color: var(--askdesk-accent);
+
+    .askdesk-tagpick__mark {
+      border-color: var(--askdesk-accent);
+      background: var(--askdesk-accent);
+      box-shadow: inset 0 0 0 2px var(--askdesk-surface);
+    }
+  }
+}
+
+.askdesk-tagpick__mark {
+  flex: none;
+  align-self: center;
+  inline-size: 10px;
+  block-size: 10px;
+  border: 1.5px solid var(--askdesk-line-strong);
+  border-radius: 3px;
+}
+
+.askdesk-tagpick-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 210;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: rgba(20, 20, 40, 0.28);
+  backdrop-filter: blur(10px) saturate(1.2);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+
+  &[hidden] {
+    display: none;
   }
 }
 
