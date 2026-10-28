@@ -10,7 +10,7 @@ import { SkeletonCover } from './Skeleton.jsx';
 import { useActive } from './active.js';
 import { Icon } from '../icons.jsx';
 import { fmt, tone, today, ymd, moved, slotAt } from '../kinds.js';
-import { SignIn } from '../api.js';
+import { SignIn, SINCE_PAGE, SINCE_PAGES } from '../api.js';
 
 const WIDTH = { text: 190, number: 112, date: 118, select: 120, multi: 170 };
 const SEL = 40;
@@ -325,18 +325,41 @@ export const Grid = ({ widget, fields, allFields, actions = [], active = true, a
     try {
       // A little before the last look: the source's clock and this desk's may differ
       const since = new Date(Date.parse(checkAt.current) - 90000).toISOString().replace(/\.\d{3}Z$/, 'Z');
-      const got = await api.since({ source: widget.source, template: widget.template, query: words, mine, range, since });
+      const ask = { source: widget.source, template: widget.template, query: words, mine, range, since };
+      const got = await api.since(ask);
+      const rows = [...(got.rows || [])];
+      let page = 1;
+
+      // Every page of what changed before looking from a later moment: none is skipped
+      // (A source that can answers only what changed and says so; one that cannot, its first page as usual)
+      const all = got.since ? got.total || 0 : rows.length;
+
+      while (rows.length < all && page < SINCE_PAGES) {
+        page += 1;
+
+        const more = await api.since({ ...ask, page });
+
+        rows.push(...(more.rows || []));
+
+        if ((more.rows || []).length < SINCE_PAGE) break;
+      }
+
+      // More changed than is read this way: the table is read again from its first page
+      if (rows.length < all) {
+        load(1);
+        return;
+      }
 
       if (got.now) checkAt.current = got.now;
 
-      merge(got.rows || [], Boolean(got.since) && range === 'all');
+      merge(rows, Boolean(got.since) && range === 'all');
       every.current = CHECK_EVERY;
     } catch (error) {
       every.current = Math.min(5 * 60 * 1000, every.current * 2);
     } finally {
       checking.current = false;
     }
-  }, [api, widget.source, widget.template, words, mine, range]);
+  }, [api, widget.source, widget.template, words, mine, range, load]);
 
   useEffect(() => {
     let timer = 0;

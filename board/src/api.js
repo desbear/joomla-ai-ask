@@ -12,6 +12,9 @@ export class SignIn extends Error {
 const GAP = 380;
 // Records read for a chart or a number: up to this many pages of 100
 export const PAGES_FOR_SUMS = 5;
+// Rows changed since a moment: a page of this many, and at most so many pages (more: the table is read again)
+export const SINCE_PAGE = 50;
+export const SINCE_PAGES = 10;
 
 export const makeApi = (config) => {
   const post = async (url, body) => {
@@ -62,13 +65,13 @@ export const makeApi = (config) => {
     save: (widgets) => post(config.urls.boardSave, { widgets }),
     // A Super User's board, as the dashboard template for everyone
     saveTemplate: (widgets) => post(config.urls.boardTemplate, { widgets }),
-    templates: (source, query = '', page = 1) => post(config.urls.sourceTemplates, { source, query, page }),
+    templates: (source, query = '', page = 1) => queued(() => post(config.urls.sourceTemplates, { source, query, page })),
 
     fields(source, template) {
       const key = `${source}:${template}`;
 
       if (!fields.has(key)) {
-        const asked = post(config.urls.sourceFields, { source, template });
+        const asked = queued(() => post(config.urls.sourceFields, { source, template }));
 
         asked.catch(() => fields.delete(key));
         fields.set(key, asked);
@@ -130,15 +133,16 @@ export const makeApi = (config) => {
 
     allNow: ({ source, template, query = '', mine = 'all', range = 'all' }) => came.get(`a:${JSON.stringify([source, template, query, mine, range])}`) || null,
 
-    update: (body) => post(config.urls.sourceUpdate, body),
+    // Changes to a record go through the queue too: the source's limit counts every request
+    update: (body) => queued(() => post(config.urls.sourceUpdate, body)),
     // A record deleted, for good (0.6.1; a source that can)
-    remove: (body) => post(config.urls.sourceDelete, body),
+    remove: (body) => queued(() => post(config.urls.sourceDelete, body)),
     // Something a source offers to do to a record (0.6.2: the desk's cases closed)
-    act: (body) => post(config.urls.sourceAct, body),
+    act: (body) => queued(() => post(config.urls.sourceAct, body)),
     // Which records others changed from the dashboard since a point (0.6.2)
     changes: (body) => (config.urls.sourceChanges ? post(config.urls.sourceChanges, body) : Promise.resolve({ changes: [], last: 0 })),
-    // The rows changed since a moment (a table checking for others' changes): not queued behind the rest
-    since: ({ source, template, query = '', mine = 'all', range = 'all', since }) => post(config.urls.sourceRows, { source, template, page: 1, size: 50, query, since, ...whose(mine), ...rangeDays(range) }),
+    // The rows changed since a moment (a table checking for others' changes), a page of them
+    since: ({ source, template, query = '', mine = 'all', range = 'all', since, page = 1 }) => queued(() => post(config.urls.sourceRows, { source, template, page, size: SINCE_PAGE, query, since, ...whose(mine), ...rangeDays(range) })),
 
     // What was fetched for a template is old: fetched again when next asked
     forget(source, template) {

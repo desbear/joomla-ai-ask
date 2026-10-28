@@ -10,8 +10,8 @@
 
 namespace Gss\Component\Askdesk\Administrator\Desk;
 
+use Gss\Component\Mcpask\Administrator\Ask\WebClient;
 use Joomla\CMS\Factory;
-use Joomla\CMS\Http\HttpFactory;
 use Joomla\CMS\Language\Language;
 use Joomla\CMS\Language\LanguageHelper;
 use Joomla\CMS\Router\Route;
@@ -68,6 +68,11 @@ final class Push
     {
         if (!preg_match('#^https://[^\s"<>]+$#', $endpoint) || \strlen(self::unb64($p256dh)) !== 65 || \strlen(self::unb64($auth)) !== 16) {
             throw new \InvalidArgumentException('Not a push subscription');
+        }
+
+        // A push service is on the public internet: never an address of this server's own network
+        if (self::target($endpoint) === null) {
+            throw new \InvalidArgumentException('Not a push service');
         }
 
         $db   = $this->db;
@@ -316,22 +321,48 @@ final class Push
         $parts    = parse_url($endpoint);
         $audience = $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
 
-        try {
-            $response = HttpFactory::getHttp()->post($endpoint, $body, [
-                'Content-Type'     => 'application/octet-stream',
-                'Content-Encoding' => 'aes128gcm',
-                'TTL'              => '86400',
-                'Urgency'          => 'high',
-                'Topic'            => substr(preg_replace('/[^A-Za-z0-9_-]/', '', $words['tag']), 0, 32),
-                'Authorization'    => 'vapid t=' . $this->jwt($audience, $keys) . ', k=' . $keys['public'],
-            ], 10);
-        } catch (\Throwable) {
+        // Checked again now and pinned: the name may lead elsewhere than when it was subscribed
+        $pin = self::target($endpoint);
+
+        if ($pin === null) {
+            $this->failed($subscription, true);
+
+            return false;
+        }
+
+        $curl = curl_init($endpoint);
+
+        curl_setopt_array($curl, [
+            CURLOPT_RESOLVE        => [$pin],
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $body,
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/octet-stream',
+                'Content-Encoding: aes128gcm',
+                'TTL: 86400',
+                'Urgency: high',
+                'Topic: ' . substr(preg_replace('/[^A-Za-z0-9_-]/', '', $words['tag']), 0, 32),
+                'Authorization: vapid t=' . $this->jwt($audience, $keys) . ', k=' . $keys['public'],
+            ],
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT        => 10,
+            CURLOPT_FOLLOWLOCATION => false,
+            CURLOPT_PROTOCOLS      => CURLPROTO_HTTPS,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+            CURLOPT_RETURNTRANSFER => true,
+        ]);
+
+        $sent = curl_exec($curl) !== false;
+        $code = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+
+        if (!$sent) {
             $this->failed($subscription, false);
 
             return false;
         }
 
-        if ($response->code >= 200 && $response->code < 300) {
+        if ($code >= 200 && $code < 300) {
             $this->db->setQuery(
                 $this->db->getQuery(true)->update($this->db->quoteName(self::SUBSCRIPTIONS))
                     ->set(['failures = 0', 'last_sent = ' . $this->db->quote(Factory::getDate()->toSql())])
@@ -342,9 +373,24 @@ final class Push
         }
 
         // Gone (404, 410), or no longer accepted with these keys (403): let go
-        $this->failed($subscription, \in_array($response->code, [403, 404, 410], true));
+        $this->failed($subscription, \in_array($code, [403, 404, 410], true));
 
         return false;
+    }
+
+    /**
+     * Where a push service's address leads, checked and pinned (a CURLOPT_RESOLVE entry): public
+     * addresses only, on port 443. Null when it may not be sent to.
+     */
+    private static function target(string $endpoint): ?string
+    {
+        $port = parse_url($endpoint, PHP_URL_PORT);
+
+        if (($port !== null && $port !== 443) || !class_exists(WebClient::class)) {
+            return null;
+        }
+
+        return WebClient::target($endpoint);
     }
 
     private function failed(object $subscription, bool $gone): void

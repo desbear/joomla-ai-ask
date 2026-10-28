@@ -13,6 +13,7 @@ namespace Gss\Component\Askdesk\Administrator\Desk;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Language;
 use Joomla\CMS\Language\LanguageHelper;
+use Joomla\CMS\User\User;
 use Joomla\Database\DatabaseInterface;
 use Joomla\Database\ParameterType;
 
@@ -144,15 +145,68 @@ final class Alerts
             0,
             30
         )->loadObjectList();
-        $to = $this->recipients();
+        $groups = $this->remindGroups($rows);
 
-        if (!$rows || !$to) {
+        if (!$rows || !$groups) {
             return;
         }
 
         // Noted first: two requests at once do not both tell
         $this->mark(array_map(static fn ($row) => (int) $row->id, $rows), 'reminded');
 
+        foreach ($groups as [$to, $theirs]) {
+            $this->remindOf($to, $theirs, $hours);
+        }
+    }
+
+    /**
+     * Who is reminded of what: everyone of all, unless others' chats are not to be seen (as set),
+     * when each person answering is told only of theirs and no one's.
+     *
+     * @param   object[]  $rows
+     *
+     * @return  array<int, array{0: string[], 1: object[]}>
+     */
+    private function remindGroups(array $rows): array
+    {
+        $to = $this->recipients();
+
+        if (!$to || $this->settings->seeOthers() || $this->settings->alertAddresses()) {
+            return $to ? [[$to, $rows]] : [];
+        }
+
+        $db     = $this->db;
+        $people = $db->setQuery(
+            $db->getQuery(true)->select('u.id, u.email')->from($db->quoteName('#__askdesk_staff', 's'))
+                ->join('INNER', $db->quoteName('#__users', 'u'), 'u.id = s.user_id')
+                ->where('s.active = 1')->where('u.block = 0')
+        )->loadObjectList();
+        $groups = [];
+
+        foreach ($people as $person) {
+            if (!filter_var($person->email, FILTER_VALIDATE_EMAIL)) {
+                continue;
+            }
+
+            $id     = (int) $person->id;
+            $theirs = $this->settings->keptToOwn(User::getInstance($id))
+                ? array_values(array_filter($rows, static fn ($row) => \in_array((int) $row->staff_id, [0, $id], true)))
+                : $rows;
+
+            if ($theirs) {
+                $groups[] = [[(string) $person->email], $theirs];
+            }
+        }
+
+        return $groups;
+    }
+
+    /**
+     * @param  string[]  $to
+     * @param  object[]  $rows
+     */
+    private function remindOf(array $to, array $rows, int $hours): void
+    {
         $words = $this->language();
         $site  = (string) Factory::getApplication()->get('sitename');
         $body  = [sprintf($words->_('COM_ASKDESK_ALERT_REMIND_LEAD'), \count($rows), $hours), ''];

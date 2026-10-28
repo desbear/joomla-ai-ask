@@ -113,9 +113,7 @@ final class Files
      */
     public function keep(object $room, string $author, int $staffId, string $path, string $name, Rooms $rooms, bool $uploaded = false): array
     {
-        if (!\in_array($room->status, ['waiting', 'active'], true)) {
-            throw new \RuntimeException(Text::_('COM_ASKDESK_CHAT_CLOSED'));
-        }
+        $rooms->mayAddFile($room, $author);
 
         [$name, $extension, $kind, $size] = self::check($path, $name);
 
@@ -140,7 +138,16 @@ final class Files
         ];
 
         $this->db->insertObject('#__askdesk_files', $row, 'id');
-        $rooms->addFile($room, $author, $staffId, (int) $row->id, $name);
+
+        try {
+            $rooms->addFile($room, $author, $staffId, (int) $row->id, $name);
+        } catch (\Throwable $e) {
+            // Turned away after all (another message came first): nothing of it is kept
+            $this->db->setQuery($this->db->getQuery(true)->delete($this->db->quoteName('#__askdesk_files'))->where('id = ' . (int) $row->id))->execute();
+            @unlink(self::folder() . '/' . $stored);
+
+            throw $e;
+        }
 
         return self::shown($row);
     }

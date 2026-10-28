@@ -26,6 +26,18 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
   the card's box, which left the whole view, cut to the card, behind it for a moment. What its card already showed
   (its records, a table's first page) is drawn at once when it opens, while it is fetched afresh, rather than a
   skeleton first.
+- **Fixed**: a browser's push subscription could name any `https://` address, the server's own network included;
+  only push services on the public internet, on port 443, are accepted, checked again and pinned when each
+  notification is sent.
+- **Fixed**: a file sent in a chat did not count towards the room's messages (400) or a visitor's per minute; it is
+  turned away before it is kept, and nothing of it is left when refused.
+- **Fixed**: with *See others' chats* off, the reminder of what is still unhandled went to everyone answering with
+  all of it, others' visitors and their words included; each is now told only of their own and no one's (those who
+  may see all cases, of all). The signed-in visitor's earlier chats shown beside a chat follow the same rule.
+- **Fixed**: the dashboard asked sources for fields, templates, changes to records and others' changes outside its
+  queue (one request at a time, a little apart); all of it goes through it now. A table looking for others' changes
+  read only the first 50 and moved on, missing the rest; it reads every page (up to 500, else the table is read
+  again) before looking from a later moment.
 - New: `#__askdesk_mails` (update 0.6.3).
 
 ## AI Ask Desk 0.6.2

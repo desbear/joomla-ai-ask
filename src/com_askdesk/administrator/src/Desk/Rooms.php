@@ -1398,16 +1398,19 @@ final class Rooms
             return ['member' => false, 'chats' => [], 'questions' => []];
         }
 
-        $db   = $this->db;
-        $rows = $db->setQuery(
-            $db->getQuery(true)->select('r.id, r.status, r.staff_id, r.created, r.visitor_language, (SELECT COUNT(*) FROM ' . $db->quoteName('#__askdesk_messages') . ' m WHERE m.room_id = r.id AND m.author <> ' . $db->quote('system') . ') AS messages')
-                ->from($db->quoteName('#__askdesk_rooms', 'r'))
-                ->where('r.user_id = :user')->where('r.id <> :room')
-                ->bind(':user', $user, ParameterType::INTEGER)->bind(':room', $room->id, ParameterType::INTEGER)
-                ->order('r.id DESC'),
-            0,
-            20
-        )->loadObjectList();
+        $db    = $this->db;
+        $query = $db->getQuery(true)->select('r.id, r.status, r.staff_id, r.created, r.visitor_language, (SELECT COUNT(*) FROM ' . $db->quoteName('#__askdesk_messages') . ' m WHERE m.room_id = r.id AND m.author <> ' . $db->quote('system') . ') AS messages')
+            ->from($db->quoteName('#__askdesk_rooms', 'r'))
+            ->where('r.user_id = :user')->where('r.id <> :room')
+            ->bind(':user', $user, ParameterType::INTEGER)->bind(':room', $room->id, ParameterType::INTEGER)
+            ->order('r.id DESC');
+
+        // Others' chats not to be seen (as set): of theirs, only this person's and no one's
+        if ($this->only) {
+            $query->where('r.staff_id IN (0, ' . (int) $this->only . ')');
+        }
+
+        $rows = $db->setQuery($query, 0, 20)->loadObjectList();
 
         $first = [];
 
@@ -1903,11 +1906,26 @@ final class Rooms
      */
     public function addFile(object $room, string $author, int $staffId, int $fileId, string $name): int
     {
+        $this->mayAddFile($room, $author);
+
+        return $this->add($room, $author, $staffId, $name, '', '', '', $fileId);
+    }
+
+    /**
+     * Whether a file may be sent in a room now: asked before it is kept, so a room at its limit
+     * fills no disk. A visitor's counts towards the room's messages, as words and stickers do.
+     *
+     * @throws  \RuntimeException
+     */
+    public function mayAddFile(object $room, string $author): void
+    {
         if (!\in_array($room->status, ['waiting', 'active'], true)) {
             throw new \RuntimeException(Text::_('COM_ASKDESK_CHAT_CLOSED'));
         }
 
-        return $this->add($room, $author, $staffId, $name, '', '', '', $fileId);
+        if ($author === 'visitor') {
+            $this->allowed($room);
+        }
     }
 
     /**
