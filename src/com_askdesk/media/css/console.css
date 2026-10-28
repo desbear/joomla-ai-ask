@@ -7986,7 +7986,8 @@ select.askdesk-addon__form-input {
 }
 
 @media (prefers-color-scheme: dark) {
-  .askdesk-msg--work {
+  .askdesk-msg--work,
+  .askdesk-shred {
     --askdesk-work-bg: rgba(214, 178, 94, 0.1);
     --askdesk-work-line: rgba(214, 178, 94, 0.25);
     --askdesk-work-ink: #e2c27a;
@@ -9585,3 +9586,78 @@ body:has(.askdesk[data-askdesk]) {
     }
   }
 }
+
+/* A card shredded (0.6.4): over the console, nothing to point at; the paper fed in above the bar's top, out
+   below it in strips */
+.askdesk-shred {
+  --askdesk-work-bg: #fbf6e9;
+  --askdesk-work-line: #eadfbf;
+  --askdesk-work-ink: #8a6a1f;
+
+  position: fixed;
+  inset: 0;
+  z-index: 220;
+  pointer-events: none;
+}
+
+.askdesk-shred__mouth {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  overflow: hidden;
+  /* The paper fading as it goes in, no edge cut across it */
+  /* Its foot a little shaded as it goes into the slot */
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 8px), rgba(0, 0, 0, 0.55));
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 8px), rgba(0, 0, 0, 0.55));
+}
+
+.askdesk-shred__bar {
+  position: absolute;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: #3b3b46;
+  box-shadow: 0 8px 22px -6px rgba(10, 10, 20, 0.45);
+}
+
+/* The slot, sunk in the top: dark, its ends rounded, shaded from its back edge */
+.askdesk-shred__hole {
+  position: absolute;
+  inset-block-start: 4px;
+  inset-inline: 7%;
+  block-size: 4px;
+  border-radius: 999px;
+  background: #07070b;
+  box-shadow: inset 0 1.5px 1.5px rgba(0, 0, 0, 0.8);
+}
+
+/* The front: the block's side toward one, darker, lit a little along its top */
+.askdesk-shred__face {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline: 0;
+  block-size: 10px;
+  background: linear-gradient(to bottom, #2a2a33, #18181f);
+  box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.12);
+}
+
+.askdesk-shred__strip {
+  position: absolute;
+  block-size: 0;
+  transform-origin: top center;
+  border-radius: 0 0 1.5px 1.5px;
+  /* Coming out of the bar faint, solid further down */
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--askdesk-work-bg) 40%, transparent), var(--askdesk-work-bg) 14px);
+  box-shadow: inset 0.5px 0 0 var(--askdesk-work-line), inset -0.5px 0 0 var(--askdesk-work-line);
+}
+
+/* The slot's front edge: a fine light line along the bar's top, its ends tapering and fading away */
+.askdesk-shred__lip {
+  position: absolute;
+  block-size: 1px;
+  border-radius: 999px;
+  background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.75) 18%, rgba(255, 255, 255, 0.9) 50%, rgba(255, 255, 255, 0.75) 82%, transparent);
+  /* A soft shadow under it, on the paper going in */
+  box-shadow: 0 1.5px 3px -0.5px rgba(10, 10, 20, 0.35);
+  opacity: 0;
+}
+

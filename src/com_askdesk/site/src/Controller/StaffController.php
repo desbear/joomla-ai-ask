@@ -868,6 +868,22 @@ class StaffController extends BaseController
     }
 
     /**
+     * A record's page of the source's own, for a frame ({source, template, row}; row '' for a new one, 0.6.5).
+     * What it sends the page to start may carry the person's sign-in there: answered not to be kept (no-store).
+     */
+    public function sourceEmbed(): void
+    {
+        [, , $me, $body] = $this->check();
+
+        $this->fromSource($body, fn ($source) => \Gss\Component\Askdesk\Administrator\Desk\Sources::embed(
+            $source,
+            $me,
+            $this->templateOf($body),
+            \is_scalar($body['row'] ?? null) ? mb_substr((string) $body['row'], 0, 100) : ''
+        ));
+    }
+
+    /**
      * What a source answers, or why it can't: sign in first ({signin: where}), or what went wrong.
      */
     private function fromSource(array $body, callable $work): never

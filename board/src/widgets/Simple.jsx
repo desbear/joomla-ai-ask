@@ -9,7 +9,7 @@ Chart.register(...registerables);
 
 const cssVar = (el, name) => getComputedStyle(el).getPropertyValue(name).trim();
 
-export const NumberW = ({ fields, data, ctx }) => {
+export const NumberW = ({ widget, fields, data, ctx }) => {
   const { t, lang } = ctx;
   const p = parts(fields);
   const done = doneOf(p.select);
@@ -34,7 +34,7 @@ export const NumberW = ({ fields, data, ctx }) => {
   }
 
   return (
-    <div className="adb-num">
+    <div className={`adb-num is-${(widget && widget.look && widget.look.size) || 'm'}`}>
       <b>{p.num ? short(value, lang, t) : value.toLocaleString(lang)}</b>
       <span>{p.num ? t('sumOf', p.num.label) : t('count')}{done ? t('without', done) : ''}</span>
       {delta}

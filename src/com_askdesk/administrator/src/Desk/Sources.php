@@ -149,7 +149,46 @@ final class Sources
             }
         }
 
-        return ['id' => self::text($got['id'] ?? $template, 100), 'name' => self::text($got['name'] ?? '', 200), 'fields' => $fields, 'actions' => $actions];
+        // Its own page of a record, in a frame (0.6.5: a source with embed())
+        $embed = method_exists($source, 'embed') && \is_array($got['embed'] ?? null)
+            ? ['view' => !empty($got['embed']['view']), 'create' => !empty($got['embed']['create'])]
+            : ['view' => false, 'create' => false];
+
+        return ['id' => self::text($got['id'] ?? $template, 100), 'name' => self::text($got['name'] ?? '', 200), 'fields' => $fields, 'actions' => $actions, 'embed' => $embed];
+    }
+
+    /**
+     * A record's page of the source's own, for a frame (0.6.5): {url, origin, hello, done, cancel}; the address
+     * only an https one, the messages' names plain words.
+     *
+     * @return  array{url: string, origin: string, hello: ?array{wait: string, send: array<string, mixed>}, done: string[], cancel: string[]}
+     */
+    public static function embed(SourceInterface $source, object $staff, string $template, string $row): array
+    {
+        if (!method_exists($source, 'embed')) {
+            throw new \RuntimeException('Not shown here', 404);
+        }
+
+        $got  = (array) $source->embed($staff, $template, $row);
+        $url  = \is_string($got['url'] ?? null) ? trim($got['url']) : '';
+        $part = parse_url($url);
+
+        if (!preg_match('#^https://#i', $url) || empty($part['host'])) {
+            throw new \RuntimeException('No address to show', 404);
+        }
+
+        $names = static fn ($list) => \array_slice(array_values(array_filter((array) $list, static fn ($n) => \is_string($n) && preg_match('/^[A-Za-z][A-Za-z0-9_.:-]{0,59}$/', $n))), 0, 20);
+        $hello = \is_array($got['hello'] ?? null) && \is_array($got['hello']['send'] ?? null) && $names([$got['hello']['wait'] ?? null])
+            ? ['wait' => (string) $got['hello']['wait'], 'send' => $got['hello']['send']]
+            : null;
+
+        return [
+            'url'    => $url,
+            'origin' => 'https://' . strtolower($part['host']) . (isset($part['port']) ? ':' . (int) $part['port'] : ''),
+            'hello'  => $hello,
+            'done'   => $names($got['done'] ?? []),
+            'cancel' => $names($got['cancel'] ?? []),
+        ];
     }
 
     /**

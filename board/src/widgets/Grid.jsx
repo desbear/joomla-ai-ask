@@ -191,7 +191,7 @@ const TextCell = ({ field, value, onCommit, lang, t }) => {
 };
 
 // ---------- The table ----------
-export const Grid = ({ widget, fields, allFields, actions = [], active = true, api, ctx, full, query, mine, range, onWidget, onOpenRow, openId, onAll }) => {
+export const Grid = ({ widget, fields, allFields, actions = [], active = true, api, ctx, full, query, mine, range, onWidget, onOpenRow, openId, onAll, onCreate, fresh = 0 }) => {
   // A chat of the desk's own (its cases) opens in the console; a record of a form, in the side card
   const openRow = (row, sorted) => (row.room && ctx.openRoom ? ctx.openRoom(row.room) : onOpenRow(row, sorted));
   const { t, lang, toast } = ctx;
@@ -256,6 +256,13 @@ export const Grid = ({ widget, fields, allFields, actions = [], active = true, a
     setRows((lastPage(words) || {}).rows || []);
     load(1);
   }, [load]);
+
+  // A record saved in its source's own page (0.6.5): the first page read again, the rows kept meanwhile
+  useEffect(() => {
+    if (!fresh) return;
+    asked.current += 1;
+    load(1);
+  }, [fresh]);
 
   // ---------- Others' changes, as they come (0.6.2) ----------
   // Records others changed: read again (as this person) and drawn as they are now, the cells that changed flashing;
@@ -843,6 +850,7 @@ export const Grid = ({ widget, fields, allFields, actions = [], active = true, a
       <span className="adb-sp" />
       <button type="button" className="adb-pill" onClick={(e) => setMenu({ kind: 'freeze', anchor: e.currentTarget })}><Icon name="pin" />{t('freezeShort', freeze)}<Icon name="chev" className="adb-chev" /></button>
       <button type="button" className="adb-pill" onClick={(e) => setMenu({ kind: 'cols', anchor: e.currentTarget })}>{t('columns')}<Icon name="chev" className="adb-chev" /></button>
+      {onCreate ? <button type="button" className="adb-btn adb-btn--main adb-dt__new" onClick={onCreate}><Icon name="plus" />{t('newRecord')}</button> : null}
     </div>
   ) : null;
 

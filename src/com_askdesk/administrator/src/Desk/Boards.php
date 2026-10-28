@@ -236,6 +236,11 @@ final class Boards
                 'h'        => min(40, max(1, (int) ($widget['h'] ?? 4))),
                 'freeze'   => min(5, max(0, (int) ($widget['freeze'] ?? 1))),
                 'cols'     => $cols,
+                // A number's look (0.6.5): its card's colour (#rrggbb, or none) and its figure's size
+                'look'     => [
+                    'bg'   => \is_string($widget['look']['bg'] ?? null) && preg_match('/^#[0-9a-f]{6}$/i', $widget['look']['bg']) ? strtolower($widget['look']['bg']) : '',
+                    'size' => \in_array($widget['look']['size'] ?? '', ['s', 'm', 'l', 'xl'], true) ? $widget['look']['size'] : 'm',
+                ],
                 // Of the dashboard template (0.6.0): kept by everyone, its content the template's
                 'tpl'      => !empty($widget['tpl']),
                 // Named by this person (0.6.1): a template widget keeps the name they gave it

@@ -204,3 +204,35 @@ export const settle = (list, fixedId) => {
 };
 
 export const bottom = (list) => list.reduce((m, w) => Math.max(m, w.y + w.h), 0);
+
+// ---------- A number widget's look (0.6.5): its card's colour, and its text white or black, whichever stands out
+// more against it (WCAG contrast); its figure's size ----------
+export const LOOK_COLORS = ['#1e6ff0', '#7c3aed', '#0f9d58', '#f59e0b', '#e11d48', '#0f172a', '#eaf3ff', '#fff1e0'];
+export const LOOK_SIZES = ['s', 'm', 'l', 'xl'];
+
+const luminance = (hex) => {
+  const n = parseInt(hex.slice(1), 16);
+  const lin = (c) => { const v = c / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+
+  return 0.2126 * lin(n >> 16) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+};
+
+export const inkOn = (bg) => {
+  if (!/^#[0-9a-f]{6}$/i.test(bg || '')) return null;
+
+  const dark = '#141824';
+  const l = luminance(bg);
+  const white = 1.05 / (l + 0.05);
+  const black = (l + 0.05) / (luminance(dark) + 0.05);
+
+  return white >= black ? { fg: '#ffffff', muted: 'rgba(255, 255, 255, .78)' } : { fg: dark, muted: 'rgba(20, 24, 36, .66)' };
+};
+
+// The card's style for its colour; nothing when it has none (or is not a number)
+export const lookStyle = (widget) => {
+  const bg = widget.kind === 'number' && widget.look ? widget.look.bg : '';
+  const ink = inkOn(bg);
+
+  return ink ? { background: bg, color: ink.fg, borderColor: 'transparent', '--adb-fg': ink.fg, '--adb-muted': ink.muted } : undefined;
+};
+

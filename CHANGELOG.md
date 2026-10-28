@@ -2,6 +2,32 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.6.5
+
+- **A record's own page, in the dashboard** (a source that offers it, `SourceInterface`'s `embed()`): a record opened
+  from a table shows, first, its system's own page of it in a tab of the side card, the summary of its fields in the
+  tab beside it; a source that does not (or is not set up to) shows the summary alone, as before. With it, the side
+  card stands over the whole dashboard, its top too, about half as wide; its left edge dragged makes it wider or
+  narrower (kept for next time, a double-click going back), and it can be lifted off into a window of its own,
+  moved by its top and sized by its corner, and put back.
+- **New form** in a table's toolbar (a source that offers it): the system's own page of a new record, filled in a
+  window over the table. A click beside it does not close it, nor Escape at once: closing asks first, as what is not
+  sent would be lost; sent, it closes by itself and the table is read again. The page is started as the source says
+  (`embed()`'s `hello`: what it waits to be told, sent to its own origin only), and what it says back closes or
+  refreshes (`done`, `cancel`); a page that never says it is ready (its system not letting this site show it, say) is
+  told as such, with a way to try again.
+- **A widget opened** covers the whole dashboard, its bar of search, people, adding and time too; the overview at
+  the bottom right is away meanwhile, and nothing calls it up.
+- **A number's look**: a number widget's settings give its card a colour (a few at hand, or any) and its figure a
+  size (S, M, L, XL); its text turns white or black by itself, whichever stands out more against the colour (WCAG
+  contrast). Its figure and words are centred.
+- **Moving, not jumping** (the console): the + menu grows from its skeleton to its list, a new card from its dots
+  to its form; a card opened large grows from its place in the chat and goes back into it on closing, the blur
+  fading with it; the tags' picker drops down from its chip, and grows to full size and back. A card dropped
+  (不填了) is shredded: the box to write in becomes a shredder seen a little from above (its top with a slot sunk
+  in it, a fine light line along the slot's front edge, its darker front), the card fed into the slot at a shredder's pace (about two seconds, the block humming) and coming out as fine strips that spring a little before falling away, and the box comes back as it was, the chat closing up where the card was. Without motion (the
+  system set so), it simply goes.
+
 ## AI Ask Desk 0.6.4
 
 - **A chat turned into a FAQ** (*AI Ask Desk - FAQ*, a new plugin of the package, off until switched on): in the

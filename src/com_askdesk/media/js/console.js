@@ -244,6 +244,47 @@
     return node;
   };
 
+  // Its height eased from what it was to what it is now (0.6.4: a list come in after its skeleton, a card
+  // after its dots); what does not fit yet hidden meanwhile
+  const ease = (node, from) => {
+    if (reduced.matches || !node || !node.animate || !node.isConnected) {
+      return;
+    }
+
+    const to = node.getBoundingClientRect().height;
+
+    if (Math.abs(to - from) < 2) {
+      return;
+    }
+
+    const overflow = node.style.overflow;
+
+    node.style.overflow = 'hidden';
+    node.animate([{ height: `${from}px` }, { height: `${to}px` }], { duration: 320, easing: EASE }).finished.then(
+      () => { node.style.overflow = overflow; },
+      () => { node.style.overflow = overflow; },
+    );
+  };
+
+  // From one box to another (0.6.4): drawn where it is now, eased from where it was (a card opened large
+  // from its place in the chat, say)
+  const flip = (node, from, duration = 340) => {
+    if (reduced.matches || !node || !node.animate || !from || !from.width) {
+      return null;
+    }
+
+    const to = node.getBoundingClientRect();
+
+    if (!to.width || !to.height) {
+      return null;
+    }
+
+    return node.animate([
+      { transformOrigin: 'top left', transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width}, ${from.height / to.height})`, opacity: 0.6 },
+      { transformOrigin: 'top left', transform: 'none', opacity: 1 },
+    ], { duration, easing: EASE });
+  };
+
   // One text for another (the original, the translation) in the same bubble: the bubble eases to
   // its new size while the new words fade in
   const swap = (box, before, after) => {
@@ -4619,37 +4660,73 @@
       }
     });
 
+    // The card's place in the chat, where it grows from and goes back to
+    const placeOf = (id) => list.querySelector(`:scope > [data-work="${id}"] .askdesk-work`)?.getBoundingClientRect();
+    let leaving = null;
+
     self.show = (item) => {
+      if (leaving) {
+        leaving.finish();
+      }
+
       const first = scrim.hidden;
+      const from = first ? placeOf(item.id) : null;
 
       self.id = item.id;
       sheet.replaceChildren(paintWork(item, true));
       scrim.hidden = false;
 
       if (first) {
-        rise(sheet);
+        if (!flip(sheet, from, 360)) {
+          rise(sheet);
+        }
+
+        if (!reduced.matches) {
+          scrim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: EASE });
+        }
+
         sheet.querySelector('.askdesk-work__note textarea, input, select, textarea')?.focus();
       }
     };
 
     self.close = () => {
-      if (scrim.hidden) {
+      if (scrim.hidden || leaving) {
         return;
       }
 
       const id = self.id;
+      const done = () => {
+        leaving = null;
+        scrim.hidden = true;
+        sheet.replaceChildren();
 
-      scrim.hidden = true;
+        // The card in the chat with what was written in the large one
+        const work = works.items && works.items.get(id);
+        const inList = list.querySelector(`:scope > [data-work="${id}"]`);
+
+        if (work && inList) {
+          inList.replaceWith(paintWork(work));
+        }
+      };
+
       self.id = 0;
-      sheet.replaceChildren();
 
-      // The card in the chat with what was written in the large one
-      const work = works.items && works.items.get(id);
-      const inList = list.querySelector(`:scope > [data-work="${id}"]`);
+      // Back into its place in the chat, the blur fading with it
+      const to = placeOf(id);
+      const from = sheet.getBoundingClientRect();
 
-      if (work && inList) {
-        inList.replaceWith(paintWork(work));
+      if (reduced.matches || !to || !to.width) {
+        done();
+
+        return;
       }
+
+      sheet.animate([
+        { transformOrigin: 'top left', transform: 'none', opacity: 1 },
+        { transformOrigin: 'top left', transform: `translate(${to.left - from.left}px, ${to.top - from.top}px) scale(${to.width / from.width}, ${to.height / from.height})`, opacity: 0.4 },
+      ], { duration: 280, easing: EASE });
+      leaving = scrim.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 280, easing: EASE });
+      leaving.finished.then(done, done);
     };
 
     return self;
@@ -4823,6 +4900,7 @@
             }) : [el('p', 'askdesk-panel__hint', t.workTagNone)]));
             tree.scrollTop = at;
           };
+          // Dropping down from the chip, fading in; back up on closing
           const openPick = () => {
             add.after(pick);
             pick.hidden = false;
@@ -4831,14 +4909,34 @@
             paint();
             tree.scrollTop = 0;
             input.focus();
+
+            if (!reduced.matches) {
+              pick.animate([{ opacity: 0, clipPath: 'inset(0 0 100% 0 round 14px)', transform: 'translateY(-4px)' }, { opacity: 1, clipPath: 'inset(0 0 0 0 round 14px)', transform: 'none' }], { duration: 260, easing: EASE });
+            }
           };
           const closePick = () => {
-            shrink();
-            pick.hidden = true;
+            if (!scrim.hidden) {
+              shrink(true);
+            }
+
             add.setAttribute('aria-expanded', 'false');
+
+            if (reduced.matches || pick.hidden) {
+              pick.hidden = true;
+
+              return;
+            }
+
+            pick.animate([{ opacity: 1, clipPath: 'inset(0 0 0 0 round 14px)' }, { opacity: 0, clipPath: 'inset(0 0 100% 0 round 14px)' }], { duration: 180, easing: EASE }).finished.then(
+              () => { pick.hidden = add.getAttribute('aria-expanded') !== 'true'; },
+              () => {},
+            );
           };
           // Full size over the console, the rest blurred behind; back in its place on closing
+          // Grown from where it was to full size, the blur fading in; back down to its place likewise
           const enlarge = () => {
+            const from = pick.getBoundingClientRect();
+
             pick.before(spot);
             scrim.append(pick);
             root.append(scrim);
@@ -4847,19 +4945,40 @@
             size.title = t.workClose;
             size.replaceChildren(icon('close'));
             input.focus();
+            flip(pick, from, 340);
+
+            if (!reduced.matches) {
+              scrim.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 280, easing: EASE });
+            }
           };
-          const shrink = () => {
+          const shrink = (quiet = false) => {
             if (scrim.hidden) {
               return;
             }
 
+            const from = pick.getBoundingClientRect();
+
             spot.replaceWith(pick);
-            scrim.hidden = true;
-            scrim.remove();
             pick.classList.remove('is-big');
             size.title = t.workExpand;
             size.replaceChildren(icon('expand'));
-            input.focus();
+
+            if (!quiet) {
+              input.focus();
+              flip(pick, from, 300);
+            }
+
+            if (reduced.matches) {
+              scrim.hidden = true;
+              scrim.remove();
+
+              return;
+            }
+
+            scrim.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 260, easing: EASE }).finished.then(() => {
+              scrim.hidden = true;
+              scrim.remove();
+            }, () => {});
           };
 
           add.append(icon('plus'), el('span', '', t.workTagAdd));
@@ -4963,7 +5082,7 @@
       card.append(el('p', 'askdesk-addon__memo-hint', form.hint));
     }
 
-    actions.append(button('askdesk-button askdesk-button--text askdesk-work__drop', t.workDrop, () => actWork(item, 'drop', {}, node)));
+    actions.append(button('askdesk-button askdesk-button--text askdesk-work__drop', t.workDrop, () => dropWork(item, big)));
 
     if (form.fill) {
       const fill = button('askdesk-addon__memo-draft', '', () => actWork(item, 'fill', { values }, node));
@@ -5009,6 +5128,174 @@
     }
 
     return node;
+  };
+
+  // A card not wanted after all (0.6.4): the box to write in becomes a shredder, a black bar, the card fed
+  // into it and out as strips; the box comes back as it was, the chat closing up where the card was
+  const shred = (node) => new Promise((resolve) => {
+    const card = node.querySelector('.askdesk-work');
+    const from = card.getBoundingClientRect();
+    const height = node.getBoundingClientRect().height;
+    // The chat closes up where it was
+    const close = () => {
+      node.style.overflow = 'hidden';
+
+      const closing = node.animate([{ height: `${height}px`, marginBlock: getComputedStyle(node).marginBlock }, { height: '0px', marginBlock: '0px' }], { duration: 360, easing: EASE, fill: 'forwards' });
+
+      closing.finished.then(resolve, resolve);
+    };
+
+    if (reduced.matches || !node.animate) {
+      node.animate?.([{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: 'forwards' });
+      setTimeout(close, 160);
+
+      return;
+    }
+
+    const layer = el('div', 'askdesk-shred');
+    const mouth = el('div', 'askdesk-shred__mouth');
+    const paper = card.cloneNode(true);
+    const bar = el('div', 'askdesk-shred__bar');
+    const shown = !composer.hidden && box.isConnected && box.getBoundingClientRect().width > 0;
+    const home = shown ? box.getBoundingClientRect() : null;
+    const look = shown ? getComputedStyle(box) : null;
+    // The shredder: across the box's upper part (room under it for the strips); with no box, under the card
+    const width = Math.min(Math.max(from.width * 0.9, 220), home ? home.width * 0.92 : from.width);
+    const middle = home ? home.left + home.width / 2 : from.left + from.width / 2;
+    // A block seen a little from above: its top with the slot sunk in it, its darker front under it; the paper
+    // goes into the slot, its foot behind the slot's front edge (seam, the slot's middle)
+    const slot = { left: middle - width / 2, top: (home ? home.top + Math.min(28, home.height / 2) : from.bottom + 24) - 11, width, height: 22 };
+    const seam = slot.top + 6;
+    const scale = Math.min(1, (width * 0.8) / from.width);
+    const shrunk = { width: from.width * scale, height: from.height * scale };
+    const at = { left: middle - shrunk.width / 2, top: seam - shrunk.height };
+
+    // The paper over where the card was, the card itself kept in its place, unseen
+    mouth.style.height = `${seam}px`;
+    paper.style.position = 'absolute';
+    paper.style.left = `${from.left}px`;
+    paper.style.top = `${from.top}px`;
+    paper.style.width = `${from.width}px`;
+    paper.style.height = `${from.height}px`;
+    paper.style.margin = '0';
+    paper.style.inlineSize = `${from.width}px`;
+    paper.style.transformOrigin = 'top left';
+    mouth.append(paper);
+
+    Object.assign(bar.style, home
+      ? { left: `${home.left}px`, top: `${home.top}px`, width: `${home.width}px`, height: `${home.height}px`, borderRadius: look.borderRadius, background: look.backgroundColor }
+      : { left: `${slot.left + slot.width / 2}px`, top: `${slot.top}px`, width: '0px', height: `${slot.height}px` });
+    // The slot sunk in its top, a fine light line along its front edge (its ends tapering away), the front
+    const hole = el('span', 'askdesk-shred__hole');
+    const lip = el('span', 'askdesk-shred__lip');
+    const face = el('span', 'askdesk-shred__face');
+    const parts = [hole, lip, face];
+
+    // The block under the paper, which covers it where they meet; the slot's front edge over the paper, where
+    // it goes in
+    bar.append(face, hole);
+    Object.assign(lip.style, { left: `${slot.left + slot.width * 0.07}px`, top: `${seam - 0.5}px`, width: `${slot.width * 0.86}px` });
+    layer.append(bar, mouth, lip);
+    root.append(layer);
+    node.style.visibility = 'hidden';
+
+    // The box shrinks into the black bar, what is in it fading
+    const toBar = { left: `${slot.left}px`, top: `${slot.top}px`, width: `${slot.width}px`, height: `${slot.height}px`, borderRadius: '7px', background: '#3b3b46' };
+    const fromBar = { left: bar.style.left, top: bar.style.top, width: bar.style.width, height: bar.style.height, borderRadius: bar.style.borderRadius || '7px', background: bar.style.background || '#3b3b46' };
+
+    const hide = home ? box.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, easing: EASE, fill: 'forwards' }) : null;
+
+    bar.animate([fromBar, toBar], { duration: 300, easing: EASE, fill: 'forwards' });
+    parts.forEach((part) => part.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, delay: 200, easing: EASE, fill: 'both' }));
+
+    // The paper to the mouth of the shredder, then fed in, quick
+    const move = `translate(${at.left - from.left}px, ${at.top - from.top}px) scale(${scale})`;
+
+    paper.animate([{ transform: 'none' }, { transform: move }], { duration: 340, easing: EASE, fill: 'forwards' }).finished.then(() => {
+      // Taken in at a shredder's pace, steady, the block humming a little meanwhile
+      const feed = 1900;
+      const after = 700;
+      const hum = [{ transform: 'none' }, { transform: 'translateY(0.6px)' }, { transform: 'translateY(-0.4px)' }, { transform: 'none' }];
+
+      paper.animate([{ transform: move }, { transform: `translate(${at.left - from.left}px, ${at.top - from.top + shrunk.height + 4}px) scale(${scale})` }], { duration: feed, easing: 'cubic-bezier(0.35, 0, 0.75, 1)', fill: 'forwards' });
+      [bar, lip].forEach((part) => part.animate(hum, { duration: 110, iterations: Math.round(feed / 110) }));
+
+      // Out under it, in fine strips, as fast as the paper goes in, a little bouncy, then falling away
+      const count = Math.max(16, Math.round(shrunk.width / 8));
+      const strip = shrunk.width / count;
+
+      for (let index = 0; index < count; index += 1) {
+        const piece = el('span', 'askdesk-shred__strip');
+        const delay = 80 + Math.random() * 140;
+        const drop = 54 + Math.random() * 34;
+        const total = feed + after;
+        const grown = (feed - 120) / total;
+
+        piece.style.left = `${at.left + index * strip + 1}px`;
+        piece.style.top = `${slot.top + slot.height - 1}px`;
+        piece.style.width = `${Math.max(1.5, strip - 1)}px`;
+        layer.append(piece);
+
+        const sway = (Math.random() - 0.5) * 8;
+
+        piece.animate([
+          { height: '0px', opacity: 0.6, transform: 'none', easing: 'cubic-bezier(0.35, 0, 0.75, 1)' },
+          { height: `${drop * 1.08}px`, opacity: 1, transform: `rotate(${sway * 0.5}deg)`, offset: grown },
+          { height: `${drop * 0.95}px`, opacity: 1, transform: `rotate(${-sway * 0.3}deg)`, offset: grown + 140 / total },
+          { height: `${drop}px`, opacity: 1, transform: 'none', offset: grown + 260 / total, easing: 'ease-in' },
+          { height: `${drop}px`, opacity: 0, transform: `translateY(${18 + Math.random() * 16}px) rotate(${sway}deg)` },
+        ], { duration: total, delay, fill: 'forwards' });
+      }
+
+      setTimeout(() => {
+        parts.forEach((part) => part.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 140, fill: 'forwards' }));
+        close();
+
+        // The bar back into the box, what is in it coming back
+        const back = bar.animate([toBar, fromBar], { duration: 320, easing: EASE, fill: 'forwards' });
+
+        if (home) {
+          hide.cancel();
+          box.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, delay: 140, easing: EASE, fill: 'backwards' });
+        } else {
+          bar.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 320, easing: EASE, fill: 'forwards' });
+        }
+
+        back.finished.then(() => layer.remove(), () => layer.remove());
+      }, feed + after - 80);
+    });
+  });
+
+  const dropWork = async (item, big) => {
+    const room = state.open;
+
+    // Out of the large card first, back into the chat, where it is shredded
+    if (big) {
+      workModal.close();
+      await new Promise((resolve) => setTimeout(resolve, reduced.matches ? 0 : 300));
+    }
+
+    const node = list.querySelector(`:scope > [data-work="${item.id}"]`);
+    const sent = post(config.urls.work, { room, id: item.id, action: 'drop' });
+
+    try {
+      await Promise.all([node ? shred(node) : null, sent]);
+      node?.remove();
+      works.stamp = (await sent).stamp;
+      works.items?.delete(item.id);
+      paintSuggestions();
+    } catch (error) {
+      // Not dropped: the card back as it was
+      if (node && node.isConnected) {
+        node.getAnimations().forEach((one) => one.cancel());
+        node.style.visibility = '';
+        node.style.overflow = '';
+        node.querySelector('.askdesk-work')?.append(el('p', 'askdesk-addon__memo-blocked', t.panelError));
+      }
+
+      root.querySelector('.askdesk-shred')?.remove();
+      box.getAnimations().forEach((one) => one.cancel());
+    }
   };
 
   const actWork = async (item, action, extra, node) => {
@@ -5091,9 +5378,10 @@
         waiting.remove();
       } else if (data.work) {
         const node = paintWork(data.work);
+        const from = waiting.querySelector('.askdesk-work').getBoundingClientRect().height;
 
         waiting.replaceWith(node);
-        rise(node);
+        ease(node.querySelector('.askdesk-work'), from);
         toBottom(true);
         works.stamp = data.stamp;
       } else {
@@ -5206,7 +5494,11 @@
     await loadWorks(false);
 
     if (!workMenu.hidden) {
+      const from = workMenu.getBoundingClientRect().height;
+
       paintWorkMenu();
+      ease(workMenu, from);
+      workMenu.querySelector('.askdesk-work-menu__list')?.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: reduced.matches ? 0 : 260, easing: EASE });
     }
   }
 

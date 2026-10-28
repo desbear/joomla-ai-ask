@@ -139,6 +139,9 @@ export const makeApi = (config) => {
     remove: (body) => queued(() => post(config.urls.sourceDelete, body)),
     // Something a source offers to do to a record (0.6.2: the desk's cases closed)
     act: (body) => queued(() => post(config.urls.sourceAct, body)),
+    // A record's page of the source's own, for a frame; row '' for a new one (0.6.5). Asked each time: what
+    // starts it may carry a sign-in that does not last
+    embed: (body) => (config.urls.sourceEmbed ? queued(() => post(config.urls.sourceEmbed, body)) : Promise.reject(new Error(config.t('error')))),
     // Which records others changed from the dashboard since a point (0.6.2)
     changes: (body) => (config.urls.sourceChanges ? post(config.urls.sourceChanges, body) : Promise.resolve({ changes: [], last: 0 })),
     // The rows changed since a moment (a table checking for others' changes), a page of them

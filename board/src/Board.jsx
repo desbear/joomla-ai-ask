@@ -2,13 +2,15 @@
 // chart. Laid out in place (edit), all at once (overview); a widget grows into a full page with its
 // settings; a record opens in a side card.
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Icon, Grip } from './icons.jsx';
-import { COLS, KINDS, isGrid, needs, recommend, settle, firstFree, bottom, fmt, ymd, inOrder, moved, slotAt } from './kinds.js';
+import { COLS, KINDS, isGrid, needs, recommend, settle, firstFree, bottom, fmt, ymd, inOrder, moved, slotAt, LOOK_COLORS, LOOK_SIZES, lookStyle } from './kinds.js';
 import { SignIn, RANGES } from './api.js';
 import { Grid } from './widgets/Grid.jsx';
 import { Combobox } from './widgets/Combobox.jsx';
 import { Skeleton, SkeletonCover } from './widgets/Skeleton.jsx';
 import { NumberW, BatteryW, ChartW, GanttW } from './widgets/Simple.jsx';
+import { Frame, FillDialog } from './widgets/Embed.jsx';
 
 const ROW = 64;
 const GAP = 14;
@@ -52,7 +54,7 @@ const useWidget = (widget, api, query, mine, range) => {
 };
 
 // What a widget draws, by its kind
-const Body = ({ widget, state, api, ctx, query, mine, range, full, onWidget, onOpenRow, openId, onAll }) => {
+const Body = ({ widget, state, api, ctx, query, mine, range, full, onWidget, onOpenRow, openId, onAll, onCreate, fresh }) => {
   const { t } = ctx;
   const { template, fields, data, failed } = state;
 
@@ -71,7 +73,7 @@ const Body = ({ widget, state, api, ctx, query, mine, range, full, onWidget, onO
   const active = full || !ctx.covered;
 
   if (isGrid(widget.kind)) {
-    return <Grid active={active} widget={widget} fields={fields} allFields={template.fields} actions={template.actions || []} api={api} ctx={ctx} full={full} query={query} mine={mine} range={range} onWidget={onWidget} onOpenRow={onOpenRow} openId={openId} onAll={onAll} />;
+    return <Grid active={active} widget={widget} fields={fields} allFields={template.fields} actions={template.actions || []} api={api} ctx={ctx} full={full} query={query} mine={mine} range={range} onWidget={onWidget} onOpenRow={onOpenRow} openId={openId} onAll={onAll} onCreate={onCreate} fresh={fresh} />;
   }
 
   if (!data) return <Skeleton kind={widget.kind} />;
@@ -89,8 +91,87 @@ const Body = ({ widget, state, api, ctx, query, mine, range, full, onWidget, onO
 };
 
 // ---------- A record in a side card (the form system's embedded form goes in the frame) ----------
-const Sheet = ({ widget, template, row, list, onMove, onClose, ctx }) => {
+const SHEET_KEY = 'askdesk.board.sheetWidth';
+const sheetWidth = () => {
+  try {
+    return Number(window.localStorage.getItem(SHEET_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+};
+
+const Sheet = ({ widget, template, row, list, onMove, onClose, onSaved, api, ctx, root }) => {
   const { t, lang } = ctx;
+  // The source's own page of the record, in a tab of its own and first, when the source shows it (0.6.5); the
+  // summary beside it. Without it, the summary alone, as before
+  const framed = !!(template.embed && template.embed.view);
+  const [tab, setTab] = useState(framed ? 'frame' : 'summary');
+  // Its width, dragged by its left edge and kept for next time (a double-click goes back to the default)
+  const [width, setWidth] = useState(sheetWidth);
+  const aside = useRef(null);
+  const widen = (e) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+
+    const room = aside.current.parentElement.getBoundingClientRect().width;
+    const startX = e.clientX;
+    const startW = aside.current.getBoundingClientRect().width;
+    let now = startW;
+    const move = (ev) => { now = Math.round(Math.min(room - 40, Math.max(360, startW + startX - ev.clientX))); setWidth(now); };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      document.body.classList.remove('adb-widening');
+      try { window.localStorage.setItem(SHEET_KEY, String(now)); } catch { /* kept for this time only */ }
+    };
+
+    // The frame would take the pointer from the drag while it passes over it
+    document.body.classList.add('adb-widening');
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+  const narrow = () => {
+    setWidth(0);
+    try { window.localStorage.removeItem(SHEET_KEY); } catch { /* nothing kept */ }
+  };
+  // With the source's page in it, it stands over the whole board, its top too; and can be lifted off into a
+  // window of its own, moved by its top and sized by its corner (0.6.5)
+  const [float, setFloat] = useState(null);
+  const lift = () => {
+    const r = aside.current.getBoundingClientRect();
+    const o = root.getBoundingClientRect();
+    const w = Math.min(r.width, o.width - 48);
+    const h = Math.min(r.height - 48, o.height - 48);
+
+    setFloat({ x: Math.max(16, o.width - w - 32), y: 24, w, h });
+  };
+  const drag = (e, how) => {
+    if (e.button !== 0 || (how === 'move' && e.target.closest('button'))) return;
+    e.preventDefault();
+
+    const o = root.getBoundingClientRect();
+    const from = { ...float };
+    const px = e.clientX;
+    const py = e.clientY;
+    const move = (ev) => {
+      const dx = ev.clientX - px;
+      const dy = ev.clientY - py;
+
+      setFloat(how === 'move'
+        ? { ...from, x: Math.min(o.width - 80, Math.max(80 - from.w, from.x + dx)), y: Math.min(o.height - 40, Math.max(0, from.y + dy)) }
+        : { ...from, w: Math.max(360, Math.min(o.width - from.x, from.w + dx)), h: Math.max(240, Math.min(o.height - from.y, from.h + dy)) });
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      document.body.classList.remove('adb-widening');
+    };
+
+    document.body.classList.add('adb-widening');
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+  const over = framed && root;
   const at = list.findIndex((r) => r.id === row.id);
   const status = template.fields.find((f) => f.kind === 'select' && /狀態|status/i.test(f.label));
   const title = row.title || (template.fields.find((f) => f.kind === 'text') ? row.values[template.fields.find((f) => f.kind === 'text').key] : '');
@@ -110,16 +191,30 @@ const Sheet = ({ widget, template, row, list, onMove, onClose, ctx }) => {
 
   useEffect(() => { close.current && close.current.focus(); }, []);
 
-  return (
-    <aside className="adb-sheet" aria-label={`${template.name} ${row.no}`}>
-      <div className="adb-sheet__top">
+  const card = (
+    <aside className={`adb-sheet${framed ? ' is-framed' : ''}${over ? ' is-over' : ''}${float ? ' is-float' : ''}`} ref={aside} style={float ? { left: float.x, top: float.y, width: float.w, height: float.h } : width ? { width: `min(${width}px, 100%)` } : undefined} aria-label={`${template.name} ${row.no}`}>
+      {float ? null : <span className="adb-sheet__grip" role="separator" aria-orientation="vertical" aria-label={t('sheetResize')} title={t('sheetResize')} onPointerDown={widen} onDoubleClick={narrow} />}
+      {float ? <span className="adb-sheet__corner" aria-hidden="true" onPointerDown={(e) => drag(e, 'size')} /> : null}
+      <div className="adb-sheet__top" onPointerDown={float ? (e) => drag(e, 'move') : undefined}>
         <span className="adb-muted">{t('sheetOf', template.name, at + 1, list.length)}</span>
         <span className="adb-sp" />
+        {over ? <button type="button" className="adb-iconbtn" onClick={float ? () => setFloat(null) : lift} aria-label={t(float ? 'sheetDock' : 'sheetFloat')} title={t(float ? 'sheetDock' : 'sheetFloat')}><Icon name={float ? 'dock' : 'popout'} /></button> : null}
         <button type="button" className="adb-iconbtn" disabled={at <= 0} onClick={() => onMove(list[at - 1])} aria-label={t('sheetPrev')}><Icon name="up" /></button>
         <button type="button" className="adb-iconbtn" disabled={at < 0 || at >= list.length - 1} onClick={() => onMove(list[at + 1])} aria-label={t('sheetNext')}><Icon name="down" /></button>
         <button type="button" className="adb-iconbtn" ref={close} onClick={onClose} aria-label={t('close')}><Icon name="close" /></button>
       </div>
-      <div className="adb-sheet__body">
+      {framed ? (
+        <div className="adb-sheet__tabs" role="tablist">
+          <button type="button" role="tab" aria-selected={tab === 'frame'} onClick={() => setTab('frame')}><Icon name="doc" />{ctx.sourceTitle ? ctx.sourceTitle(widget.source) : t('sheetFrame')}</button>
+          <button type="button" role="tab" aria-selected={tab === 'summary'} onClick={() => setTab('summary')}><Icon name="table" />{t('sheetTabSummary')}</button>
+        </div>
+      ) : null}
+      {framed ? (
+        <div className="adb-sheet__frame" hidden={tab !== 'frame'}>
+          <Frame api={api} source={widget.source} template={widget.template} row={String(row.id)} title={t('frameTitle', template.name)} t={t} onDone={() => { ctx.toast(t('frameSaved')); if (onSaved) onSaved(); }} />
+        </div>
+      ) : null}
+      <div className="adb-sheet__body" hidden={tab !== 'summary'}>
         <article className="adb-bf">
           <header className="adb-bf__head">
             <span className="adb-bf__ic"><Icon name="doc" /></span>
@@ -139,6 +234,8 @@ const Sheet = ({ widget, template, row, list, onMove, onClose, ctx }) => {
       </div>
     </aside>
   );
+
+  return over ? createPortal(card, root) : card;
 };
 
 // ---------- A widget grown into a full page, its settings at the side ----------
@@ -214,8 +311,13 @@ const Full = ({ widget, api, ctx, query, mine, range, onWidget, onClose, onCover
     return () => { live = false; };
   }, []);
   const [drag, setDrag] = useState(null);
+  // A new record being filled in the source's own page (0.6.5); the table read again once one is saved there
+  const [filling, setFilling] = useState(false);
+  const [fresh, setFresh] = useState(0);
   const box = useRef(null);
   const template = state.template;
+  const creatable = !!(template && template.embed && template.embed.create && isGrid(widget.kind));
+  const saved = () => { api.forget(widget.source, widget.template); setFresh((n) => n + 1); };
   const chosen = state.fields;
   const keys = chosen.map((f) => f.key);
   const order = (next) => { if (next.join() !== keys.join()) onWidget({ ...widget, fields: next }); };
@@ -237,12 +339,14 @@ const Full = ({ widget, api, ctx, query, mine, range, onWidget, onClose, onCover
   };
   const rec = recommend(chosen);
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // Over the whole board, its bar too (0.6.5): drawn in the board itself, not only in the part under the bar
+  const host = wrap ? wrap.closest('.adb') : null;
 
   // Towards the widget it came from: faded and zoomed a little from there, never cut down to its box (the view
   // laid out whole, seen through the widget's box, was left behind as a ghost of other content)
   const origin = () => {
     const r = from.getBoundingClientRect();
-    const o = wrap.getBoundingClientRect();
+    const o = (host || wrap).getBoundingClientRect();
 
     return `${r.left + r.width / 2 - o.left}px ${r.top + r.height / 2 - o.top}px`;
   };
@@ -278,7 +382,7 @@ const Full = ({ widget, api, ctx, query, mine, range, onWidget, onClose, onCover
   };
 
   useEffect(() => {
-    const key = (e) => { if (e.key === 'Escape' && !e.defaultPrevented) { if (sheet) setSheet(null); else shut(); } };
+    const key = (e) => { if (e.key === 'Escape' && !e.defaultPrevented && !filling) { if (sheet) setSheet(null); else shut(); } };
 
     window.addEventListener('keydown', key);
 
@@ -295,7 +399,7 @@ const Full = ({ widget, api, ctx, query, mine, range, onWidget, onClose, onCover
     onWidget(next);
   };
 
-  return (
+  const page = (
     <section className="adb-full" ref={box} role="dialog" aria-modal="true" aria-label={widget.title}>
       <header className="adb-full__head">
         <h2>{widget.title}</h2>
@@ -308,9 +412,10 @@ const Full = ({ widget, api, ctx, query, mine, range, onWidget, onClose, onCover
         <button type="button" className="adb-iconbtn" onClick={shut} aria-label={t('close')}><Icon name="close" /></button>
       </header>
       <div className={`adb-full__body${settings ? '' : ' no-set'}`}>
-        <div className={`adb-full__main${isGrid(widget.kind) ? ' is-grid' : ''}`}>
-          <Body widget={widget} state={state} api={api} ctx={ctx} query={query} mine={mine} range={range} full onWidget={onWidget} openId={sheet ? sheet.row.id : null} onOpenRow={(row, list) => setSheet({ row, list: list || [row] })} />
-          {sheet && template ? <Sheet widget={widget} template={template} row={sheet.row} list={sheet.list} onMove={(row) => setSheet({ ...sheet, row })} onClose={() => setSheet(null)} ctx={ctx} /> : null}
+        <div className={`adb-full__main${isGrid(widget.kind) ? ' is-grid' : ''}${lookStyle(widget) ? ' is-tinted' : ''}`} style={lookStyle(widget)}>
+          <Body widget={widget} state={state} api={api} ctx={ctx} query={query} mine={mine} range={range} full onWidget={onWidget} openId={sheet ? sheet.row.id : null} onOpenRow={(row, list) => setSheet({ row, list: list || [row] })} onCreate={creatable ? () => setFilling(true) : null} fresh={fresh} />
+          {sheet && template ? <Sheet widget={widget} template={template} row={sheet.row} list={sheet.list} onMove={(row) => setSheet({ ...sheet, row })} onClose={() => setSheet(null)} onSaved={saved} api={api} ctx={ctx} root={host} /> : null}
+          {filling && template ? <FillDialog api={api} source={widget.source} template={widget.template} name={template.name} ctx={ctx} onSaved={saved} onClose={() => setFilling(false)} /> : null}
         </div>
         {settings ? (
           <aside className="adb-set" aria-label={t('widgetSettings')}>
@@ -329,6 +434,25 @@ const Full = ({ widget, api, ctx, query, mine, range, onWidget, onClose, onCover
               })}
             </div>
             <p className="adb-why">{chosen.length ? t('recommend', t(`k_${rec}`)) : ''}</p>
+            {widget.kind === 'number' ? (
+              // Its look (0.6.5): the card's colour (its text white or black by itself), the figure's size
+              <>
+                <h5>{t('look')}</h5>
+                <div className="adb-look">
+                  <span className="adb-look__label">{t('lookBg')}</span>
+                  <div className="adb-look__swatches">
+                    <button type="button" className="adb-look__sw is-none" aria-pressed={!(widget.look && widget.look.bg)} onClick={() => onWidget({ ...widget, look: { ...(widget.look || {}), bg: '' } })} aria-label={t('lookNone')} title={t('lookNone')} />
+                    {LOOK_COLORS.map((c) => <button type="button" key={c} className="adb-look__sw" style={{ background: c }} aria-pressed={!!widget.look && widget.look.bg === c} onClick={() => onWidget({ ...widget, look: { ...(widget.look || {}), bg: c } })} aria-label={c} title={c} />)}
+                    <label className="adb-look__sw is-custom" title={t('lookCustom')}><input type="color" value={(widget.look && widget.look.bg) || '#1e6ff0'} onChange={(e) => onWidget({ ...widget, look: { ...(widget.look || {}), bg: e.target.value } })} aria-label={t('lookCustom')} /></label>
+                  </div>
+                  <span className="adb-look__label">{t('lookSize')}</span>
+                  <div className="adb-look__sizes" role="radiogroup" aria-label={t('lookSize')}>
+                    {LOOK_SIZES.map((z) => <button type="button" key={z} role="radio" aria-checked={((widget.look && widget.look.size) || 'm') === z} onClick={() => onWidget({ ...widget, look: { ...(widget.look || {}), size: z } })}>{t(`size_${z}`)}</button>)}
+                  </div>
+                </div>
+                <p className="adb-why">{t('lookInk')}</p>
+              </>
+            ) : null}
             {template ? (
               <>
                 <h5>{t('fieldsOf', template.name)}</h5>
@@ -382,6 +506,8 @@ const Full = ({ widget, api, ctx, query, mine, range, onWidget, onClose, onCover
       </div>
     </section>
   );
+
+  return host ? createPortal(page, host) : page;
 };
 
 // ---------- Adding a widget: a kind, then a source's template and its fields ----------
@@ -767,7 +893,7 @@ export const Board = ({ api, ctx }) => {
   const foldRef = useRef(null);
   const stateRef = useRef({});
 
-  stateRef.current = { folded, morph, editing, over, railAt, covered };
+  stateRef.current = { folded, morph, editing, over, railAt, covered, opened: !!full };
   foldRef.current = fold;
 
   useEffect(() => {
@@ -781,6 +907,9 @@ export const Board = ({ api, ctx }) => {
     const onBox = (target) => Boolean(target && target.closest && target.closest('.adb-mini, .adb-rail'));
 
     const move = (e) => {
+      // A widget opened whole: the overview is away, and nothing calls it up (0.6.5)
+      if (stateRef.current.opened) return;
+
       const near = inCorner(e.clientX, e.clientY) || onBox(e.target);
 
       if (!near) return;
@@ -795,7 +924,7 @@ export const Board = ({ api, ctx }) => {
     const wheel = (e) => {
       const el = scroller.current;
 
-      if (!el || el.contains(e.target) || !(inCorner(e.clientX, e.clientY) || onBox(e.target))) return;
+      if (stateRef.current.opened || !el || el.contains(e.target) || !(inCorner(e.clientX, e.clientY) || onBox(e.target))) return;
 
       e.preventDefault();
       el.scrollTop += e.deltaY;
@@ -900,7 +1029,8 @@ export const Board = ({ api, ctx }) => {
   const ordered = [...widgets].sort((a, b) => a.y - b.y || a.x - b.x);
   // The overview box: always there on a wide screen (it holds the overview and the layout's buttons);
   // its map of the board only when the board is taller than the screen
-  const miniShow = !phone;
+  // Not while a widget is opened whole (0.6.5)
+  const miniShow = !phone && !fullWidget;
   const mapShow = !over && height > viewH + 20;
 
   // The part of the board on screen, as a share of the bar: by what scrolls (its padding too), never past
@@ -996,8 +1126,8 @@ export const Board = ({ api, ctx }) => {
 
               return (
                 <article key={w.id} ref={(n) => { if (n) nodes.current.set(w.id, n); else nodes.current.delete(w.id); }}
-                  className={`adb-w${drag && drag.id === w.id ? ' is-moving' : ''}`}
-                  style={phone ? { height: Math.max(2, w.h) * ROW * 0.8 + 40 } : { left: p.left, top: p.top, width: p.width, height: p.height }}
+                  className={`adb-w${drag && drag.id === w.id ? ' is-moving' : ''}${lookStyle(w) ? ' is-tinted' : ''}`}
+                  style={{ ...(phone ? { height: Math.max(2, w.h) * ROW * 0.8 + 40 } : { left: p.left, top: p.top, width: p.width, height: p.height }), ...lookStyle(w) }}
                   onPointerDown={over ? (e) => start(e, w, 'move') : undefined}>
                   <header className="adb-w__head" onPointerDown={editing && !over ? (e) => { if (!e.target.closest('button, input')) start(e, w, 'move'); } : undefined}>
                     {editing ? <span className="adb-grip"><Grip /></span> : null}
