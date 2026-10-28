@@ -1,0 +1,82 @@
+/**
+ * @package     AI Ask Desk for Joomla
+ * @subpackage  com_askdesk
+ *
+ * The e-mail editor (0.6.3): the subject and placeholders above, GrapesJS filling the rest of the page.
+ */
+
+.askdesk-mail {
+  display: grid;
+  gap: 12px;
+}
+
+.askdesk-mail__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  align-items: end;
+}
+
+.askdesk-mail__subject {
+  flex: 1 1 360px;
+}
+
+.askdesk-mail__on {
+  margin: 0 0 8px;
+}
+
+.askdesk-mail__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.askdesk-mail__vars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.askdesk-mail__vars-title {
+  margin-inline-end: 4px;
+  font-weight: 600;
+}
+
+.askdesk-mail__var {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 3px 10px;
+  border: 1px solid var(--template-bg-dark-20, #c7ced6);
+  border-radius: 999px;
+  background: var(--body-bg, #fff);
+  color: inherit;
+  font-size: 0.8125rem;
+  cursor: pointer;
+}
+
+.askdesk-mail__var:hover {
+  border-color: #0e86fe;
+}
+
+.askdesk-mail__var code {
+  padding: 0;
+  background: none;
+  color: #0e6fd6;
+}
+
+.askdesk-mail__vars-hint {
+  color: var(--template-text-light, #6b7280);
+  font-size: 0.8125rem;
+}
+
+.askdesk-mail__status {
+  margin: 0;
+}
+
+.askdesk-mail__editor {
+  overflow: hidden;
+  border: 1px solid var(--template-bg-dark-20, #c7ced6);
+  border-radius: 8px;
+}

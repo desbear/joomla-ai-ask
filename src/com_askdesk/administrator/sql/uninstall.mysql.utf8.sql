@@ -12,3 +12,4 @@ DROP TABLE IF EXISTS `#__askdesk_boards`;
 DROP TABLE IF EXISTS `#__askdesk_work`;
 DROP TABLE IF EXISTS `#__askdesk_source_changes`;
 DROP TABLE IF EXISTS `#__askdesk_codes`;
+DROP TABLE IF EXISTS `#__askdesk_mails`;

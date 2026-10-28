@@ -5,7 +5,7 @@
 	<creationDate>2026-10</creationDate>
 	<copyright>(C) 2026 GSS</copyright>
 	<license>GNU General Public License version 2 or later; see LICENSE</license>
-	<version>0.6.2</version>
+	<version>0.6.3</version>
 	<description>COM_ASKDESK_XML_DESCRIPTION</description>
 	<namespace path="src">Gss\Component\Askdesk</namespace>
 
@@ -55,6 +55,7 @@
 			<menu link="option=com_askdesk&amp;view=cases">COM_ASKDESK_SUBMENU_CASES</menu>
 			<menu link="option=com_askdesk&amp;view=stickers">COM_ASKDESK_SUBMENU_STICKERS</menu>
 			<menu link="option=com_askdesk&amp;view=phrases">COM_ASKDESK_SUBMENU_PHRASES</menu>
+			<menu link="option=com_askdesk&amp;view=mails">COM_ASKDESK_SUBMENU_MAILS</menu>
 		</submenu>
 		<files folder="administrator">
 			<filename>access.xml</filename>

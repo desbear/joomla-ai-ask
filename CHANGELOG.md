@@ -2,6 +2,28 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.6.3
+
+- **The e-mails designed** (*Components - AI Ask Desk - E-mails*): each e-mail the desk sends (the ticket code, a
+  ticket answered, the chat's transcript; to the people answering, a message left, a ticket added to, a chat ended
+  unanswered, what is still unhandled) can be designed with drag-and-drop blocks (GrapesJS with its newsletter
+  blocks: columns, text, pictures, buttons, dividers), one for each of the site's languages. A new one starts from
+  the desk's own words laid out as an e-mail (a card on a grey ground, a button for its link). Placeholders such as
+  `{site}`, `{name}`, `{code}`, `{link}`, `{who}`, `{said}` are put in with a click where one is writing (in the
+  subject too); what they stand for is written safe for HTML when sent.
+- What is sent is the HTML with its styles inline (as Outlook and Gmail want it) and a plain-text copy beside it;
+  the design is kept to go on from. A language with no design, or one switched off, sends the desk's own plain words
+  as before. The transcript is sent as designed in the visitor's language; in the page's only when it would not have
+  been translated for them anyway.
+- *Send me a test* sends what is in the editor to oneself, its placeholders filled with made-up words. Pictures are
+  put up among the site's images (`images/askdesk-mail`, JPG, PNG, GIF or WebP, 5 MB at most, checked to be
+  pictures) and linked whole, as mail programs reach them.
+- The editor, its blocks and its icons (GrapesJS 0.23.6, its newsletter preset 1.0.2, Font Awesome 4.7 kept to the
+  editor; BSD, OFL and MIT licences) are part of the desk, in `media/com_askdesk/vendor/grapesjs`: nothing is loaded
+  from another site, the blocks' placeholder pictures included. Its own words are in English or, for Chinese,
+  Traditional Chinese with Taiwan's words.
+- New: `#__askdesk_mails` (update 0.6.3).
+
 ## AI Ask Desk 0.6.2
 
 - **Closed chats archived, then deleted**: a chat closed (結案) longer ago than the days set (90 by default), a

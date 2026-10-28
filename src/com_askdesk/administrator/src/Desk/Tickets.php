@@ -176,6 +176,8 @@ final class Tickets
             return 'none';
         }
 
+        $designed = Mails::make()->compose('code', [Factory::getApplication()->getLanguage()->getTag()], ['site' => self::site(), 'code' => $code, 'minutes' => (string) self::CODE_MINUTES]);
+
         $this->later(fn () => $this->mail($email, Text::sprintf('COM_ASKDESK_TICKET_CODE_SUBJECT', self::site()), implode("\n", [
             Text::_('COM_ASKDESK_TICKET_CODE_LEAD'),
             '',
@@ -183,7 +185,7 @@ final class Tickets
             '',
             Text::sprintf('COM_ASKDESK_TICKET_CODE_MINUTES', self::CODE_MINUTES),
             Text::_('COM_ASKDESK_TICKET_CODE_NOT_YOU'),
-        ])));
+        ]), $designed));
 
         return 'sent';
     }
@@ -248,9 +250,10 @@ final class Tickets
             '',
             self::url(),
         ];
-        $subject = sprintf($words->_('COM_ASKDESK_TICKET_NOTICE_SUBJECT'), self::site());
+        $subject  = sprintf($words->_('COM_ASKDESK_TICKET_NOTICE_SUBJECT'), self::site());
+        $designed = Mails::make()->compose('notice', [$words->getTag()], ['site' => self::site(), 'name' => $name, 'link' => self::url()]);
 
-        $this->later(fn () => $this->mail($email, $subject, implode("\n", $body)));
+        $this->later(fn () => $this->mail($email, $subject, implode("\n", $body), $designed));
     }
 
     /** A member's ticket goes to the address they left it with: still theirs (their account's) */
@@ -263,13 +266,21 @@ final class Tickets
         return $mail !== '' && strcasecmp($mail, (string) $room->email) === 0;
     }
 
-    private function mail(string $to, string $subject, string $body): bool
+    /**
+     * @param  array{subject: string, html: string, text: string}|null  $designed  The mail as designed (0.6.3), else the words
+     */
+    private function mail(string $to, string $subject, string $body, ?array $designed = null): bool
     {
         try {
             $mailer = Factory::getMailer();
             $mailer->addRecipient($to);
-            $mailer->setSubject($subject);
-            $mailer->setBody($body);
+
+            if ($designed) {
+                Mails::apply($mailer, $designed);
+            } else {
+                $mailer->setSubject($subject);
+                $mailer->setBody($body);
+            }
 
             return (bool) $mailer->Send();
         } catch (\Throwable) {

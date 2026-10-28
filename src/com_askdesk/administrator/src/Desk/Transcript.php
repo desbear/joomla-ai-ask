@@ -70,8 +70,21 @@ final class Transcript
             $words  = $this->words;
             $mailer = Factory::getMailer();
             $mailer->addRecipient((string) $room->email, (string) $room->name);
-            $mailer->setSubject($words['subject']);
-            $mailer->setBody(str_replace('⏎', "\n", $words['body']));
+
+            // As designed (0.6.3): in the visitor's language; in the page's only when the words would not have been
+            // translated for them anyway
+            $page     = $this->language($room)->getTag();
+            $visitor  = (string) $room->visitor_language;
+            $tags     = $visitor === '' || Translator::same($visitor, $page) || !$this->settings->translates() ? [$visitor, $page] : [$visitor];
+            $designed = Mails::make()->compose('transcript', array_filter($tags), ['site' => (string) Factory::getApplication()->get('sitename'), 'name' => (string) $room->name]);
+
+            if ($designed) {
+                Mails::apply($mailer, $designed);
+            } else {
+                $mailer->setSubject($words['subject']);
+                $mailer->setBody(str_replace('⏎', "\n", $words['body']));
+            }
+
             $mailer->addStringAttachment($pdf, 'chat-' . gmdate('Ymd', strtotime((string) $room->created . ' UTC')) . '-' . (int) $room->id . '.pdf', 'base64', 'application/pdf');
 
             return (bool) $mailer->Send();

@@ -104,7 +104,15 @@ final class Alerts
             $words->_('COM_ASKDESK_ALERT_FOOT'),
         ];
 
-        if (!$this->mail($to, sprintf($words->_($head . '_SUBJECT'), $site, $who), implode("\n", $body))) {
+        $designed = Mails::make()->compose($kind === 'more' || $kind === 'left' ? $kind : 'unanswered', [$words->getTag()], [
+            'site' => $site,
+            'who'  => $who,
+            'said' => $this->said($room),
+            'when' => $this->when((string) $room->modified),
+            'link' => self::link((int) $room->id),
+        ]);
+
+        if (!$this->mail($to, sprintf($words->_($head . '_SUBJECT'), $site, $who), implode("\n", $body), $designed)) {
             return false;
         }
 
@@ -148,17 +156,21 @@ final class Alerts
         $words = $this->language();
         $site  = (string) Factory::getApplication()->get('sitename');
         $body  = [sprintf($words->_('COM_ASKDESK_ALERT_REMIND_LEAD'), \count($rows), $hours), ''];
+        $items = [];
 
         foreach ($rows as $room) {
-            $body[] = '• ' . $this->who($room, $words) . '（' . $this->when((string) ($room->closed ?? $room->created)) . '）';
-            $body[] = '  ' . $this->said($room);
-            $body[] = '  ' . self::link((int) $room->id);
-            $body[] = '';
+            $item    = ['who' => $this->who($room, $words), 'when' => $this->when((string) ($room->closed ?? $room->created)), 'said' => $this->said($room), 'link' => self::link((int) $room->id)];
+            $items[] = $item;
+            $body[]  = '• ' . $item['who'] . '（' . $item['when'] . '）';
+            $body[]  = '  ' . $item['said'];
+            $body[]  = '  ' . $item['link'];
+            $body[]  = '';
         }
 
-        $body[] = $words->_('COM_ASKDESK_ALERT_FOOT');
+        $body[]   = $words->_('COM_ASKDESK_ALERT_FOOT');
+        $designed = Mails::make()->compose('remind', [$words->getTag()], ['site' => $site, 'count' => (string) \count($rows), 'hours' => (string) $hours, 'list' => Mails::listHtml($items)]);
 
-        $this->mail($to, sprintf($words->_('COM_ASKDESK_ALERT_REMIND_SUBJECT'), $site, \count($rows)), implode("\n", $body));
+        $this->mail($to, sprintf($words->_('COM_ASKDESK_ALERT_REMIND_SUBJECT'), $site, \count($rows)), implode("\n", $body), $designed);
     }
 
     /**
@@ -239,9 +251,10 @@ final class Alerts
     }
 
     /**
-     * @param  string[]  $to
+     * @param  string[]                                                $to
+     * @param  array{subject: string, html: string, text: string}|null  $designed  The mail as designed (0.6.3), else the words
      */
-    private function mail(array $to, string $subject, string $body): bool
+    private function mail(array $to, string $subject, string $body, ?array $designed = null): bool
     {
         try {
             $mailer = Factory::getMailer();
@@ -250,8 +263,12 @@ final class Alerts
                 $mailer->addBcc($address);
             }
 
-            $mailer->setSubject($subject);
-            $mailer->setBody($body);
+            if ($designed) {
+                Mails::apply($mailer, $designed);
+            } else {
+                $mailer->setSubject($subject);
+                $mailer->setBody($body);
+            }
 
             return (bool) $mailer->Send();
         } catch (\Throwable) {
