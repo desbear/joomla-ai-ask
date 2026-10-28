@@ -523,6 +523,12 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
   status switched from the desk's card; new waiting chats light up red and ring a bell on the count; ended chats fold
   away; drop-down menus, Mac-like scroll bars, and the work on a calm grey-blue with white cards.
 
+## AI Ask for Joomla 0.22.3
+
+- **RSForm Pro forms: a choice with a link in it accepted.** A checkbox or option whose item is a sentence with
+  markup (an agreement linking to the privacy policy, say) went to the window with its markup, and sent back was
+  turned away as "not a question I can answer"; it now goes as its text, and is taken back as the item.
+
 ## AI Ask for Joomla 0.22.2
 
 - **Other sites: a firewall told apart from a wrong key.** "Did not accept the export key" is said only when AI Ask

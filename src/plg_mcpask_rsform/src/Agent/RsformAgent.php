@@ -168,13 +168,26 @@ final class RsformAgent implements AgentInterface
                 continue;
             }
 
+            // An option whose value is markup (an item that is a sentence with a link to the terms, say) goes
+            // to the browser as its text: sent back, markup would be turned away as a probe. accept() takes
+            // the text for the value
+            $shown = [];
+
+            foreach ($field['options'] ?? [] as $option) {
+                if ($option['value'] !== strip_tags($option['value'])) {
+                    $shown[$option['value']] = $option['label'];
+                }
+            }
+
+            $value = $values[$field['name']] ?? null;
+
             $fields[] = [
                 'name'     => $field['name'],
                 'label'    => $field['label'],
                 'kind'     => $field['kind'],
                 'required' => $field['required'],
-                'options'  => $field['options'],
-                'value'    => $values[$field['name']] ?? null,
+                'options'  => $shown ? array_map(static fn ($option) => ['value' => $shown[$option['value']] ?? $option['value']] + $option, $field['options']) : $field['options'],
+                'value'    => $shown && $value !== null ? (\is_array($value) ? array_map(static fn ($item) => $shown[$item] ?? $item, $value) : ($shown[$value] ?? $value)) : $value,
                 'error'    => $errors[$field['name']] ?? '',
                 'help'     => $field['help'],
                 'placeholder' => $field['placeholder'],
