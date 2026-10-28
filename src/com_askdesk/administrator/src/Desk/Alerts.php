@@ -245,9 +245,7 @@ final class Alerts
     /** The console, at the chat */
     private static function link(int $roomId): string
     {
-        $url = Push::consoleUrl();
-
-        return $url . (str_contains($url, 'tmpl=') ? '' : (str_contains($url, '?') ? '&' : '?') . 'tmpl=component') . '#room=' . $roomId;
+        return Push::consoleAt($roomId);
     }
 
     /**

@@ -269,6 +269,14 @@ final class Push
         return $url;
     }
 
+    /** The console on its own, without the site's template, at a chat when one is given */
+    public static function consoleAt(int $roomId = 0): string
+    {
+        $url = self::consoleUrl();
+
+        return $url . (str_contains($url, 'tmpl=') ? '' : (str_contains($url, '?') ? '&' : '?') . 'tmpl=component') . ($roomId ? '#room=' . $roomId : '');
+    }
+
     private function room(int $id): ?object
     {
         $db = $this->db;

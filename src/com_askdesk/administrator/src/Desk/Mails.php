@@ -485,7 +485,7 @@ final class Mails
         $site = (string) Factory::getApplication()->get('sitename');
         $when = Factory::getDate('now', 'UTC')->setTimezone(new \DateTimeZone((string) Factory::getApplication()->get('offset', 'UTC') ?: 'UTC'))->format('Y-m-d H:i', true);
         $name = $words->_('COM_ASKDESK_MAIL_SAMPLE_NAME');
-        $link = self::KINDS[$kind][0] === 'visitor' ? Tickets::url() : Push::consoleUrl();
+        $link = self::KINDS[$kind][0] === 'visitor' ? Tickets::url() : Push::consoleAt();
         $vars = [
             'site'    => $site,
             'name'    => $name,

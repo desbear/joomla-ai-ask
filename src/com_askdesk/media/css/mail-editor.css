@@ -67,7 +67,7 @@
 }
 
 .askdesk-mail__vars-hint {
-  color: var(--template-text-light, #6b7280);
+  color: var(--bs-secondary-color, #6b7280);
   font-size: 0.8125rem;
 }
 

@@ -86,7 +86,8 @@ class HtmlView extends BaseHtmlView
         $assets = $this->getDocument()->getWebAssetManager();
         $dir    = JPATH_ROOT . '/media/com_askdesk/';
         $stamp  = static fn (string $file) => is_file($dir . $file) ? (string) filemtime($dir . $file) : '';
-        $vendor = Uri::root(true) . '/media/com_askdesk/vendor/grapesjs/';
+        // A path from the site's root, without its first slash (Joomla puts one in: a leading one makes //media, a host)
+        $vendor = 'media/com_askdesk/vendor/grapesjs/';
 
         $assets->registerAndUseStyle('com_askdesk.grapesjs', $vendor . 'grapes.min.css', ['version' => '0.23.6']);
         $assets->registerAndUseStyle('com_askdesk.mail-editor', 'com_askdesk/mail-editor.css', ['version' => $stamp('css/mail-editor.css')], [], ['com_askdesk.grapesjs']);
