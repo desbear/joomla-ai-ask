@@ -3538,7 +3538,8 @@ html:active-view-transition-type(mcp-ask-nav) {
 /* Embedded on another website: the frame is the button's size until the conversation opens, so
    the button keeps to its corner of the frame, with room all round for what the pet does */
 .mcp-ask-embedded .mcp-ask--float {
-  inset-block-end: 28px;
+  /* Raised in the open box's frame when it grows downwards, near the top of the page around (0.22.4) */
+  inset-block-end: calc(28px + var(--mcp-ask-embed-lift, 0px));
 }
 
 .mcp-ask-embedded .mcp-ask--float[data-side="right"] {

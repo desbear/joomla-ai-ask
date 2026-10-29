@@ -5273,6 +5273,23 @@
   const SPOT = 'mcp_ask_float';
   const DRAG = 6;
 
+  // Once what was just changed here is on the screen: the page around moves and sizes this frame at
+  // once, and until this frame paints again the browser shows its last picture there (the pet hidden
+  // a moment before still showed, a jump up and back as it was picked up, 0.22.4)
+  const painted = (callback) => {
+    let done = false;
+    const once = () => {
+      if (!done) {
+        done = true;
+        callback();
+      }
+    };
+
+    window.requestAnimationFrame(() => window.requestAnimationFrame(once));
+    // Animation frames wait while the tab is hidden
+    window.setTimeout(once, 100);
+  };
+
   const placeAt = (root, side, y) => {
     root.dataset.side = side;
     root.dataset.y = '';
@@ -5335,7 +5352,7 @@
         toggle.setPointerCapture(drag.id);
         // Out of sight until the frame covers the window, or it would show in its corner a moment
         root.style.visibility = 'hidden';
-        hostPost('drag', { phase: 'start' });
+        painted(() => hostPost('drag', { phase: 'start' }));
 
         return;
       }
@@ -5388,7 +5405,7 @@
 
       // Out of sight for the moment the frame shrinks (a frame or two), rather than in the wrong place
       root.style.visibility = 'hidden';
-      hostPost('drag', { phase: 'end', side, rect: { top: box.top, height: box.height } });
+      painted(() => hostPost('drag', { phase: 'end', side, rect: { top: box.top, height: box.height } }));
     };
 
     toggle.addEventListener('pointerup', drop);
@@ -6333,17 +6350,30 @@
   let origin = launchers[0];
   let controller = null;
 
+  // The card beside a pet: above it when it fits there, or when there is more room there than below
+  const cardSide = (launcher) => {
+    const box = (launcher.root.querySelector('.mcp-ask-pet') || launcher.root).getBoundingClientRect();
+    const above = box.top - 24;
+    const below = window.innerHeight - box.bottom - 24;
+
+    launcher.root.dataset.card = launcher.card.offsetHeight <= above || above >= below ? 'above' : 'below';
+  };
+
+  // Moved near the top of that website's window, the open box's frame grows downwards: the pet is
+  // raised in it so it stays where it was, and its card goes below it (embed.js 0.22.4)
+  onHost('lift', (data) => {
+    const lift = Math.min(1000, Math.max(0, Math.round(Number(data.lift) || 0)));
+
+    document.documentElement.style.setProperty('--mcp-ask-embed-lift', `${lift}px`);
+    launchers.filter((launcher) => launcher.float && launcher.card && launcher.root.dataset.state !== 'idle').forEach(cardSide);
+  });
+
   const setState = (launcher, state) => {
     launcher.root.dataset.state = state;
     launcher.input.readOnly = state === 'pending';
 
-    // The card beside a pet: above it when it fits there, or when there is more room there than below
     if (launcher.card && state !== 'idle') {
-      const box = (launcher.root.querySelector('.mcp-ask-pet') || launcher.root).getBoundingClientRect();
-      const above = box.top - 24;
-      const below = window.innerHeight - box.bottom - 24;
-
-      launcher.root.dataset.card = launcher.card.offsetHeight <= above || above >= below ? 'above' : 'below';
+      cardSide(launcher);
     }
 
     if (!launcher.box) {
@@ -6419,6 +6449,11 @@
     }
 
     hostSized = `${mode}:${button}`;
+
+    // Back to the button's frame, the pet is not raised (at once: told after, it showed a moment out of it)
+    if (mode !== 'bar') {
+      document.documentElement.style.setProperty('--mcp-ask-embed-lift', '0px');
+    }
 
     return new Promise((resolve) => {
       const done = () => {
