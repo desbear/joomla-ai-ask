@@ -30,6 +30,23 @@ class McpaskkeyField extends McpasksecretField
     {
         // The key is made in the browser, from its own source of randomness: 24 bytes, written as 48 characters
         Factory::getApplication()->getDocument()->getWebAssetManager()->addInlineScript(<<<'JS'
+            const syncMcpaskCopy = (event) => {
+              const group = event.target.closest('.mcpask-secret');
+              const copy = group?.querySelector('[data-mcpask-key="copy"]');
+
+              if (!copy) {
+                return;
+              }
+
+              const input = group.querySelector('[data-mcpask-secret-box]');
+              copy.disabled = !input.value.trim() || input.value === input.dataset.kept;
+            };
+
+            document.addEventListener('input', syncMcpaskCopy);
+            document.addEventListener('change', syncMcpaskCopy);
+            document.addEventListener('focusin', syncMcpaskCopy);
+            document.addEventListener('focusout', syncMcpaskCopy);
+
             document.addEventListener('click', (event) => {
               const button = event.target.closest('[data-mcpask-key]');
 
@@ -44,12 +61,17 @@ class McpaskkeyField extends McpasksecretField
                   return;
                 }
 
+                if (!navigator.clipboard?.writeText) {
+                  window.alert(button.dataset.failed);
+                  return;
+                }
+
                 navigator.clipboard.writeText(input.value).then(() => {
                   const label = button.textContent;
 
                   button.textContent = button.dataset.done;
                   window.setTimeout(() => { button.textContent = label; }, 1500);
-                });
+                }).catch(() => window.alert(button.dataset.failed));
 
                 return;
               }
@@ -71,8 +93,8 @@ class McpaskkeyField extends McpasksecretField
             . parent::box($e, $kept)
             . '<button type="button" class="btn btn-primary" data-mcpask-key="generate" data-confirm="' . $e(Text::_('COM_MCPASK_KEY_REPLACE')) . '">'
             . '<span class="icon-refresh" aria-hidden="true"></span> ' . Text::_('COM_MCPASK_KEY_GENERATE') . '</button>'
-            . '<button type="button" class="btn btn-secondary" data-mcpask-key="copy" data-done="' . $e(Text::_('COM_MCPASK_KEY_COPIED')) . '">'
+            . '<button type="button" class="btn btn-secondary" disabled data-mcpask-key="copy" data-failed="' . $e(Text::_('COM_MCPASK_KEY_COPY_FAILED')) . '" data-done="' . $e(Text::_('COM_MCPASK_KEY_COPIED')) . '">'
             . Text::_('COM_MCPASK_KEY_COPY') . '</button>'
-            . '</div>';
+            . '</div><div class="small text-muted mt-1">' . $e(Text::_('COM_MCPASK_KEY_COPY_HELP')) . '</div>';
     }
 }
