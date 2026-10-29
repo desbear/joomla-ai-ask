@@ -895,10 +895,10 @@ export const Grid = ({ widget, fields, allFields, actions = [], active = true, a
               <b className="adb-batch__n">{picked.size}</b>
               <span className="adb-batch__what">{t('batchPicked', picked.size)}{pickedRows.length > changeable.length ? <small>{t('batchLocked', pickedRows.length - changeable.length)}</small> : null}</span>
               <span className="adb-batch__sep" />
-              {edit && editable.length ? <button type="button" className="adb-batch__act" disabled={!changeable.length} onClick={(e) => setBatchMenu({ anchor: e.currentTarget })}><Icon name="edit" /><span>{t('batchEdit')}</span></button> : null}
-              <button type="button" className="adb-batch__act" onClick={exportPicked}><Icon name="download" /><span>{t('batchExport')}</span></button>
-              {actions.map((action) => <button key={action.name} type="button" className="adb-batch__act" disabled={!changeable.length} onClick={() => stageAct(action)}><Icon name="check" /><span>{action.label}</span></button>)}
-              {ctx.removable && ctx.removable(widget.source) ? <button type="button" className="adb-batch__act adb-batch__act--danger" disabled={!changeable.length} onClick={stageDelete}><Icon name="trash" /><span>{t('batchDelete')}</span></button> : null}
+              {edit && editable.length ? <button type="button" className="adb-batch__act" disabled={!changeable.length} title={t('batchEdit')} onClick={(e) => setBatchMenu({ anchor: e.currentTarget })}><Icon name="edit" /><span>{t('batchEdit')}</span></button> : null}
+              <button type="button" className="adb-batch__act" title={t('batchExport')} onClick={exportPicked}><Icon name="download" /><span>{t('batchExport')}</span></button>
+              {actions.map((action) => <button key={action.name} type="button" className="adb-batch__act" disabled={!changeable.length} title={action.label} onClick={() => stageAct(action)}><Icon name="check" /><span>{action.label}</span></button>)}
+              {ctx.removable && ctx.removable(widget.source) ? <button type="button" className="adb-batch__act adb-batch__act--danger" disabled={!changeable.length} title={t('batchDelete')} onClick={stageDelete}><Icon name="trash" /><span>{t('batchDelete')}</span></button> : null}
               <span className="adb-batch__sep" />
               <button type="button" className="adb-batch__x" onClick={() => setPicked(new Set())} aria-label={t('batchClear')} title={t('batchClear')}><Icon name="close" /></button>
             </>

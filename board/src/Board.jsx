@@ -143,14 +143,33 @@ const Sheet = ({ widget, template, row, list, onMove, onClose, onSaved, api, ctx
   const [layer] = useState(() => (over ? Object.assign(document.createElement('div'), { className: 'adb adb-layer' }) : null));
   const [box, setBox] = useState(null);
   const [float, setFloat] = useState(null);
+  const [settling, setSettling] = useState(false);
 
   useLayoutEffect(() => {
     if (!layer) return undefined;
 
     const place = () => {
       const r = root.getBoundingClientRect();
+      // Its right corners rounded as the card around the board is, where their edges meet
+      let tr = '0px';
+      let br = '0px';
 
-      setBox({ top: r.top, left: r.left, width: r.width, height: r.height, right: window.innerWidth - r.right });
+      for (let up = root; up && up !== document.body; up = up.parentElement) {
+        const look = getComputedStyle(up);
+
+        if (parseFloat(look.borderTopRightRadius) || parseFloat(look.borderBottomRightRadius)) {
+          const edge = up.getBoundingClientRect();
+
+          if (Math.abs(edge.right - r.right) < 2) {
+            if (Math.abs(edge.top - r.top) < 2) tr = look.borderTopRightRadius;
+            if (Math.abs(edge.bottom - r.bottom) < 2) br = look.borderBottomRightRadius;
+          }
+
+          break;
+        }
+      }
+
+      setBox({ top: r.top, left: r.left, width: r.width, height: r.height, right: window.innerWidth - r.right, tr, br });
     };
     const seen = new ResizeObserver(place);
 
@@ -168,12 +187,48 @@ const Sheet = ({ widget, template, row, list, onMove, onClose, onSaved, api, ctx
     };
   }, [layer, root]);
 
+  // Kept whole on the screen, GAP from its edges; moved near an edge (within SNAP), it settles against it
+  const GAP = 5;
+  const SNAP = 24;
+  const inside = (f) => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const w = Math.max(Math.min(360, W - GAP * 2), Math.min(f.w, W - GAP * 2));
+    const h = Math.max(Math.min(240, H - GAP * 2), Math.min(f.h, H - GAP * 2));
+
+    return { w, h, x: Math.min(W - GAP - w, Math.max(GAP, f.x)), y: Math.min(H - GAP - h, Math.max(GAP, f.y)) };
+  };
+  const snapped = (f) => {
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    const near = (a, b) => Math.abs(a - b) <= SNAP;
+    let { x, y } = f;
+
+    if (near(x, GAP)) x = GAP;
+    else if (near(x + f.w, W - GAP)) x = W - GAP - f.w;
+    if (near(y, GAP)) y = GAP;
+    else if (near(y + f.h, H - GAP)) y = H - GAP - f.h;
+
+    return inside({ ...f, x, y });
+  };
+
+  // The browser's window made smaller: the window kept inside it
+  useEffect(() => {
+    if (!float) return undefined;
+
+    const fit = () => setFloat((now) => (now ? inside(now) : now));
+
+    window.addEventListener('resize', fit);
+
+    return () => window.removeEventListener('resize', fit);
+  }, [!!float]);
+
   const lift = () => {
     const r = aside.current.getBoundingClientRect();
     const w = Math.min(r.width, window.innerWidth - 32);
     const h = Math.min(r.height - 48, window.innerHeight - 48);
 
-    setFloat({ x: Math.max(16, r.left - 24), y: Math.max(16, r.top + 24), w, h });
+    setFloat(inside({ x: r.left - 24, y: r.top + 24, w, h }));
   };
   const drag = (e, how) => {
     if (e.button !== 0 || (how === 'move' && e.target.closest('button'))) return;
@@ -182,27 +237,38 @@ const Sheet = ({ widget, template, row, list, onMove, onClose, onSaved, api, ctx
     const from = { ...float };
     const px = e.clientX;
     const py = e.clientY;
+    // Moved, it follows the pointer anywhere, past the screen's edges too; let go, it springs back whole on the
+    // screen (and against an edge it was near). Sized by its corner, it stops at the edges
+    let last = from;
     const move = (ev) => {
       const dx = ev.clientX - px;
       const dy = ev.clientY - py;
-      const W = window.innerWidth;
-      const H = window.innerHeight;
 
-      setFloat(how === 'move'
-        ? { ...from, x: Math.min(W - 80, Math.max(80 - from.w, from.x + dx)), y: Math.min(H - 40, Math.max(0, from.y + dy)) }
-        : { ...from, w: Math.max(360, Math.min(W - from.x, from.w + dx)), h: Math.max(240, Math.min(H - from.y, from.h + dy)) });
+      last = how === 'move' ? { ...from, x: from.x + dx, y: from.y + dy } : inside({ ...from, w: Math.min(from.w + dx, window.innerWidth - GAP - from.x), h: Math.min(from.h + dy, window.innerHeight - GAP - from.y) });
+      setFloat(last);
     };
     const up = () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       document.body.classList.remove('adb-widening');
+
+      if (how === 'move') {
+        const back = snapped(last);
+
+        if (back.x !== last.x || back.y !== last.y) {
+          setSettling(true);
+          window.setTimeout(() => setSettling(false), 320);
+        }
+
+        setFloat(back);
+      }
     };
 
     document.body.classList.add('adb-widening');
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
   };
-  const docked = box ? { top: box.top, height: box.height, right: box.right, width: Math.min(box.width, width || Math.max(520, Math.round(box.width * 0.45))) } : { visibility: 'hidden' };
+  const docked = box ? { top: box.top, height: box.height, right: box.right, width: Math.min(box.width, width || Math.max(520, Math.round(box.width * 0.45))), borderTopRightRadius: box.tr, borderBottomRightRadius: box.br } : { visibility: 'hidden' };
   const at = list.findIndex((r) => r.id === row.id);
   const status = template.fields.find((f) => f.kind === 'select' && /狀態|status/i.test(f.label));
   const title = row.title || (template.fields.find((f) => f.kind === 'text') ? row.values[template.fields.find((f) => f.kind === 'text').key] : '');
@@ -223,7 +289,7 @@ const Sheet = ({ widget, template, row, list, onMove, onClose, onSaved, api, ctx
   useEffect(() => { close.current && close.current.focus(); }, []);
 
   const card = (
-    <aside className={`adb-sheet${framed ? ' is-framed' : ''}${over ? ' is-over' : ''}${float ? ' is-float' : ''}`} ref={aside} style={float ? { left: float.x, top: float.y, width: float.w, height: float.h } : over ? docked : width ? { width: `min(${width}px, 100%)` } : undefined} aria-label={`${template.name} ${row.no}`}>
+    <aside className={`adb-sheet${framed ? ' is-framed' : ''}${over ? ' is-over' : ''}${float ? ' is-float' : ''}${settling ? ' is-settling' : ''}`} ref={aside} style={float ? { left: float.x, top: float.y, width: float.w, height: float.h } : over ? docked : width ? { width: `min(${width}px, 100%)` } : undefined} aria-label={`${template.name} ${row.no}`}>
       {float ? null : <span className="adb-sheet__grip" role="separator" aria-orientation="vertical" aria-label={t('sheetResize')} title={t('sheetResize')} onPointerDown={widen} onDoubleClick={narrow} />}
       {float ? <span className="adb-sheet__corner" aria-hidden="true" onPointerDown={(e) => drag(e, 'size')} /> : null}
       <div className="adb-sheet__top" onPointerDown={float ? (e) => drag(e, 'move') : undefined}>
@@ -242,7 +308,7 @@ const Sheet = ({ widget, template, row, list, onMove, onClose, onSaved, api, ctx
       ) : null}
       {framed ? (
         <div className="adb-sheet__frame" hidden={tab !== 'frame'}>
-          <Frame api={api} source={widget.source} template={widget.template} row={String(row.id)} title={t('frameTitle', template.name)} t={t} onDone={() => { ctx.toast(t('frameSaved')); if (onSaved) onSaved(); }} />
+          <Frame api={api} source={widget.source} template={widget.template} row={String(row.id)} title={t('frameTitle', template.name)} t={t} onDone={() => { ctx.toast(t('frameSaved')); if (onSaved) onSaved(); }} onFail={() => ctx.toast(t('frameFailed'))} />
         </div>
       ) : null}
       <div className="adb-sheet__body" hidden={tab !== 'summary'}>

@@ -2,6 +2,24 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.6.7
+
+- **The side card lifted off into a window** follows the pointer anywhere, past the screen's edges too, and let
+  go, springs back whole on the screen, 5px from its edges (settling against an edge it was within 24px of); sized
+  by its corner, it stops at the edge; the browser's window made smaller, it is kept inside.
+- **Fixed**: a number widget's colour and size on a widget of the dashboard template were not kept (only where it
+  was and its size were one's own there); one's own look is now kept, the template's shown until one gives it one.
+- **The console's side beside the chat** has a handle on its edge to drag its width (300px at the least, about half
+  the room at the most; kept for next time, a double-click going back, the arrow keys when focused).
+- **The side opened over the chat** (narrower screens) is a see-through violet to blue, what is behind it blurred,
+  its edges fading in its own colours; its top level with the chat's card.
+- **The side card with a record's own page**, at the side, has its right corners rounded as the card around the
+  dashboard has; its width's handle lies inside its left edge, a faint grey bar, blue under the pointer.
+- **The bar of rows picked in a table**, on a phone, shows its actions by their icons, so its close button is
+  no longer pushed against (or past) its right edge.
+- **A record's own page in a frame** can say that what was done there failed (a source's `embed()` gives `fail`, the
+  names of those messages): the dashboard says so, and the page stays open to try again.
+
 ## AI Ask Desk 0.6.6
 
 - **The side card with a record's own page** is drawn in a layer at the page's top (with the board's colours), so

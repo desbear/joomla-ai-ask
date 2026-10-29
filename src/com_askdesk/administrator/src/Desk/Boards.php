@@ -159,9 +159,16 @@ final class Boards
             $o = $mine[$t['id']] ?? null;
 
             if ($o) {
-                // Where they put it, how large, its columns' widths and order, the name they gave it: theirs; the rest
+                // Where they put it, how large, its columns' widths and order, the name they gave it, its look: theirs; the rest
                 // the template's (which columns are shown too: only their order is one's own, 0.6.2)
                 $placed = ['x' => $o['x'], 'y' => $o['y'], 'w' => $o['w'], 'h' => $o['h'], 'cols' => $o['cols'], 'freeze' => $o['freeze'], 'fields' => self::reordered((array) ($t['fields'] ?? []), (array) ($o['fields'] ?? []))];
+
+                // A number's look (0.6.7): theirs when they gave it one, else the template's
+                $look = (array) ($o['look'] ?? []);
+
+                if (($look['bg'] ?? '') !== '' || ($look['size'] ?? 'm') !== 'm') {
+                    $placed['look'] = $look;
+                }
                 $out[]  = ($o['named'] ? ['title' => $o['title'], 'named' => true] : ['named' => false]) + $placed + ['base' => $t['title'], 'baseFields' => array_values((array) ($t['fields'] ?? []))] + $t;
             } elseif ($keepTemplate) {
                 // Its name as the template has it (what a name of one's own gives way to)
@@ -236,7 +243,7 @@ final class Boards
                 'h'        => min(40, max(1, (int) ($widget['h'] ?? 4))),
                 'freeze'   => min(5, max(0, (int) ($widget['freeze'] ?? 1))),
                 'cols'     => $cols,
-                // A number's look (0.6.5): its card's colour (#rrggbb, or none) and its figure's size
+                // A number's look (0.6.5; 0.6.7 one's own on a template's widget too): its card's colour (#rrggbb, or none) and its figure's size
                 'look'     => [
                     'bg'   => \is_string($widget['look']['bg'] ?? null) && preg_match('/^#[0-9a-f]{6}$/i', $widget['look']['bg']) ? strtolower($widget['look']['bg']) : '',
                     'size' => \in_array($widget['look']['size'] ?? '', ['s', 'm', 'l', 'xl'], true) ? $widget['look']['size'] : 'm',

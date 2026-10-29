@@ -40,9 +40,10 @@ namespace Gss\Component\Askdesk\Administrator\Desk;
  * And embed(object $staff, string $template, string $row): array (0.6.5), the source's own page of a record
  * (or of a new one, $row ''), shown in a frame: in the side card a record opens in, and to fill a new one
  * from the table. Offered as fields()'s "embed": {view: bool, create: bool}. It answers {url (https), hello?:
- * {wait, send}, done?: [], cancel?: []}: the frame's page loaded from url; when it says it is ready (a message
+ * {wait, send}, done?: [], cancel?: [], fail?: []}: the frame's page loaded from url; when it says it is ready (a message
  * whose "event" is hello's wait), hello's send sent back to it (to that page's origin only); a message whose
- * event is one of done says the record was saved, one of cancel that the person gave up there.
+ * event is one of done says the record was saved, one of cancel that the person gave up there, one of fail
+ * (0.6.7) that what was done there did not go through.
  *
  * @since  0.5.0
  */

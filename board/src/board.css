@@ -402,12 +402,16 @@ span.adb-fgrip { cursor: default; }
 .adb.adb-layer { position: fixed; inset: 0; z-index: 1050; display: block; width: auto; height: auto; min-height: 0; overflow: visible; background: none; pointer-events: none; }
 .adb-layer > * { pointer-events: auto; }
 .adb-sheet.is-over { position: fixed; bottom: auto; z-index: 1; }
-.adb-sheet.is-over:not(.is-float) { border-radius: 0; }
+.adb-sheet.is-over:not(.is-float) { overflow: hidden; border-radius: 0; }
 .adb-sheet.is-float { right: auto; bottom: auto; overflow: hidden; border: 1px solid var(--adb-line-strong); border-radius: 12px; box-shadow: 0 24px 60px -18px rgba(15, 18, 30, .45); animation: adb-fill-box .2s ease-out; }
 .adb-sheet.is-float .adb-sheet__top { cursor: move; touch-action: none; }
+/* Let go past an edge: it springs back onto the screen */
+.adb-sheet.is-float.is-settling { transition: left .3s cubic-bezier(.3, 1.3, .5, 1), top .3s cubic-bezier(.3, 1.3, .5, 1); }
+@media (prefers-reduced-motion: reduce) { .adb-sheet.is-float.is-settling { transition: none; } }
 .adb-sheet__corner { position: absolute; right: 0; bottom: 0; z-index: 3; width: 18px; height: 18px; cursor: nwse-resize; touch-action: none; background: linear-gradient(135deg, transparent 55%, var(--adb-line-strong) 55%, var(--adb-line-strong) 62%, transparent 62%, transparent 72%, var(--adb-line-strong) 72%, var(--adb-line-strong) 79%, transparent 79%); }
-.adb-sheet__grip { position: absolute; top: 0; bottom: 0; left: -4px; z-index: 2; width: 8px; cursor: col-resize; touch-action: none; }
-.adb-sheet__grip::after { content: ""; position: absolute; top: 50%; left: 2px; width: 4px; height: 40px; border-radius: 2px; background: var(--adb-line-strong); opacity: 0; transform: translateY(-50%); transition: opacity .15s; }
+/* The width's handle, inside its left edge (nothing around cuts it off), a faint bar, blue under the pointer */
+.adb-sheet__grip { position: absolute; top: 0; bottom: 0; left: 0; z-index: 2; width: 12px; cursor: col-resize; touch-action: none; }
+.adb-sheet__grip::after { content: ""; position: absolute; top: 50%; left: 4px; width: 4px; height: 40px; border-radius: 2px; background: var(--adb-line-strong); opacity: .7; transform: translateY(-50%); transition: background-color .15s, opacity .15s; }
 .adb-sheet__grip:hover::after, .adb-widening .adb-sheet__grip::after { opacity: 1; background: var(--adb-accent); }
 .adb-widening { cursor: col-resize; user-select: none; }
 .adb-widening iframe { pointer-events: none; }
@@ -415,7 +419,7 @@ span.adb-fgrip { cursor: default; }
 .adb-sheet__tabs button { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; background: none; color: var(--adb-muted); font: inherit; font-size: 13px; cursor: pointer; }
 .adb-sheet__tabs button .adb-icon { width: 14px; height: 14px; }
 .adb-sheet__tabs button[aria-selected="true"] { border-bottom-color: var(--adb-accent); color: var(--adb-accent); font-weight: 500; }
-.adb-sheet__frame { display: flex; flex: 1 1 auto; min-height: 0; }
+.adb-sheet__frame { display: flex; flex: 1 1 auto; min-height: 0; padding-left: 12px; }
 .adb-frame { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; background: var(--adb-surface); }
 .adb-frame iframe { display: block; width: 100%; height: 100%; border: 0; background: #fff; }
 .adb-frame.is-loading iframe, .adb-frame.is-silent iframe, .adb-frame.is-failed iframe { visibility: hidden; }
@@ -1066,6 +1070,15 @@ span.adb-fgrip { cursor: default; }
 .adb .adb-batch__act--danger { color: #ff8a80; }
 .adb .adb-batch__act--danger:hover { background: rgba(255, 82, 82, 0.16); }
 .adb-batch__x { padding: 0 8px; }
+.adb .adb-batch__x { flex: none; }
+.adb-batch__what { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* Narrow (a phone): the actions by their icons alone (their words kept for screen readers), so all fit and the
+   close button keeps its place inside the bar's right edge */
+@media (max-width: 600px) {
+  .adb-batch { gap: 4px; padding: 6px 8px; }
+  .adb .adb-batch__act { flex: none; padding: 0 9px; }
+  .adb-batch__act > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
 .adb .adb-batch__go { height: 34px; padding: 0 14px; border: 0; border-radius: 9px; background: #fff; color: #b42318; font-size: 13px; font-weight: 500; }
 .adb-batch > .adb-icon { width: 18px; height: 18px; }
 

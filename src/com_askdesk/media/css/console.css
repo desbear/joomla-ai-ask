@@ -9661,3 +9661,81 @@ body:has(.askdesk[data-askdesk]) {
   opacity: 0;
 }
 
+/* ---------- The side's width beside the chat (0.6.7): its own, or as dragged by the handle on its edge ---------- */
+@media (min-width: 1181px) {
+  .askdesk-room .askdesk-room__aside {
+    position: relative;
+    inline-size: var(--askdesk-aside, 340px);
+  }
+
+  .askdesk-aside-grip {
+    position: absolute;
+    inset-block: 0;
+    inset-inline-start: 0;
+    z-index: 4;
+    inline-size: 10px;
+    cursor: col-resize;
+    touch-action: none;
+    outline: none;
+
+    /* A small rounded bar in the middle of the edge, seen when pointed at, held or focused */
+    &::after {
+      content: "";
+      position: absolute;
+      inset-block-start: 50%;
+      inset-inline-start: 3px;
+      inline-size: 4px;
+      block-size: 44px;
+      border-radius: 2px;
+      background: var(--askdesk-line-strong);
+      opacity: 0;
+      transform: translateY(-50%);
+      transition: opacity 0.15s, background 0.15s;
+    }
+
+    &:hover::after,
+    &:focus-visible::after {
+      opacity: 1;
+    }
+  }
+
+  .askdesk--dragging .askdesk-aside-grip::after {
+    opacity: 1;
+    background: var(--askdesk-accent);
+  }
+
+  /* The chat's frames and pages under the pointer would take it from the drag */
+  .askdesk--dragging iframe {
+    pointer-events: none;
+  }
+}
+
+@media (max-width: 1180px) {
+  .askdesk-aside-grip {
+    display: none;
+  }
+}
+
+/* 0.6.7: the side opened over the chat, deep violet and see-through, what is behind it blurred (last, over
+   the earlier frosted white and its "background: none") */
+@media (max-width: 1180px) {
+  .askdesk-room .askdesk-room__aside {
+    /* Its top level with the chat's card, not 8px under it */
+    inset-block-start: 0;
+    background: linear-gradient(to bottom, rgb(76 33 220 / 70%) 0, rgb(8 13 153 / 75%) 100%);
+    box-shadow:
+      inset 0 0 0 0.5px rgba(255, 255, 255, 0.18),
+      0 18px 44px -12px rgba(10, 10, 60, 0.45);
+    backdrop-filter: blur(22px) saturate(1.3);
+    -webkit-backdrop-filter: blur(22px) saturate(1.3);
+
+    /* Its edges fading in its own violet, not in white */
+    &::before {
+      background: linear-gradient(to bottom, rgb(76 33 220 / 70%), transparent);
+    }
+
+    &::after {
+      background: linear-gradient(to top, rgb(8 13 153 / 75%), transparent);
+    }
+  }
+}

@@ -7,7 +7,7 @@ import { Icon } from '../icons.jsx';
 
 const SILENT_AFTER = 12000;
 
-export const Frame = ({ api, source, template, row, title, t, onDone, onCancel }) => {
+export const Frame = ({ api, source, template, row, title, t, onDone, onCancel, onFail }) => {
   const frame = useRef(null);
   const [tick, setTick] = useState(0);
   const [got, setGot] = useState(null);
@@ -15,7 +15,7 @@ export const Frame = ({ api, source, template, row, title, t, onDone, onCancel }
   const [error, setError] = useState('');
   const said = useRef({});
 
-  said.current = { onDone, onCancel };
+  said.current = { onDone, onCancel, onFail };
 
   useEffect(() => {
     let live = true;
@@ -44,6 +44,8 @@ export const Frame = ({ api, source, template, row, title, t, onDone, onCancel }
         if (said.current.onDone) said.current.onDone(e.data);
       } else if (got.cancel.includes(event)) {
         if (said.current.onCancel) said.current.onCancel();
+      } else if ((got.fail || []).includes(event)) {
+        if (said.current.onFail) said.current.onFail(e.data);
       }
     };
     const silent = window.setTimeout(() => setState((now) => (now === 'loading' ? 'silent' : now)), SILENT_AFTER);
@@ -118,7 +120,7 @@ export const FillDialog = ({ api, source, template, name, ctx, onSaved, onClose 
           <span className="adb-sp" />
           <button type="button" className="adb-iconbtn" onClick={leave} aria-label={t('close')} title={t('close')}><Icon name="close" /></button>
         </header>
-        <Frame api={api} source={source} template={template} row="" title={t('frameTitle', name)} t={t} onDone={saved} onCancel={leave} />
+        <Frame api={api} source={source} template={template} row="" title={t('frameTitle', name)} t={t} onDone={saved} onCancel={leave} onFail={() => ctx.toast(t('frameFailed'))} />
         {asking ? (
           <div className="adb-fill__ask" role="alertdialog" aria-label={t('fillAsk')}>
             <Icon name="alert" />

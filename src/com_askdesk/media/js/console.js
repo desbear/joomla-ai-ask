@@ -2557,6 +2557,90 @@
   column.append(log, composer, workDock);
   body.append(column, aside);
 
+  // ---------- The side's width (0.6.7): dragged by a handle on its edge beside the chat, 300px at the least,
+  // kept for next time; a double-click goes back to its own. Only where it stands beside the chat ----------
+  const ASIDE = 'askdesk:aside';
+  const ASIDE_MIN = 300;
+  const asideGrip = el('div', 'askdesk-aside-grip');
+  const setAside = (width, keep = true) => {
+    const max = Math.max(ASIDE_MIN, Math.min(760, Math.round(body.clientWidth * 0.55)));
+    const size = width ? Math.min(max, Math.max(ASIDE_MIN, Math.round(width))) : 0;
+
+    if (size) {
+      body.style.setProperty('--askdesk-aside', `${size}px`);
+    } else {
+      body.style.removeProperty('--askdesk-aside');
+    }
+
+    asideGrip.setAttribute('aria-valuenow', String(size || Math.round(aside.getBoundingClientRect().width)));
+
+    if (keep) {
+      try {
+        if (size) {
+          window.localStorage.setItem(ASIDE, String(size));
+        } else {
+          window.localStorage.removeItem(ASIDE);
+        }
+      } catch (error) {
+        // Not remembered
+      }
+    }
+  };
+
+  asideGrip.tabIndex = 0;
+  asideGrip.setAttribute('role', 'separator');
+  asideGrip.setAttribute('aria-orientation', 'vertical');
+  asideGrip.setAttribute('aria-valuemin', String(ASIDE_MIN));
+  asideGrip.setAttribute('aria-label', t.resize);
+  asideGrip.title = t.resize;
+  aside.prepend(asideGrip);
+
+  try {
+    const kept = Number(window.localStorage.getItem(ASIDE));
+
+    if (kept) {
+      setAside(kept, false);
+    }
+  } catch (error) {
+    // Its own width
+  }
+
+  asideGrip.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    asideGrip.setPointerCapture(event.pointerId);
+    root.classList.add('askdesk--dragging');
+
+    const right = aside.getBoundingClientRect().right;
+    const move = (moved) => setAside(right - moved.clientX, false);
+    const stop = (ended) => {
+      asideGrip.removeEventListener('pointermove', move);
+      asideGrip.removeEventListener('pointerup', stop);
+      asideGrip.removeEventListener('pointercancel', stop);
+      root.classList.remove('askdesk--dragging');
+      setAside(right - ended.clientX);
+    };
+
+    asideGrip.addEventListener('pointermove', move);
+    asideGrip.addEventListener('pointerup', stop);
+    asideGrip.addEventListener('pointercancel', stop);
+  });
+
+  asideGrip.addEventListener('dblclick', () => setAside(0));
+
+  asideGrip.addEventListener('keydown', (event) => {
+    const step = event.shiftKey ? 60 : 20;
+    const now = aside.getBoundingClientRect().width;
+
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.preventDefault();
+      setAside(now + (event.key === 'ArrowLeft' ? step : -step));
+    }
+  });
+
   const atBottom = () => log.scrollHeight - log.scrollTop - log.clientHeight < 80;
   const toBottom = (eased = false) => {
     log.scrollTo({ top: log.scrollHeight, behavior: eased && !reduced.matches ? 'smooth' : 'auto' });

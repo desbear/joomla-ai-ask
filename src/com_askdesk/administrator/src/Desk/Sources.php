@@ -158,10 +158,10 @@ final class Sources
     }
 
     /**
-     * A record's page of the source's own, for a frame (0.6.5): {url, origin, hello, done, cancel}; the address
+     * A record's page of the source's own, for a frame (0.6.5): {url, origin, hello, done, cancel, fail}; the address
      * only an https one, the messages' names plain words.
      *
-     * @return  array{url: string, origin: string, hello: ?array{wait: string, send: array<string, mixed>}, done: string[], cancel: string[]}
+     * @return  array{url: string, origin: string, hello: ?array{wait: string, send: array<string, mixed>}, done: string[], cancel: string[], fail: string[]}
      */
     public static function embed(SourceInterface $source, object $staff, string $template, string $row): array
     {
@@ -188,6 +188,8 @@ final class Sources
             'hello'  => $hello,
             'done'   => $names($got['done'] ?? []),
             'cancel' => $names($got['cancel'] ?? []),
+            // (0.6.7) Said by the page when what was done there failed
+            'fail'   => $names($got['fail'] ?? []),
         ];
     }
 
