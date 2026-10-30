@@ -672,6 +672,26 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
   status switched from the desk's card; new waiting chats light up red and ring a bell on the count; ended chats fold
   away; drop-down menus, Mac-like scroll bars, and the work on a calm grey-blue with white cards.
 
+## AI Ask for Joomla 0.22.5
+
+- **This site's export key: Copy only while there is a new key to copy** (with Matt Wang, #1): once saved, the
+  key is kept sealed and Copy left the clipboard as it was, without a word, so an older key could be sent to the
+  other sites and refused there. Copy is now dimmed for a saved or empty key and lights up for a generated or
+  typed one; the field's help says to copy before saving (it said after). Where the browser cannot copy (a page
+  not on HTTPS, or refused), the key is shown and selected to be copied by hand.
+
+## AI Ask for Joomla 0.22.4
+
+- **An embedded pet moved near the top no longer flickers when the pointer is on it**: the open box's frame
+  could not keep its bottom where the pet's was, so the pet dropped under it as the box opened; the pointer
+  then left it, the box closed, the pet came back under the pointer, and the box opened again, over and over.
+  The pet is now raised in the frame as much (embed.js tells the frame), so it stays where it is, and its
+  card goes below it.
+- **An embedded pet no longer jumps as it is picked up or put down**: the page around makes the frame cover
+  the window (and small again) at once, and until the frame painted again the browser showed its last
+  picture there, the pet a moment up by as far as the frame had moved. The frame now asks for the change
+  only once the pet hidden meanwhile is on the screen.
+
 ## AI Ask for Joomla 0.22.3
 
 - **RSForm Pro forms: a choice with a link in it accepted.** A checkbox or option whose item is a sentence with

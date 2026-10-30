@@ -128,6 +128,8 @@
   // While the page is captured: the frame out of sight (a screenshot), or only the bar to stop a recording
   let capture = 'none';
   let button = 96;
+  // How far the pet is raised in the open box's frame, told to the frame when it changes (0.22.4)
+  let lift = 0;
   // On a phone (narrow window) the open box is the site's phone card across the bottom, as tall as the frame says
   const phoneAt = 640;
   let phone = window.innerWidth <= phoneAt;
@@ -187,6 +189,13 @@
 
   // ---------- Size ----------
 
+  const raise = (pixels) => {
+    if (pixels !== lift) {
+      lift = pixels;
+      post('lift', { lift });
+    }
+  };
+
   const place = () => {
     if (capture === 'bar') {
       const wide = Math.min(window.innerWidth, 440);
@@ -219,6 +228,8 @@
         }
       });
 
+      raise(0);
+
       return;
     }
 
@@ -245,6 +256,11 @@
         frame.style[name] = value;
       }
     });
+
+    // Moved near the top, the open box's frame cannot keep its bottom where the button's was: the pet
+    // is raised in it as much, so it stays under the pointer and the box opens below it. Lowered, the
+    // pet left the pointer, the box closed, the pet came back under it and it opened again (0.22.4)
+    raise(!full && top !== null ? Math.max(0, Math.round(top + height - buttonTop - Math.min(window.innerHeight, button))) : 0);
   };
 
   window.addEventListener('resize', () => {
