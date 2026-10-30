@@ -48,12 +48,25 @@ export const Frame = ({ api, source, template, row, title, t, onDone, onCancel, 
         if (said.current.onFail) said.current.onFail(e.data);
       }
     };
+    // This site's own Content-Security-Policy not letting the page be framed (frame-src, or child-src / default-src
+    // standing for it): told as such at once, rather than waiting to find it silent (0.6.8)
+    const barred = (e) => {
+      if (!/^(frame|child|default)-src/.test(e.effectiveDirective || e.violatedDirective || '')) return;
+
+      let from = '';
+
+      try { from = new URL(e.blockedURI).origin; } catch { return; }
+
+      if (from === got.origin) setState((now) => (now === 'loading' ? 'barred' : now));
+    };
     const silent = window.setTimeout(() => setState((now) => (now === 'loading' ? 'silent' : now)), SILENT_AFTER);
 
     window.addEventListener('message', hear);
+    document.addEventListener('securitypolicyviolation', barred);
 
     return () => {
       window.removeEventListener('message', hear);
+      document.removeEventListener('securitypolicyviolation', barred);
       window.clearTimeout(silent);
     };
   }, [got]);
@@ -62,10 +75,10 @@ export const Frame = ({ api, source, template, row, title, t, onDone, onCancel, 
     <div className={`adb-frame is-${state}`}>
       {got ? <iframe ref={frame} src={got.url} title={title} referrerPolicy="strict-origin-when-cross-origin" allow="clipboard-write" onLoad={() => { if (!got.hello) setState('ready'); }} /> : null}
       {state === 'asking' || state === 'loading' ? <div className="adb-frame__wait"><span className="adb-dots"><i /><i /><i /></span></div> : null}
-      {state === 'silent' || state === 'failed' ? (
+      {state === 'silent' || state === 'failed' || state === 'barred' ? (
         <div className="adb-frame__note" role="status">
           <Icon name="alert" />
-          <p>{state === 'failed' ? error : t('frameSilent')}</p>
+          <p>{state === 'failed' ? error : state === 'barred' ? t('frameBarred', got.origin) : t('frameSilent')}</p>
           <button type="button" className="adb-btn" onClick={() => setTick((n) => n + 1)}>{t('frameAgain')}</button>
         </div>
       ) : null}

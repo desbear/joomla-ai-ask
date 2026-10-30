@@ -2,6 +2,27 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.6.8
+
+- **The stickers' packs are blocks of their own** in the administrator, kept as Joomla's own pages are: each shown
+  by one of its stickers (the one picked inside it, else its first), with how many it has and how many are offered,
+  dragged by its handle into order (kept at once; the chat's sticker tabs follow it), opened by its picture or name,
+  ticked to be offered, stopped or deleted with its stickers from the toolbar.
+- **A pack opened is an edit page**, saved, saved and closed or closed from the toolbar: the pack as a whole at the
+  top (its name, given another pack's joining that one; whom all its stickers are for; all offered or none), its
+  stickers below, dragged into order, one picked to show the pack, each moved to another pack if wished, ticked
+  (all at once too) to be offered, stopped, made WebPs or deleted from the toolbar, what was changed on the page kept
+  first.
+- **Stickers are added from the toolbar's Add button**, in a window they are dropped in (or picked), many at once,
+  each shown small before they are sent; the pack, whom they are for and making them WebPs given there.
+- **Stickers made WebP**: a PNG, a JPEG or a still GIF added (4 MB at most as given) or already added (ticked, then
+  the toolbar's Make WebP) is kept as a WebP, when that is smaller and 512 KB at most; a moving GIF is kept as it is
+  (made a WebP here it would stop).
+- **Options, Stickers**: whom stickers added to a new pack are for, and whether Make WebP is ticked to begin with.
+- **A record's own page in a frame** that this site's own Content-Security-Policy does not let be shown (`frame-src`,
+  or `child-src` / `default-src` standing for it, leaving out the page's origin) is told as such at once, naming the
+  origin to add, instead of being found silent twelve seconds later and blamed on the other system.
+
 ## AI Ask Desk 0.6.7
 
 - **The side card lifted off into a window** follows the pointer anywhere, past the screen's edges too, and let

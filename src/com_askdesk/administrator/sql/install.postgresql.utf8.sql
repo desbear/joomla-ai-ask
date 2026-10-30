@@ -133,6 +133,15 @@ CREATE TABLE IF NOT EXISTS "#__askdesk_stickers" (
 );
 CREATE INDEX "#__askdesk_stickers_idx_pack" ON "#__askdesk_stickers" ("published", "pack", "ordering");
 
+CREATE TABLE IF NOT EXISTS "#__askdesk_sticker_packs" (
+  "id" serial NOT NULL,
+  "name" varchar(100) DEFAULT '' NOT NULL,
+  "cover" integer DEFAULT 0 NOT NULL,
+  "ordering" integer DEFAULT 0 NOT NULL,
+  PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "#__askdesk_sticker_packs_idx_name" ON "#__askdesk_sticker_packs" ("name");
+
 CREATE TABLE IF NOT EXISTS "#__askdesk_phrases" (
   "id" serial NOT NULL,
   "user_id" integer DEFAULT 0 NOT NULL,
