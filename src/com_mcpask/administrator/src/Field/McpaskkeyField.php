@@ -18,7 +18,7 @@ use Joomla\CMS\Language\Text;
 /**
  * This site's export key, with a button that makes a random one and a button that copies it to
  * give to the other sites. Kept encrypted like any secret (0.20.8): a new key is shown until it is
- * saved, then only that one is set.
+ * saved, then only that one is set, so it is copied before saving (Copy is there only until then).
  *
  * @since  0.2.0
  */
@@ -30,6 +30,19 @@ class McpaskkeyField extends McpasksecretField
     {
         // The key is made in the browser, from its own source of randomness: 24 bytes, written as 48 characters
         Factory::getApplication()->getDocument()->getWebAssetManager()->addInlineScript(<<<'JS'
+            // Copy only for a key not yet saved (0.22.5): a saved one is kept sealed and cannot be copied again
+            const copyable = (event) => {
+              const copy = event.target.closest?.('[data-mcpask-secret]')?.querySelector('[data-mcpask-key="copy"]');
+
+              if (copy) {
+                const input = copy.closest('.input-group').querySelector('input');
+
+                copy.disabled = !input.value.trim() || input.value === input.dataset.kept;
+              }
+            };
+
+            ['input', 'change', 'focusin', 'focusout'].forEach((type) => document.addEventListener(type, copyable));
+
             document.addEventListener('click', (event) => {
               const button = event.target.closest('[data-mcpask-key]');
 
@@ -40,16 +53,34 @@ class McpaskkeyField extends McpasksecretField
               const input = button.closest('.input-group').querySelector('input');
 
               if (button.dataset.mcpaskKey === 'copy') {
-                if (!input.value || input.value === input.dataset.kept) {
+                if (!input.value.trim() || input.value === input.dataset.kept) {
                   return;
                 }
 
-                navigator.clipboard.writeText(input.value).then(() => {
+                const done = () => {
                   const label = button.textContent;
 
                   button.textContent = button.dataset.done;
                   window.setTimeout(() => { button.textContent = label; }, 1500);
-                });
+                };
+
+                // Without the clipboard (a page not on HTTPS, or refused), the key is shown and selected to be copied by hand
+                const byHand = () => {
+                  input.type = 'text';
+                  input.select();
+
+                  if (document.execCommand('copy')) {
+                    done();
+                  } else {
+                    window.alert(button.dataset.failed);
+                  }
+                };
+
+                if (navigator.clipboard?.writeText) {
+                  navigator.clipboard.writeText(input.value).then(done, byHand);
+                } else {
+                  byHand();
+                }
 
                 return;
               }
@@ -71,7 +102,7 @@ class McpaskkeyField extends McpasksecretField
             . parent::box($e, $kept)
             . '<button type="button" class="btn btn-primary" data-mcpask-key="generate" data-confirm="' . $e(Text::_('COM_MCPASK_KEY_REPLACE')) . '">'
             . '<span class="icon-refresh" aria-hidden="true"></span> ' . Text::_('COM_MCPASK_KEY_GENERATE') . '</button>'
-            . '<button type="button" class="btn btn-secondary" data-mcpask-key="copy" data-done="' . $e(Text::_('COM_MCPASK_KEY_COPIED')) . '">'
+            . '<button type="button" class="btn btn-secondary" disabled data-mcpask-key="copy" data-done="' . $e(Text::_('COM_MCPASK_KEY_COPIED')) . '" data-failed="' . $e(Text::_('COM_MCPASK_KEY_COPY_FAILED')) . '">'
             . Text::_('COM_MCPASK_KEY_COPY') . '</button>'
             . '</div>';
     }

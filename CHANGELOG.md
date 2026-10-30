@@ -633,6 +633,14 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
   status switched from the desk's card; new waiting chats light up red and ring a bell on the count; ended chats fold
   away; drop-down menus, Mac-like scroll bars, and the work on a calm grey-blue with white cards.
 
+## AI Ask for Joomla 0.22.5
+
+- **This site's export key: Copy only while there is a new key to copy** (with Matt Wang, #1): once saved, the
+  key is kept sealed and Copy left the clipboard as it was, without a word, so an older key could be sent to the
+  other sites and refused there. Copy is now dimmed for a saved or empty key and lights up for a generated or
+  typed one; the field's help says to copy before saving (it said after). Where the browser cannot copy (a page
+  not on HTTPS, or refused), the key is shown and selected to be copied by hand.
+
 ## AI Ask for Joomla 0.22.4
 
 - **An embedded pet moved near the top no longer flickers when the pointer is on it**: the open box's frame
