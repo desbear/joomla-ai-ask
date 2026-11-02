@@ -441,11 +441,33 @@ final class Settings
 
     /**
      * Whether it is recorded which account asked, while questions are kept (0.21.0: off unless
-     * chosen; the address is never kept with an ordinary question, only with what was turned away).
+     * chosen). The address is kept for ipDays() (0.22.6), with what was turned away for longer.
      */
     public function logWho(): bool
     {
         return (bool) $this->params->get('log_who', 0);
+    }
+
+    /**
+     * Days an ordinary question keeps the visitor's network address (0.22.6): 0, never (only a
+     * hash of it for a day); at most as long as its words are kept.
+     */
+    public function ipDays(): int
+    {
+        return min($this->questionDays(), $this->int('ip_days', 7, 0, 30));
+    }
+
+    /**
+     * Where the addresses are sent before they are forgotten (0.22.6): valid e-mail addresses
+     * only, from a list separated by commas, semicolons or lines.
+     *
+     * @return  string[]
+     */
+    public function ipMail(): array
+    {
+        $list = preg_split('/[\s,;]+/u', (string) $this->params->get('ip_mail', ''), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        return array_values(array_unique(array_filter($list, static fn ($email) => filter_var($email, FILTER_VALIDATE_EMAIL))));
     }
 
     /** Days the log keeps a question's figures (status, sources, tokens, rating): a year at most */

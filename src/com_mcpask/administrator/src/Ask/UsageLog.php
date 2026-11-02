@@ -60,12 +60,12 @@ final class UsageLog
         // This address today and yesterday (the key changes daily): the limits look back a day
         $hash   = $this->hashes($ip);
         $who    = $this->settings->logWho();
-        // Kept as written, with the address, only if it turns out to be an attack (finish())
+        // Kept as written only if it turns out to be an attack (finish()); the address for ipDays() (0.22.6)
         $record = (object) [
             'created'  => Factory::getDate()->toSql(),
             'ip_hash'  => $hash[0],
             'user_id'  => $who ? $userId : 0,
-            'ip'       => '',
+            'ip'       => $this->settings->ipDays() > 0 ? mb_substr($ip, 0, 45) : '',
             'question' => $this->settings->logQuestions() ? Masker::mask($question) : null,
             'status'   => 'started',
         ];
@@ -294,8 +294,9 @@ final class UsageLog
 
     /**
      * Forget what is older than the administrator wants kept (0.21.0): a question's words, answer,
-     * reason and account after questionDays(), its figures after logDays(), attacks (with their
-     * address and words as sent) after evidenceDays(); the address hash after a day.
+     * reason and account after questionDays(), its address after ipDays(), its figures after
+     * logDays(), attacks (with their address and words as sent) after evidenceDays(); the address
+     * hash after a day.
      *
      * @return  array{deleted: int, evidence: int, cleared: int}  Rows deleted, attacks deleted, rows made anonymous
      */
@@ -321,12 +322,20 @@ final class UsageLog
         $counts['cleared'] = $run(
             $db->getQuery(true)->update($table)
                 ->set('question = NULL')->set('question_raw = NULL')->set('answer = NULL')->set('answer_raw = NULL')
-                ->set('feedback = ' . $db->quote(''))->set('user_id = 0')->set('ip = ' . $db->quote(''))
+                ->set('feedback = ' . $db->quote(''))->set('user_id = 0')
                 ->where('evidence = 0')
                 ->where('created < :before')
-                ->where('(question IS NOT NULL OR answer IS NOT NULL OR feedback <> ' . $db->quote('') . ' OR user_id <> 0 OR ip <> ' . $db->quote('') . ')')
+                ->where('(question IS NOT NULL OR answer IS NOT NULL OR feedback <> ' . $db->quote('') . ' OR user_id <> 0)')
                 ->bind(':before', $before)
         );
+
+        // The address of an ordinary question after ipDays() (0.22.6). When it is to be sent first
+        // (AddressMail, by the scheduled task), a week more, so that a mail that keeps failing does
+        // not keep it for ever.
+        $days   = $this->settings->ipDays() + ($this->settings->ipDays() > 0 && $this->settings->ipMail() ? AddressMail::GRACE : 0);
+        $before = Factory::getDate('-' . $days . ' days')->toSql();
+        $counts['cleared'] += $run($db->getQuery(true)->update($table)->set('ip = ' . $db->quote(''))
+            ->where('evidence = 0')->where('ip <> ' . $db->quote(''))->where('created < :before')->bind(':before', $before));
 
         // The limits look back one day. After that the address hash only serves to link a
         // visitor's questions to each other, which nobody needs.

@@ -39,12 +39,14 @@ final class Retention
      */
     public function run(): array
     {
+        // The addresses due to be forgotten, sent first to whom the options name (0.22.6)
+        $mailed   = (new AddressMail($this->db, $this->settings))->send();
         $log      = (new UsageLog($this->db, $this->settings, $this->secret))->prune();
         $handoffs = (new Handoffs($this->db))->forget($this->settings->handoffDays(), $this->settings->handoffContentDays());
 
         $counts = [
             'questions_deleted'  => $log['deleted'],
-            'questions_cleared'  => $log['cleared'],
+            'questions_cleared'  => $log['cleared'] + $mailed['sent'],
             'evidence_deleted'   => $log['evidence'],
             'handoffs_deleted'   => $handoffs['deleted'],
             'handoffs_cleared'   => $handoffs['cleared'],
@@ -53,7 +55,7 @@ final class Retention
             'reports'            => (new Report($this->db, $this->settings, $this->secret))->forgetExpired(),
         ];
 
-        (new State($this->db))->set(self::STATE, ['at' => Factory::getDate()->toSql(), 'counts' => $counts]);
+        (new State($this->db))->set(self::STATE, ['at' => Factory::getDate()->toSql(), 'counts' => $counts, 'mail' => $mailed]);
 
         return $counts;
     }
@@ -61,12 +63,17 @@ final class Retention
     /**
      * When it last ran (UTC, SQL format) and what it removed; null when it never did.
      *
-     * @return  array{at: string, counts: array<string, int>}|null
+     * @return  array{at: string, counts: array<string, int>, mail: array{sent: int, error: string}}|null
      */
     public static function last(DatabaseInterface $db): ?array
     {
         $last = (new State($db))->get(self::STATE);
+        $mail = (array) ($last['mail'] ?? []);
 
-        return !empty($last['at']) ? ['at' => (string) $last['at'], 'counts' => array_map('intval', (array) ($last['counts'] ?? []))] : null;
+        return !empty($last['at']) ? [
+            'at'     => (string) $last['at'],
+            'counts' => array_map('intval', (array) ($last['counts'] ?? [])),
+            'mail'   => ['sent' => (int) ($mail['sent'] ?? 0), 'error' => (string) ($mail['error'] ?? '')],
+        ] : null;
     }
 }

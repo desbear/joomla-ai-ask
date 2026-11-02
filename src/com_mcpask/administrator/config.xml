@@ -165,6 +165,10 @@
 			<option value="0">JNO</option>
 			<option value="1">JYES</option>
 		</field>
+		<field name="ip_days" type="number" default="7" min="0" max="30" filter="integer"
+			label="COM_MCPASK_CONFIG_IP_DAYS" description="COM_MCPASK_CONFIG_IP_DAYS_DESC" />
+		<field name="ip_mail" type="text" filter="string" showon="ip_days!:0"
+			label="COM_MCPASK_CONFIG_IP_MAIL" description="COM_MCPASK_CONFIG_IP_MAIL_DESC" hint="security@example.com" />
 		<field name="question_days" type="number" default="14" min="1" max="365" filter="integer"
 			label="COM_MCPASK_CONFIG_QUESTION_DAYS" description="COM_MCPASK_CONFIG_QUESTION_DAYS_DESC" />
 		<field name="log_days" type="number" default="90" min="1" max="365" filter="integer"
@@ -197,6 +201,8 @@
 			label="COM_MCPASK_CONFIG_CAS_EMAIL" description="COM_MCPASK_CONFIG_CAS_EMAIL_DESC" />
 		<field name="cas_name" type="text" filter="string" default="name,displayName,cn" showon="cas:1"
 			label="COM_MCPASK_CONFIG_CAS_NAME" description="COM_MCPASK_CONFIG_CAS_NAME_DESC" />
+		<field name="cas_back" type="mcpaskcasback" addfieldprefix="Gss\Component\Mcpask\Administrator\Field" showon="cas:1"
+			label="COM_MCPASK_CONFIG_CAS_BACK" description="COM_MCPASK_CONFIG_CAS_BACK_DESC" />
 	</fieldset>
 	<fieldset name="permissions" label="JCONFIG_PERMISSIONS_LABEL" description="JCONFIG_PERMISSIONS_DESC">
 		<field name="rules" type="rules" label="JCONFIG_PERMISSIONS_LABEL" filter="rules" validate="rules" component="com_mcpask" section="component" />

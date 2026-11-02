@@ -11,6 +11,7 @@
 namespace Gss\Component\Mcpask\Administrator\View\Dashboard;
 
 use Gss\Component\Mcpask\Administrator\Access\Areas;
+use Gss\Component\Mcpask\Administrator\Ask\AddressMail;
 use Gss\Component\Mcpask\Administrator\Ask\Indexer;
 use Gss\Component\Mcpask\Administrator\Ask\PeerSync;
 use Gss\Component\Mcpask\Administrator\Ask\State;
@@ -180,6 +181,17 @@ class HtmlView extends BaseHtmlView
             ];
         }
 
+        // The address AI Ask sees for whoever is looking (0.22.6): behind a proxy or firewall not listed
+        // as trusted, every visitor is that one address and shares its limits
+        $ip      = $settings->visitorIp();
+        $proxied = !$settings->trustedProxies() && (($_SERVER['HTTP_X_FORWARDED_FOR'] ?? '') !== '' || ($_SERVER['HTTP_X_REAL_IP'] ?? '') !== '');
+        $inside  = $ip !== '' && !filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+
+        $checks[] = [
+            'status' => $proxied ? 'warning' : 'ok',
+            'text'   => Text::sprintf($proxied ? 'COM_MCPASK_CHECK_ADDRESS_PROXIED' : ($inside ? 'COM_MCPASK_CHECK_ADDRESS_INSIDE' : 'COM_MCPASK_CHECK_ADDRESS'), $ip !== '' ? $ip : '-'),
+        ];
+
         // What is kept of visitors is forgotten every day (0.21.0): when that last happened, and what went
         $last = Retention::last($db);
         $late = !$last || $last['at'] < Factory::getDate('-2 days')->toSql();
@@ -197,6 +209,11 @@ class HtmlView extends BaseHtmlView
                 )
                 : Text::_('COM_MCPASK_CHECK_RETENTION_NEVER'),
         ];
+
+        // The addresses sent before they are forgotten (0.22.6): a mail that failed is tried again daily
+        if ($settings->ipDays() > 0 && $settings->ipMail() && $last && $last['mail']['error'] !== '') {
+            $checks[] = ['status' => 'warning', 'text' => Text::sprintf('COM_MCPASK_CHECK_IP_MAIL_FAILED', $last['mail']['error'], AddressMail::GRACE)];
+        }
 
         return $checks;
     }

@@ -79,7 +79,7 @@ final class Mcpask extends CMSPlugin implements SubscriberInterface
         $counts = (new Retention($db, Settings::load(), (string) $this->getApplication()->get('secret')))->run();
 
         $this->logTask(\sprintf(
-            'Questions deleted %d, made anonymous %d; attacks deleted %d; handoffs deleted %d, made anonymous %d; agent counts %d, agent conversations %d, reports %d.',
+            'Questions deleted %d, made anonymous %d; attacks deleted %d; handoffs deleted %d, made anonymous %d; agent counts %d, agent conversations %d, reports %d.%s',
             $counts['questions_deleted'],
             $counts['questions_cleared'],
             $counts['evidence_deleted'],
@@ -87,7 +87,10 @@ final class Mcpask extends CMSPlugin implements SubscriberInterface
             $counts['handoffs_cleared'],
             $counts['agent_events'],
             $counts['agent_sessions'],
-            $counts['reports']
+            $counts['reports'],
+            ($mail = Retention::last($db)['mail'] ?? null) && ($mail['sent'] || $mail['error'] !== '')
+                ? \sprintf(' Addresses sent %d%s.', $mail['sent'], $mail['error'] !== '' ? ', mail failed: ' . $mail['error'] : '')
+                : ''
         ));
 
         return Status::OK;

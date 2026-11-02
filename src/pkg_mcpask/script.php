@@ -24,6 +24,9 @@ return new class () implements InstallerScriptInterface {
     /** @var array<int, array{0: string, 1: string}>  Plugins (group, element) that were not installed before this run */
     private array $newPlugins = [];
 
+    /** The version installed before this run, '' on a first install */
+    private string $from = '';
+
     /** Plugins enabled when they are first installed. */
     private const PLUGINS = [['content', 'mcpask'], ['task', 'mcpask'], ['easyblog', 'mcpask'], ['mcpask', 'rsform'], ['mcpask', 'livechat'], ['mcp', 'mcpask']];
 
@@ -57,6 +60,10 @@ return new class () implements InstallerScriptInterface {
         // Which plugins this run adds, so they can be switched on without touching the others
         $db = Factory::getContainer()->get(DatabaseInterface::class);
 
+        $cache      = $db->setQuery($db->getQuery(true)->select($db->quoteName('manifest_cache'))->from($db->quoteName('#__extensions'))
+            ->where($db->quoteName('type') . ' = ' . $db->quote('package'))->where($db->quoteName('element') . ' = ' . $db->quote('pkg_mcpask')))->loadResult();
+        $this->from = (string) (json_decode((string) $cache, true)['version'] ?? '');
+
         foreach (self::PLUGINS as [$folder, $element]) {
             $query = $db->getQuery(true)
                 ->select('COUNT(*)')
@@ -80,7 +87,10 @@ return new class () implements InstallerScriptInterface {
             $this->allowAreas();
             $this->completeSchema((string) $adapter->getManifest()->version);
             $this->sealSecrets();
-            $this->markEvidence();
+            // Once, from before 0.21.0: since 0.22.6 ordinary questions keep their address for a while
+            if ($this->from !== '' && version_compare($this->from, '0.21.0', '<')) {
+                $this->markEvidence();
+            }
             $this->maskKept();
         }
 
