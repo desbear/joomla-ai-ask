@@ -678,6 +678,42 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
   status switched from the desk's card; new waiting chats light up red and ring a bell on the count; ended chats fold
   away; drop-down menus, Mac-like scroll bars, and the work on a calm grey-blue with white cards.
 
+## AI Ask for Joomla 0.22.8
+
+- **On another website, the closed pet steps aside for that website's menus**: while a menu, a header's drop-down or
+  another layer of the page that was not there when the pet was put in its place lies under it, the pet fades and
+  clicks go through to the page; it comes back when the menu closes. Open (the box, the whole conversation), dragged
+  or in use, it stays over everything. A website may also set how high the closed pet stands (`data-z` on the embed
+  script), for its menus to open over it.
+- **The first time, the pet says it can be dragged**: a word beside it, once on each website, unless the visitor has
+  dragged it already; gone when closed, when the pet is used, or after a few seconds.
+
+## AI Ask for Joomla 0.22.7
+
+- **Signed in, the conversation shows who one is and a button to sign out**, however one signed in (this site's own
+  sign-in, an external one such as Azure AD), not only when signed in through another website as before.
+
+## AI Ask for Joomla 0.22.6
+
+- **Ordinary questions keep the visitor's address for a while**: *Days ordinary questions keep the address* (Options →
+  Limits and log; 7 by default, 30 at most and never longer than the questions' words; 0 keeps none, as from 0.21.0
+  to 0.22.5). The questions list shows it, with *Block this address*. Attacks keep theirs as long as they are kept,
+  as before. Mention it in the privacy policy.
+- **The addresses sent before they are forgotten**: with *Send the addresses before they are forgotten to* filled in,
+  the scheduled task "AI Ask - Forget old records" sends every day the questions whose address is due to go (time,
+  address, account, status and the question as kept) as a CSV file, and forgets the addresses only once the mail is
+  sent. A mail that fails is tried again the next day (the dashboard says why); a week later the addresses are
+  forgotten unsent. Cells that would read as a formula in a spreadsheet are kept as text.
+- **The address AI Ask sees, on the dashboard**: and a warning when the request came through a proxy or firewall
+  that is not among the trusted proxies, so that every visitor looks like that one address and shares its limits:
+  refused before they have asked, as colleagues were.
+- **Signing in at an account centre: the return address shown** (Options → Account centre sign-in), with Copy: the
+  start of the address the account centre sends visitors back to, and the same as a regular expression (Apereo CAS's
+  serviceId), to be allowed there; until it is, the account centre says the application is not authorised. The
+  options said it was below, and it was not.
+- Updating no longer takes the address from every ordinary question each time: that is done once, coming from
+  before 0.21.0.
+
 ## AI Ask for Joomla 0.22.5
 
 - **This site's export key: Copy only while there is a new key to copy** (with Matt Wang, #1): once saved, the
