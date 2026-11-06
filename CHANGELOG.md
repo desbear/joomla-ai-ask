@@ -672,6 +672,16 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
   status switched from the desk's card; new waiting chats light up red and ring a bell on the count; ended chats fold
   away; drop-down menus, Mac-like scroll bars, and the work on a calm grey-blue with white cards.
 
+## AI Ask for Joomla 0.22.8
+
+- **On another website, the closed pet steps aside for that website's menus**: while a menu, a header's drop-down or
+  another layer of the page that was not there when the pet was put in its place lies under it, the pet fades and
+  clicks go through to the page; it comes back when the menu closes. Open (the box, the whole conversation), dragged
+  or in use, it stays over everything. A website may also set how high the closed pet stands (`data-z` on the embed
+  script), for its menus to open over it.
+- **The first time, the pet says it can be dragged**: a word beside it, once on each website, unless the visitor has
+  dragged it already; gone when closed, when the pet is used, or after a few seconds.
+
 ## AI Ask for Joomla 0.22.7
 
 - **Signed in, the conversation shows who one is and a button to sign out**, however one signed in (this site's own

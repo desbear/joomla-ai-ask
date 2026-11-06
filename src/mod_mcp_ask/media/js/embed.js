@@ -20,7 +20,10 @@
  * for its signed-in visitor), data-login (where the website signs its visitors in: the frame's
  * sign-in button leads there), data-logout (where it signs them out: signing out in the
  * conversation goes there), data-size (the pet's size in pixels), data-title (the frame's name
- * for screen readers). The visitor may drag the button; where they leave it is kept for this website.
+ * for screen readers), data-z (how high the closed button stands, for this website's menus to open
+ * over it; open or in use it is over everything). The visitor may drag the button; where they leave it
+ * is kept for this website, and the first time a word beside it says so. Closed, it steps aside (faded,
+ * clicks going through) while a menu of this page lies under it.
  *
  * window.McpAsk: setContext({...}) what this page is about (a few short values), setUser(token,
  * name) or setUser(null), open(), close().
@@ -84,6 +87,11 @@
 
   window.McpAskEmbed = true;
 
+  // How high the closed button stands on this website (data-z), for one whose menus should open over
+  // it; open, dragged or in use it is over everything (0.22.8)
+  const TOP = '2147483000';
+  const closedLayer = /^\d{1,10}$/.test(script.dataset.z || '') ? String(Math.min(Number(TOP), Number(script.dataset.z))) : TOP;
+
   const source = new URL(script.src, document.baseURI);
   const base = source.href.replace(/media\/mod_mcp_ask\/js\/embed\.js.*$/, '');
   const frameOrigin = source.origin;
@@ -108,7 +116,7 @@
   // Hidden until the page in it says it is ready, so nothing shows of a frame that is refused
   Object.assign(frame.style, {
     position: 'fixed',
-    zIndex: '2147483000',
+    zIndex: closedLayer,
     inset: 'auto 0 0 auto',
     width: '0',
     height: '0',
@@ -120,6 +128,7 @@
     background: 'transparent',
     colorScheme: 'normal',
     visibility: 'hidden',
+    transition: 'opacity 0.15s',
   });
 
   let ready = false;
@@ -197,6 +206,8 @@
   };
 
   const place = () => {
+    schedule();
+
     if (capture === 'bar') {
       const wide = Math.min(window.innerWidth, 440);
 
@@ -263,7 +274,179 @@
     raise(!full && top !== null ? Math.max(0, Math.round(top + height - buttonTop - Math.min(window.innerHeight, button))) : 0);
   };
 
+  // ---------- Out of the way of this page's menus (0.22.8) ----------
+
+  // Closed, the button steps aside (faded, clicks going through to the page) while a menu or another
+  // layer of this page that was not there when the button was put in its place lies under it. Open,
+  // dragged or in use (the frame has the focus), it stays, over everything.
+  const LAYERS = 'header, nav, [role="navigation"], [role="menu"], [role="menubar"], [role="listbox"], [role="dialog"], dialog';
+  let aside = false;
+  // What lay under the button where it was put, and whether that was looked at yet
+  let known = new Set();
+  let settled = false;
+  let scheduled = 0;
+  let hintHost = null;
+
+  // The layers of this page under the button: for the topmost thing under a few points of it, the
+  // first of it or its parents that is fixed or sticky, or a header, a menu or a dialog
+  const under = () => {
+    const rect = frame.getBoundingClientRect();
+    const found = new Set();
+
+    if (!rect.width || !rect.height) {
+      return found;
+    }
+
+    [[0.5, 0.5], [0.3, 0.3], [0.7, 0.3], [0.3, 0.7], [0.7, 0.7]].forEach(([x, y]) => {
+      const node = document.elementsFromPoint(rect.left + rect.width * x, rect.top + rect.height * y)
+        .find((item) => item !== frame && item !== hintHost && item !== document.documentElement && item !== document.body);
+
+      for (let item = node; item && item !== document.body; item = item.parentElement) {
+        if (item.matches(LAYERS) || ['fixed', 'sticky'].includes(window.getComputedStyle(item).position)) {
+          found.add(item);
+          break;
+        }
+      }
+    });
+
+    return found;
+  };
+
+  const inUse = () => mode !== 'button' || capture !== 'none' || document.activeElement === frame;
+
+  const layer = () => {
+    scheduled = 0;
+
+    const using = inUse();
+    const now = !using && settled && [...under()].some((item) => !known.has(item));
+
+    if (frame.style.zIndex !== (using ? TOP : closedLayer)) {
+      frame.style.zIndex = using ? TOP : closedLayer;
+    }
+
+    if (now !== aside) {
+      aside = now;
+      frame.style.opacity = aside ? '0' : '';
+      frame.style.pointerEvents = aside ? 'none' : '';
+
+      if (aside) {
+        hideHint();
+      }
+    }
+  };
+
+  // Once a frame, however often this page changes
+  function schedule() {
+    if (!scheduled) {
+      scheduled = window.requestAnimationFrame(layer);
+    }
+  }
+
+  // What lies under the button where it has just been put is this page as it is, not a menu opened
+  const settle = () => window.requestAnimationFrame(() => {
+    if (!aside && !inUse()) {
+      known = under();
+      settled = true;
+    }
+
+    schedule();
+  });
+
+  new MutationObserver((records) => {
+    if (records.some((record) => record.target !== frame && record.target !== hintHost)) {
+      schedule();
+    }
+  }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'open', 'aria-expanded'] });
+
+  // A menu opened by the pointer alone (:hover), or easing in: looked at again a moment later
+  document.addEventListener('pointerover', () => {
+    schedule();
+    window.setTimeout(schedule, 350);
+  }, { passive: true, capture: true });
+  ['focusin', 'transitionend', 'animationend'].forEach((name) => document.addEventListener(name, schedule, { capture: true }));
+  window.addEventListener('scroll', schedule, { passive: true, capture: true });
+  // The frame taking the focus or giving it back
+  window.addEventListener('blur', () => window.setTimeout(schedule, 0));
+  window.addEventListener('focus', schedule);
+
+  // ---------- The first time: the button may be dragged (0.22.8) ----------
+
+  // Once on this website, beside the button, unless it was dragged already; gone when closed, when the
+  // button is used, or after a while
+  const HINT = `mcp-ask-embed-hint:${key}`;
+  let hintTimer = 0;
+
+  function hideHint() {
+    window.clearTimeout(hintTimer);
+
+    if (hintHost) {
+      hintHost.remove();
+      hintHost = null;
+    }
+  }
+
+  const showHint = (words, closeLabel) => {
+    if (!words || spot || mode !== 'button' || aside || capture !== 'none') {
+      return;
+    }
+
+    try {
+      if (window.localStorage.getItem(HINT)) {
+        return;
+      }
+
+      window.localStorage.setItem(HINT, '1');
+    } catch (error) {
+      // Not kept: not shown, or it would be on every page
+      return;
+    }
+
+    const rect = frame.getBoundingClientRect();
+    const at = spot ? spot.side : side;
+    const room = Math.max(140, Math.min(320, window.innerWidth - rect.width - 24));
+
+    hintHost = document.createElement('mcp-ask-hint');
+    hintHost.setAttribute('style', [
+      'all: initial !important',
+      'position: fixed !important',
+      `z-index: ${closedLayer} !important`,
+      `top: ${Math.round(rect.top + rect.height / 2)}px !important`,
+      at === 'left' ? `left: ${Math.round(rect.right + 6)}px !important` : `right: ${Math.round(window.innerWidth - rect.left + 6)}px !important`,
+      'transform: translateY(-50%) !important',
+      `max-width: ${room}px !important`,
+    ].join('; '));
+
+    const shadow = hintHost.attachShadow({ mode: 'closed' });
+    const style = document.createElement('style');
+    const bubble = document.createElement('div');
+    const text = document.createElement('span');
+    const close = document.createElement('button');
+
+    style.textContent = `
+      .bubble { position: relative; display: flex; align-items: center; gap: 6px; box-sizing: border-box; padding: 9px 8px 9px 14px; border-radius: 14px; background: #fff; color: #1f2937; font: 500 14px/1.45 system-ui, -apple-system, "Segoe UI", "Noto Sans TC", "PingFang TC", sans-serif; box-shadow: 0 6px 24px rgba(15, 23, 42, 0.18), 0 0 0 1px rgba(15, 23, 42, 0.06); animation: in 0.25s ease-out; text-wrap: balance; }
+      .bubble::after { content: ""; position: absolute; top: 50%; ${at === 'left' ? 'left' : 'right'}: -5px; width: 10px; height: 10px; background: #fff; transform: translateY(-50%) rotate(45deg); box-shadow: ${at === 'left' ? '-1px 1px' : '1px -1px'} 0 rgba(15, 23, 42, 0.06); }
+      button { all: unset; flex: none; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; color: #64748b; font-size: 17px; line-height: 1; cursor: pointer; }
+      button:hover { background: #f1f5f9; color: #0f172a; }
+      button:focus-visible { outline: 2px solid #2563eb; outline-offset: 1px; }
+      @keyframes in { from { opacity: 0; translate: ${at === 'left' ? '-6px' : '6px'} 0; } }
+      @media (prefers-reduced-motion: reduce) { .bubble { animation: none; } }
+    `;
+    bubble.className = 'bubble';
+    bubble.setAttribute('role', 'note');
+    text.textContent = words;
+    close.type = 'button';
+    close.textContent = '×';
+    close.setAttribute('aria-label', closeLabel || 'Close');
+    close.addEventListener('click', hideHint);
+    bubble.append(text, close);
+    shadow.append(style, bubble);
+    document.body.append(hintHost);
+    hintTimer = window.setTimeout(hideHint, 9000);
+  };
+
   window.addEventListener('resize', () => {
+    hideHint();
+
     const now = window.innerWidth <= phoneAt;
 
     if (ready && now !== phone) {
@@ -273,6 +456,7 @@
 
     if (ready) {
       place();
+      settle();
     }
   });
 
@@ -463,6 +647,7 @@
         place();
         frame.style.visibility = 'visible';
         sendContext();
+        window.setTimeout(() => showHint(String(data.hint || '').slice(0, 120), String(data.close || '').slice(0, 40)), 1800);
         // This page lets the frame capture it, and puts the frame aside meanwhile
         post('host', { capture: true, login: Boolean(loginUrl) && !user, logout: Boolean(logoutUrl) && Boolean(user), drag: true, size: petSize, side: spot ? spot.side : side });
 
@@ -500,6 +685,13 @@
         if (mode !== 'drag') {
           mode = ['button', 'bar', 'full'].includes(data.mode) ? data.mode : 'button';
           place();
+
+          // Shown the first time; closed again it is where it was (a menu open meanwhile is not the page)
+          if (mode === 'button' && !settled) {
+            settle();
+          } else if (mode !== 'button') {
+            hideHint();
+          }
         }
 
         // Answered once the new size is laid out
@@ -538,6 +730,7 @@
         if (data.phase === 'start' && mode === 'button') {
           const before = frame.getBoundingClientRect();
 
+          hideHint();
           mode = 'drag';
           place();
           // Once the frame has its new size (a timer: animation frames wait while a tab is hidden)
@@ -560,6 +753,7 @@
 
           mode = 'button';
           place();
+          settle();
           window.requestAnimationFrame(() => post('sized', { mode }));
         }
 

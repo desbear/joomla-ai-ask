@@ -341,6 +341,7 @@ class Dispatcher extends AbstractModuleDispatcher
             'liveRecorderBack' => Text::_('MOD_MCP_ASK_LIVE_RECORDER_BACK'),
             'liveRecorderSending' => Text::_('MOD_MCP_ASK_LIVE_RECORDER_SENDING'),
             'liveRecorderSent' => Text::_('MOD_MCP_ASK_LIVE_RECORDER_SENT'),
+            'dragHint' => Text::_('MOD_MCP_ASK_DRAG_HINT'),
             'required'       => Text::_('MOD_MCP_ASK_REQUIRED'),
             'reportWriting'  => Text::_('MOD_MCP_ASK_REPORT_WRITING'),
             'reportOpen'     => Text::_('MOD_MCP_ASK_REPORT_OPEN'),

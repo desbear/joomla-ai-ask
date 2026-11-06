@@ -105,6 +105,7 @@
     liveDraft: 'First translation by your browser',
     liveShotNow: 'Take the picture',
     liveShotHint: 'Scroll to what to show, or go to another tab first; then take the picture',
+    dragHint: 'Hold and drag me to wherever suits you',
     liveMarkHint: 'Select an area, then crop or pixelate it; or point things out with boxes, arrows and words',
     liveRecorderTitle: 'Record the screen for us',
     liveRecorderNote: 'Press Start, then choose the tab to record (the one you were on). You can change pages while recording, up to 60 seconds.',
@@ -7334,8 +7335,9 @@
 
   // Embedded: the other website's page may show the frame now, as big as the button
   if (embed) {
-    // ...and which embed script is current, so a page holding an older one (kept long) takes it
-    hostPost('ready', { side: embed.side === 'left' ? 'left' : 'right', script: String(embed.script || '') });
+    // ...and which embed script is current, so a page holding an older one (kept long) takes it; and the
+    // word that the button may be dragged, shown beside it there the first time (0.22.8)
+    hostPost('ready', { side: embed.side === 'left' ? 'left' : 'right', script: String(embed.script || ''), hint: strings.dragHint, close: strings.close });
     hostSize('button');
   }
 })(window, document);
