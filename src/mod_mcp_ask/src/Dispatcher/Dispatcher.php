@@ -207,12 +207,12 @@ class Dispatcher extends AbstractModuleDispatcher
         $data['allowedHosts'] = $this->allowedHosts();
         $data['pageItem']    = $data['embed'] ? 0 : $this->pageItem();
         // Visitors not signed in here may sign in through another website, for AI Ask; and those
-        // signed in here see who they are and may sign out, as there (0.20.4)
+        // signed in here see who they are and may sign out, as there (0.20.4), however they signed in (0.22.7)
         $signin              = $data['embed'] || $demo ? null : $this->signin();
         $user                = $this->getApplication()->getIdentity();
         $signedIn            = $user && !$user->guest;
         $data['signin']      = $signin && !$signedIn ? $signin : null;
-        $data['account']     = $signin && $signedIn ? [
+        $data['account']     = !$data['embed'] && !$demo && $signedIn ? [
             'name'   => (string) $user->name,
             'logout' => Route::_('index.php?option=com_users&task=user.logout&' . Session::getFormToken() . '=1&return=' . base64_encode(Uri::getInstance()->toString()), false),
         ] : null;
