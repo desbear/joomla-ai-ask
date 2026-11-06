@@ -9739,3 +9739,29 @@ body:has(.askdesk[data-askdesk]) {
     }
   }
 }
+
+/* 0.6.9: on a smaller screen, less above the chat (the bar and the head lower) and the box to write in nearer
+   the foot: the space kept for the home bar once, under the card, not again in the box */
+@media (max-width: 1180px) {
+  .askdesk-room__body {
+    padding-block-end: max(10px, env(safe-area-inset-bottom));
+  }
+
+  .askdesk-composer {
+    padding-block-end: 8px;
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1180px) {
+  .askdesk-main > .askdesk-stage {
+    margin-block-start: 10px;
+  }
+
+  .askdesk-stage > .askdesk-bar {
+    min-block-size: 50px;
+  }
+
+  .askdesk-room__head {
+    padding-block: 8px 10px;
+  }
+}

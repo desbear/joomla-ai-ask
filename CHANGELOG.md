@@ -2,6 +2,12 @@
 
 Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Server for Joomla repository.
 
+## AI Ask Desk 0.6.9
+
+- **The console on a smaller screen** (a tablet, a phone) keeps less above a chat and puts the box to write in
+  nearer the foot: on a tablet the bar and the chat's head are lower and the card starts nearer the top, and the
+  space kept for the home bar is kept once, under the card, not again inside the box.
+
 ## AI Ask Desk 0.6.8
 
 - **The stickers' packs are blocks of their own** in the administrator, kept as Joomla's own pages are: each shown
