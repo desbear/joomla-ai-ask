@@ -678,6 +678,15 @@ Until 0.13.2 this extension was called "Ask the Site" and lived in the MCP Serve
   status switched from the desk's card; new waiting chats light up red and ring a bell on the count; ended chats fold
   away; drop-down menus, Mac-like scroll bars, and the work on a calm grey-blue with white cards.
 
+## AI Ask for Joomla (unreleased)
+
+- **Hardening, RSForm! Pro agent: a form's own PHP is no longer run.** Since 0.16.0 the agent ran a form's "on form
+  process" and "after form process" scripts with PHP's string evaluation, so anyone able to edit a form's script
+  could run PHP as the site through the conversation. That is gone. A form that has either script is now **not filled
+  in a conversation** (the agent says the form cannot be used there), because leaving its code out would send
+  answers its own checks might have turned down. Forms without such a script work as before. To keep a form in the
+  conversation, move its checks into RSForm's own validation rules, mappings or a plugin, and clear its scripts.
+
 ## AI Ask for Joomla 0.22.8
 
 - **On another website, the closed pet steps aside for that website's menus**: while a menu, a header's drop-down or

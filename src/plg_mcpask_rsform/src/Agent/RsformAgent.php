@@ -426,6 +426,12 @@ final class RsformAgent implements AgentInterface
             throw new \RuntimeException('The form of this agent is not there or not published.');
         }
 
+        // A form with PHP of its own ("on form process" / "after form process") is not filled in a
+        // conversation: that code is not run here, and its checks would be skipped without a word.
+        if ($form->hasScripts) {
+            throw new \RuntimeException('The form of this agent runs PHP of its own when it is sent, which a conversation does not run. Send it from its own page.');
+        }
+
         $form->leaveOut(array_filter(array_map('trim', explode(',', (string) $context->own()->get('skip', '')))));
 
         return $form;
